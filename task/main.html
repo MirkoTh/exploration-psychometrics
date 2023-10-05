@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>2-Armed Bandit Task</title>
+    <link rel="stylesheet" type="text/css" href="task.css">
+    <style>
+        /* Add your CSS styles here */
+    </style>
+</head>
+<body>
+    <div id="instructions" class = "instructions">
+        <h1>2-Armed Bandit Task Instructions</h1>
+        <div id = "instructionText"></div>
+        <button class = "submit_button" id="startPractice">Continue</button>
+    </div>
+    
+    <div id="practiceTrials" style="display: none;">
+        <h1>Practice Trials</h1>
+        <!-- Display practice trials here -->
+        
+    </div>
+    
+    <div id="task" style="display: none;">
+        <h1>Task</h1>
+        <!-- Display task trials here -->
+        <h2><div id = "machine_title" >Choose which machine you would like to play.</div></h2>
+        <div id = "slot_machines" class = "button-container">
+            <div id = "mach_div1" class="column" display = "inline-block">
+                <p>Machine 1</p>
+                <img src="slot-machine-vector.jpg" alt="slotMachine" style="width:50%"></br>
+                <button id="machine1">Play</button>
+                
+              </div>
+            <div id = "mach_div2" class="column" display = "inline-block">
+                <p>Machine 2</p>
+                <img src="slot-machine-vector.jpg" alt="slotMachine" style="width:50%"></br>
+                <button id="machine2">Play</button>
+              </div>
+            <div id = "mach_div3" class="column" display = "inline-block">
+                <p>Machine 3</p>
+                <img src="slot-machine-vector.jpg" alt="slotMachine" style="width:50%"></br>
+                <button id="machine3">Play</button>
+              </div>
+            <div id = "mach_div4"  class="column" display = "inline-block">
+                <p>Machine 4</p>
+                <img src="slot-machine-vector.jpg" alt="slotMachine" style="width:50%"></br>
+                <button id="machine4">Play</button>
+            </div>
+               
+        </div>
+        <center><p id="score" class = "score"></p> </center>
+        
+        <button class = "submit_button" id="nextTask">Proceed</button>
+        <button class = "submit_button" id="endTask">End Study</button>
+    </div>
+
+    <div class="form" id = "questionnaire" >
+        <!-- <div id="subjectID" class="subjectID">
+        </div> -->
+        <header class="form__header" >
+            <h2 class="form__title" id="header">Let's test whether you understood the game!</h2>
+        </header>
+        <div id="questionnaires">
+
+        </div>
+        
+     
+        <button id="startTask" class = "submit_button">Start Game</button>
+    
+    
+    </div>
+
+    <script type = "module" src = "task.js" charset="utf-8">  </script>
+</body>
+</html>
