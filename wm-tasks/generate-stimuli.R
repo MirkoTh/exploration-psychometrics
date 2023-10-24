@@ -1,9 +1,15 @@
 library(tidyverse)
 
 my_two_seeds <- c(39737632, 8567389)
-session_id <- 2
 set.seed(my_two_seeds[session_id])
 
+source("wm-tasks/utils-gen-stim.R")
+
+
+
+# set session_id to 1 or 2
+# stimulus sets for all tasks are generated for that session
+session_id <- 2
 
 
 # Operation Span ----------------------------------------------------------
@@ -178,7 +184,7 @@ trial_type <- c(
   sample(
     c(rep("update", nTrials_update), rep("immediate", nTrials_immediate)), 
     size = nTrials_update + nTrials_immediate)
-  )
+)
 
 initial_locations <- seq(0, set_size - 1, by = 1)
 initial_set <- map(rep(set_size, nTrials_update + 1), ~ sample(possibleNumbers, .x))
@@ -214,6 +220,31 @@ str_c("[", str_replace_all(paste(final_set_str, collapse = ","), "(, )(])", repl
 
 
 
+# 4-armed restless bandit (4ARLB) -----------------------------------------
 
 
 
+# control for
+# distribution of average difference between four arms -> not too close
+# distribution of differences of second-best arm - best arm --> not too easy
+# proportion of one arm being the best arm across all trials
+
+
+as_required <- FALSE
+tbl_4a_rlb <- generate_rl_bandits_as_required(FALSE, session_id)
+
+ggplot(tbl_4a_rlb %>% pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)), aes(trial_id, value, group = name)) +
+  geom_line(aes(color = name), size = .75) +
+  scale_color_viridis_d(name = "") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  labs(x = "Trial ID", y = "Reward")
+
+plot(tbl_4a_rlb$min_diff_to_max)
+hist(tbl_4a_rlb$min_diff_to_max)
+
+plot(tbl_4a_rlb$avg_difference)
+hist(tbl_4a_rlb$avg_difference)
+
+cor(tbl_4a_rlb$min_diff_to_max, tbl_4a_rlb$avg_difference)
