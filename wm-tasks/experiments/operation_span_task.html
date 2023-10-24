@@ -220,6 +220,17 @@
     show_clickable_nav: true
   }
 
+  var instructions_link_ss = {
+    type: 'instructions',
+    pages: function () {
+      pageOne = '<div style="font-size:20px;">Well done. Click "Next" to continue with the symmetry span task.<br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
 
   var id_current_demo = 0;
   var cog_load_demo = {
@@ -497,20 +508,18 @@
   timeline.push(comp_check_os_loop);
   timeline.push(instructions_before_test);
   timeline.push(test_procedure);
-  //timeline = timeline.concat([test_procedure]);
-  timeline.push({
-    type: 'fullscreen',
-    fullscreen_mode: false
-  });
-  timeline.push(dataLog)
-  timeline.push(conclusion)
+  timeline.push(dataLog);
+  timeline.push(conclusion);
 
   jsPsych.init({
     timeline: timeline,
     on_finish: function () {
-      jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
+      //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
+      //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
+      window.location.href = "symmetry_span_task.html";
     }
   });
+
 </script>
 
 <a id="downloadAnchorElem" style="display:none"></a>
