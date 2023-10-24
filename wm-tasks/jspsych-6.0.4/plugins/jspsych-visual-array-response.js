@@ -12,7 +12,7 @@
  *
  **/
 
-jsPsych.plugins["visual-array-response"] = (function() {
+jsPsych.plugins["visual-array-response"] = (function () {
 
   var plugin = {};
 
@@ -90,21 +90,21 @@ jsPsych.plugins["visual-array-response"] = (function() {
     }
   }
 
-  plugin.trial = function(display_element, trial) {
+  plugin.trial = function (display_element, trial) {
 
-   //  // circle params
-     var diam = trial.circle_diameter; // pixels
-   //  var radi = diam / 2;
-     var paper_size = diam + trial.target_size[0];
+    //  // circle params
+    var diam = trial.circle_diameter; // pixels
+    //  var radi = diam / 2;
+    var paper_size = diam + trial.target_size[0];
 
     // get target to draw on
     display_element.innerHTML += '<div id="jspsych-visual-array-response-container" style= "position: relative; width:' + paper_size + 'px; height:' + paper_size + 'px"></div>';
     var paper = display_element.querySelector("#jspsych-visual-array-response-container");
 
     // check distractors - array?
-    if(!Array.isArray(trial.foil)){
+    if (!Array.isArray(trial.foil)) {
       fa = [];
-      for(var i=0; i<trial.set_size; i++){
+      for (var i = 0; i < trial.set_size; i++) {
         fa.push(trial.foil);
       }
       trial.foil = fa;
@@ -112,9 +112,9 @@ jsPsych.plugins["visual-array-response"] = (function() {
 
     var to_present = trial.cols
     var display_locs = trial.locs
-    var sDifferent =  trial.target_different
+    var sDifferent = trial.target_different
 
-    if (sDifferent){
+    if (sDifferent) {
       var colOptions = ["red", "blue", "yellow", "green", "purple", "black", "white"]
       index = colOptions.indexOf(to_present[0])
       colOptions.splice(index, 1)
@@ -128,22 +128,22 @@ jsPsych.plugins["visual-array-response"] = (function() {
 
     show_search_array();
     function show_search_array() {
-      paper.innerHTML += "<img src='img/circle.png' style='position: absolute; top:"+(display_locs[0][0]-trial.target_size[0]*0.5)+"px; left:"+(display_locs[0][1]-trial.target_size[1]*0.5)+"px; width:"+(trial.target_size[0]*2)+"px; height:"+(trial.target_size[1]*2)+"px;'></img>";
+      paper.innerHTML += "<img src='../img/circle.png' style='position: absolute; top:" + (display_locs[0][0] - trial.target_size[0] * 0.5) + "px; left:" + (display_locs[0][1] - trial.target_size[1] * 0.5) + "px; width:" + (trial.target_size[0] * 2) + "px; height:" + (trial.target_size[1] * 2) + "px;'></img>";
 
       for (var i = 0; i < display_locs.length; i++) {
-        paper.innerHTML += "<img src='img/"+to_present[i]+".png' style='position: absolute; top:"+display_locs[i][0]+"px; left:"+display_locs[i][1]+"px; width:"+trial.target_size[0]+"px; height:"+trial.target_size[1]+"px;'></img>";
+        paper.innerHTML += "<img src='../img/" + to_present[i] + ".png' style='position: absolute; top:" + display_locs[i][0] + "px; left:" + display_locs[i][1] + "px; width:" + trial.target_size[0] + "px; height:" + trial.target_size[1] + "px;'></img>";
       }
 
       var trial_over = false;
 
-      var after_response = function(info) {
+      var after_response = function (info) {
 
         trial_over = true;
 
         var correct = false;
 
-        if (jsPsych.pluginAPI.compareKeys(info.key,trial.target_different_key) && trial.target_different ||
-            jsPsych.pluginAPI.compareKeys(info.key,trial.target_same_key) && !trial.target_different) {
+        if (jsPsych.pluginAPI.compareKeys(info.key, trial.target_different_key) && trial.target_different ||
+          jsPsych.pluginAPI.compareKeys(info.key, trial.target_same_key) && !trial.target_different) {
           correct = true;
         }
 
@@ -152,47 +152,47 @@ jsPsych.plugins["visual-array-response"] = (function() {
         end_trial(info.rt, correct, info.key);
       };
 
-  var valid_keys = [];
-  valid_keys.push(trial.target_different_key)
-  valid_keys.push(trial.target_same_key)
+      var valid_keys = [];
+      valid_keys.push(trial.target_different_key)
+      valid_keys.push(trial.target_same_key)
 
-  key_listener = jsPsych.pluginAPI.getKeyboardResponse({
-    callback_function: after_response,
-    valid_responses: valid_keys,
-    rt_method: 'date',
-    persist: false,
-    allow_held_key: false
-  });
+      key_listener = jsPsych.pluginAPI.getKeyboardResponse({
+        callback_function: after_response,
+        valid_responses: valid_keys,
+        rt_method: 'date',
+        persist: false,
+        allow_held_key: false
+      });
 
-  if (trial.trial_duration !== null) {
-    jsPsych.pluginAPI.setTimeout(function() {
-      if (!trial_over) {
-        jsPsych.pluginAPI.cancelKeyboardResponse(key_listener);
-        trial_over = true;
-        var rt = null;
-        var correct = 0;
-        var key_press = null;
-        clear_display();
-        end_trial(rt, correct, key_press);
+      if (trial.trial_duration !== null) {
+        jsPsych.pluginAPI.setTimeout(function () {
+          if (!trial_over) {
+            jsPsych.pluginAPI.cancelKeyboardResponse(key_listener);
+            trial_over = true;
+            var rt = null;
+            var correct = 0;
+            var key_press = null;
+            clear_display();
+            end_trial(rt, correct, key_press);
+          }
+        }, trial.trial_duration);
       }
-    }, trial.trial_duration);
-  }
-  function clear_display() {
-    display_element.innerHTML = '';
-  }
-}
+      function clear_display() {
+        display_element.innerHTML = '';
+      }
+    }
 
-function end_trial(rt, correct, key_press) {
+    function end_trial(rt, correct, key_press) {
 
-  // data saving
-  var trial_data = {
-    correct: correct,
-    rt: rt,
-    key_press: key_press,
-//    locations: JSON.stringify(display_locs),
-    target_different: trial.target_different,
-//    set_size: trial.set_size
-  };
+      // data saving
+      var trial_data = {
+        correct: correct,
+        rt: rt,
+        key_press: key_press,
+        //    locations: JSON.stringify(display_locs),
+        target_different: trial.target_different,
+        //    set_size: trial.set_size
+      };
 
       // go to next trial
       jsPsych.finishTrial(trial_data);

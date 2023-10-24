@@ -4,12 +4,15 @@
   <title>WM symmetry span task</title>
   <script src="../seedrandom.min.js"></script>
   <script src="../jquery.min.js"></script>
-  <script src="../js-helpers.js"></script>
+  <script src="../js-helpers-old.js"></script>
   <script src="../jstat.js"></script>
   <script src="../jspsych-6.0.4/jspsych.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
+  <script src="../jspsych-6.0.4/plugins/jspsych-html-button-response.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-symmetry-judgement-task.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-survey-text.js"></script>
+  <script src="../jspsych-6.0.4/plugins/jspsych-survey-multi-choice.js"></script>
+  <script src="../jspsych-6.0.4/plugins/jspsych-sur.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-fullscreen.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-spatial-span.js"></script>
@@ -140,10 +143,21 @@
     show_clickable_nav: true
   }
 
-  var instructions4 = {
+  var instructions_before_compcheck = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">We have finished with the practice trials.<br><br>We will now start with the main trials.<br>If you have not undertsood the task, please ask the Research Assistant.<br><br>Press "Next" to start the trials.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">We have finished with the practice trials.<br><br>We will now check your comprehension of the task.<br>If you do not manage to answer all questions correctly, you will get another chance to read the instrutions and to do the practice trials.<br><br>Press "Next" to start with the comprehension check.<br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
+  var instructions_before_test = {
+    type: 'instructions',
+    pages: function () {
+      pageOne = '<div style="font-size:20px;">Well done. The test procedure of the symmetry span is starting now.<br><br></div>'
       return [pageOne]
     },
     allow_backward: false,
@@ -380,13 +394,34 @@
     repetitions: nfullDemo
   }
 
+
+  //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
+  var comp_check_ss_loop = {
+    timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
+    loop_function: function (data) {
+      console.log('data: ', data.values());
+      if (
+        data.values()[0].correct == true
+      ) {
+        return false;
+      } else {
+        return true;
+      }
+    }
+  };
+
+
+
   timeline = []; //p_details we do not have to ask for participant id when run via prolific
   timeline.push({
     type: 'fullscreen',
     fullscreen_mode: true
   });
-  timeline = timeline.concat([instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions4, test_procedure])
-  //timeline = timeline.concat([instructions2, symmetryDemo, instructions3, fullDemo, instructions4, test_procedure])
+  timeline.push(comp_check_ss_loop);
+  timeline.push(instructions_before_test);
+  timeline.push(test_procedure);
+
+
   timeline.push({
     type: 'fullscreen',
     fullscreen_mode: false
@@ -398,8 +433,11 @@
     timeline: timeline,
     on_finish: function () {
       jsPsych.data.displayData(); // comment out if you do not want to display results at the end of task
+
     }
   });
+
+
 </script>
 
 </html>

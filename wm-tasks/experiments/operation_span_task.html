@@ -8,17 +8,21 @@
 
 <head>
   <title>WM operation span task</title>
+  <script src="../jspsych-dist/dist/plugin-html-button-response.js"></script>
+  <script src="../jspsych-dist/dist/plugin-survey-multi-choice.js"></script>
   <script src="../seedrandom.min.js"></script>
   <script src="../jquery.min.js"></script>
   <script src="../jspsych-6.0.4/jspsych.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-html-button-operationspan.js"></script>
+  <script src="../jspsych-6.0.4/plugins/jspsych-html-button-response.js"></script>
+  <script src="../jspsych-6.0.4/plugins/jspsych-survey-multi-choice.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-survey-text.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-fullscreen.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-operation-span-recall.js"></script>
   <script srf="../jspsych-6.0.4/npm/jstat/dist/jstat.min.js"></script>
-  <script src="../js-helpers.js"></script>
+  <script src="../js-helpers-old.js"></script>
   <script src="../jstat.js"></script>
   <!-- <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script> -->
@@ -193,16 +197,29 @@
     }
   }
 
-  var instructions4 = {
+  var instructions_before_compcheck = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">We have finished with the practice trials.<br><br><b>We will now start with the main trials.</b><br>Proceed only if you have understood the task.<br><br>Press "Next" to start the main trials.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">We have finished with the practice trials.<br><br>We will now check your comprehension of the task.<br>If you do not manage to answer all questions correctly, you will get another chance to read the instrutions and to do the practice trials.<br><br>Press "Next" to start with the comprehension check.<br><br></div>'
       return [pageOne]
     },
     allow_backward: false,
     button_label_next: "Next",
     show_clickable_nav: true
   }
+
+
+  var instructions_before_test = {
+    type: 'instructions',
+    pages: function () {
+      pageOne = '<div style="font-size:20px;">Well done. The test procedure of the operation span is starting now.<br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
 
   var id_current_demo = 0;
   var cog_load_demo = {
@@ -455,13 +472,31 @@
     repetitions: nfullDemo
   }
 
+  //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
+  var comp_check_os_loop = {
+    //    timeline: [comprehension_question_os_allinone, comp_feedback_old],
+    timeline: [instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
+    loop_function: function (data) {
+      console.log('data: ', data.values());
+      if (
+        data.values()[0].correct == true
+      ) {
+        return false;
+      } else {
+        return true;
+      }
+    }
+  };
+
   timeline = []; //p_details we do not need to ask for participant id, can get it directly from prolific url
   timeline.push({
     type: 'fullscreen',
     fullscreen_mode: true
   });
 
-  timeline = timeline.concat([instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions4, test_procedure]);
+  timeline.push(comp_check_os_loop);
+  timeline.push(instructions_before_test);
+  timeline.push(test_procedure);
   //timeline = timeline.concat([test_procedure]);
   timeline.push({
     type: 'fullscreen',

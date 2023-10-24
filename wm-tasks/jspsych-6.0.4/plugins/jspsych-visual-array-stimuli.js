@@ -12,7 +12,7 @@
  *
  **/
 
-jsPsych.plugins["visual-array-stimuli"] = (function() {
+jsPsych.plugins["visual-array-stimuli"] = (function () {
 
   var plugin = {};
 
@@ -59,7 +59,7 @@ jsPsych.plugins["visual-array-stimuli"] = (function() {
     }
   }
 
-  plugin.trial = function(display_element, trial) {
+  plugin.trial = function (display_element, trial) {
 
     // circle params
     var diam = trial.circle_diameter; // pixels
@@ -72,8 +72,8 @@ jsPsych.plugins["visual-array-stimuli"] = (function() {
     var hstimh = stimh / 2;
     var hstimw = stimw / 2;
 
-   //fixation location
-   var centre_loc = [Math.floor(paper_size / 2 - trial.target_size[0] / 2), Math.floor(paper_size / 2 - trial.target_size[1] / 2)];
+    //fixation location
+    var centre_loc = [Math.floor(paper_size / 2 - trial.target_size[0] / 2), Math.floor(paper_size / 2 - trial.target_size[1] / 2)];
 
     var display = [centre_loc];
     var possible_display_locs1 = 5;
@@ -115,17 +115,17 @@ jsPsych.plugins["visual-array-stimuli"] = (function() {
     var number_stim = trial.set_size;
     var weights = Array(display.length).fill(10)
     var display_locs = []
-    for(var i = 0; i<number_stim; i++){
-      var addStim = jsPsych.randomization.sampleWithReplacement(display,1, weights)[0];
+    for (var i = 0; i < number_stim; i++) {
+      var addStim = jsPsych.randomization.sampleWithReplacement(display, 1, weights)[0];
       var id = display.indexOf(addStim);
-      if (id!=(display.length-1)){
-        weights[id+1] = 0.2
+      if (id != (display.length - 1)) {
+        weights[id + 1] = 0.2
       };
-      if (id!=0){
-        weights[id-1] = 0.2
+      if (id != 0) {
+        weights[id - 1] = 0.2
       };
-      display.splice(id,1);
-      weights.splice(id,1);
+      display.splice(id, 1);
+      weights.splice(id, 1);
       display_locs.push(addStim);
     }
 
@@ -135,9 +135,9 @@ jsPsych.plugins["visual-array-stimuli"] = (function() {
     var paper = display_element.querySelector("#jspsych-visual-search-circle-container");
 
     // check distractors - array?
-    if(!Array.isArray(trial.foil)){
+    if (!Array.isArray(trial.foil)) {
       fa = [];
-      for(var i=0; i<trial.set_size; i++){
+      for (var i = 0; i < trial.set_size; i++) {
         fa.push(trial.foil);
       }
       trial.foil = fa;
@@ -150,63 +150,63 @@ jsPsych.plugins["visual-array-stimuli"] = (function() {
     function show_search_array() {
 
       for (var i = 0; i < display_locs.length; i++) {
-        paper.innerHTML += "<img src='img/"+to_present[i]+".png' style='position: absolute; top:"+display_locs[i][0]+"px; left:"+display_locs[i][1]+"px; width:"+trial.target_size[0]+"px; height:"+trial.target_size[1]+"px;'></img>";
+        paper.innerHTML += "<img src='../img/" + to_present[i] + ".png' style='position: absolute; top:" + display_locs[i][0] + "px; left:" + display_locs[i][1] + "px; width:" + trial.target_size[0] + "px; height:" + trial.target_size[1] + "px;'></img>";
       }
 
-        // var buttons = [];
-        // if (Array.isArray(trial.button_html)) {
-        //   if (trial.button_html.length == trial.choices.length) {
-        //     buttons = trial.button_html;
-        //   } else {
-        //     console.error('Error in html-button-response plugin. The length of the button_html array does not equal the length of the choices array');
-        //   }
-        // } else {
-        //   for (var i = 0; i < trial.choices.length; i++) {
-        //     buttons.push(trial.button_html);
-        //   }
-        // }
-        // paper.innerHTML += '<div id="jspsych-html-button-response-btngroup">';
-        // for (var i = 0; i < trial.choices.length; i++) {
-        //   var str = buttons[i].replace(/%choice%/g, trial.choices[i]);
-        //     paper.innerHTML += '<div class="jspsych-html-button-response-button"  style= "position: absolute; top:550px; left:'+paper_size/2+'; display: inline-block" id="jspsych-html-button-response-button-' + i +'" data-choice="'+i+'">'+str+'</div>';
-        // }
-        //   paper.innerHTML += '</div>';
+      // var buttons = [];
+      // if (Array.isArray(trial.button_html)) {
+      //   if (trial.button_html.length == trial.choices.length) {
+      //     buttons = trial.button_html;
+      //   } else {
+      //     console.error('Error in html-button-response plugin. The length of the button_html array does not equal the length of the choices array');
+      //   }
+      // } else {
+      //   for (var i = 0; i < trial.choices.length; i++) {
+      //     buttons.push(trial.button_html);
+      //   }
+      // }
+      // paper.innerHTML += '<div id="jspsych-html-button-response-btngroup">';
+      // for (var i = 0; i < trial.choices.length; i++) {
+      //   var str = buttons[i].replace(/%choice%/g, trial.choices[i]);
+      //     paper.innerHTML += '<div class="jspsych-html-button-response-button"  style= "position: absolute; top:550px; left:'+paper_size/2+'; display: inline-block" id="jspsych-html-button-response-button-' + i +'" data-choice="'+i+'">'+str+'</div>';
+      // }
+      //   paper.innerHTML += '</div>';
 
       // display_element.innerHTML += '<div style="display: inline-block; margin:140px 0px" /div>'
 
-  var start_time = Date.now();
+      var start_time = Date.now();
 
-  // add event listeners to buttons
-  // for (var i = 0; i < trial.choices.length; i++) {
-  //   display_element.querySelector('#jspsych-html-button-response-button-' + i).addEventListener('click', function(e){
-  //     var choice = e.currentTarget.getAttribute('data-choice'); // don't use dataset for jsdom compatibility
-  //     after_response(choice);
-  //   });
-  // }
+      // add event listeners to buttons
+      // for (var i = 0; i < trial.choices.length; i++) {
+      //   display_element.querySelector('#jspsych-html-button-response-button-' + i).addEventListener('click', function(e){
+      //     var choice = e.currentTarget.getAttribute('data-choice'); // don't use dataset for jsdom compatibility
+      //     after_response(choice);
+      //   });
+      // }
 
-  // function to handle responses by the subject
-  // function after_response(choice) {
-  //
-  //   // after a valid response, the stimulus will have the CSS class 'responded'
-  //   // which can be used to provide visual feedback that a response was recorded
-  //   display_element.querySelector('#jspsych-html-button-response-stimulus').className += ' responded';
-  //
-  //   // disable all the buttons after a response
-  //   var btns = document.querySelectorAll('.jspsych-html-button-response-button button');
-  //   for(var i=0; i<btns.length; i++){
-  //     //btns[i].removeEventListener('click');
-  //     btns[i].setAttribute('disabled', 'disabled');
-  //   }
-  //   clear_display();
-  //     end_trial();
-  // };
+      // function to handle responses by the subject
+      // function after_response(choice) {
+      //
+      //   // after a valid response, the stimulus will have the CSS class 'responded'
+      //   // which can be used to provide visual feedback that a response was recorded
+      //   display_element.querySelector('#jspsych-html-button-response-stimulus').className += ' responded';
+      //
+      //   // disable all the buttons after a response
+      //   var btns = document.querySelectorAll('.jspsych-html-button-response-button button');
+      //   for(var i=0; i<btns.length; i++){
+      //     //btns[i].removeEventListener('click');
+      //     btns[i].setAttribute('disabled', 'disabled');
+      //   }
+      //   clear_display();
+      //     end_trial();
+      // };
 
-    if (trial.trial_duration !== null) {
-      jsPsych.pluginAPI.setTimeout(function() {
-        clear_display();
-        end_trial();
-      }, trial.trial_duration);
-    }
+      if (trial.trial_duration !== null) {
+        jsPsych.pluginAPI.setTimeout(function () {
+          clear_display();
+          end_trial();
+        }, trial.trial_duration);
+      }
 
 
       function clear_display() {

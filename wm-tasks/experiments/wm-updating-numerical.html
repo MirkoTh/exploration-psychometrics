@@ -7,6 +7,7 @@
     <script src="../jspsych-dist/dist/plugin-html-keyboard-response.js"></script>
     <script src="../jspsych-dist/dist/plugin-preload.js"></script>
     <script src="../jspsych-dist/dist/plugin-survey-text.js"></script>
+    <script src="../jspsych-dist/dist/plugin-survey-multi-choice.js"></script>
     <script src="../jspsych-dist/dist/plugin-fullscreen.js"></script>
     <script src="../jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
     <script src="https://pixijs.download/release/pixi.js"></script>
@@ -180,10 +181,10 @@
     stepsize_y = screen.height / 10;
 
     trial_time_updating = n_upd_steps * viewing_time_updating + viewing_time_initial;
-    rect_object_ll_u = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
-    rect_object_l_u = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
-    rect_object_r_u = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
-    rect_object_rr_u = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
+    rect_object_ll_u = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_updating);
+    rect_object_l_u = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_updating);
+    rect_object_r_u = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_updating);
+    rect_object_rr_u = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_updating);
 
     const updating_object = [rect_object_ll_u, rect_object_l_u, rect_object_r_u, rect_object_rr_u];
     for (let i = set_size; i < (n_upd_steps + 2 * set_size); i++) {
@@ -194,10 +195,10 @@
     }
 
     trial_time_immediate = viewing_time_initial;
-    rect_object_ll_i = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
-    rect_object_l_i = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
-    rect_object_r_i = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
-    rect_object_rr_i = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
+    rect_object_ll_i = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_immediate);
+    rect_object_l_i = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_immediate);
+    rect_object_r_i = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_immediate);
+    rect_object_rr_i = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_immediate);
 
     const immediate_object = [rect_object_ll_i, rect_object_l_i, rect_object_r_i, rect_object_rr_i];
     for (let i = set_size; i < 2 * set_size; i++) {
@@ -207,7 +208,7 @@
         immediate_object.push(immediate_temporal_object)
     }
 
-
+    
     const cued_response = {
         type: jsPsychSurveyText,
         textarea: "width:40%;height:40%",
@@ -306,8 +307,8 @@
         }
     }
 
-    timeline_mixed = [instructions1, instructions2, instructions3, instructions4];
     timeline_mixed = [];
+    timeline_mixed = [instructions1, instructions2, instructions3, instructions4];
     timeline_mixed.push({
         type: jsPsychFullscreen,
         fullscreen_mode: true
@@ -319,6 +320,7 @@
         repetitions: 2,
     };
     timeline_mixed.push(mixed_node_practice);
+    timeline_mixed.push(comp_check_wmu_loop);
 
     const mixed_node_main = {
         timeline: [mixed_trial, cued_response],
