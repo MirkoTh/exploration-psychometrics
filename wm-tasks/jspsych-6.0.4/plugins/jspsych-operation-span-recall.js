@@ -217,28 +217,21 @@ jsPsych.plugins["operation-span-recall"] = (function () {
         stimuli: correctLetters,
         accuracy: response.button
       };
-
       // move on to the next trial
       jsPsych.finishTrial(trial_data);
-      var data_recall = jsPsych.data.get().last(1);//.filter([{ trial_type: 'operation-span-recall' }]);
-      var trial_id_recall = data_recall.select("trial_id_recall");
-      var set_size = data_recall.select("set_size");
-      var stimuli = data_recall.select("stimuli");
-      var responses = data_recall.select("recall");
-      var n_correct = data_recall.select("accuracy");
-      var rt = data_recall.select("rt");
+
+      // save for our purposes
       var data_recall_clean = {
         participant_id: participant_id,
-        trial_id_recall: trial_id_recall,
-        set_size: set_size,
-        stimuli: stimuli,
-        response: responses,
-        n_correct: n_correct,
-        rt: rt
+        trial_id_recall: trial.trial_id_recall,
+        set_size: trial["data"]["set_size"],
+        stimuli: correctLetters,
+        response: recalledGrid,
+        n_correct: response.button,
+        rt: response.rt
       };
       if (trial.is_local) {
-        console.log("data to be saved: " + data_recall_clean);
-        //console.log(jsPsych.data.get().filter([{ trial_type: 'html-button-operationspan', trial_type: 'operation-span-recall' }]).csv());
+        console.log("all: " + JSON.stringify(data_recall_clean));
       } else if (!trial.is_local) {
         var file_name = "OS_recall_" + trial.participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name)

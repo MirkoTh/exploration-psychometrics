@@ -202,6 +202,26 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
         stimuli: correctGrid,
         accuracy: response.button
       }
+      var accuracy;
+      if (response.button == trial["data"]["set_size"]) { accuracy = 1 } else { accuracy = 0 };
+      var data_recall_clean = {
+        participant_id: participant_id,
+        trial_id_recall: trial.trial_id_recall,
+        set_size: trial["data"]["set_size"],
+        stimuli: correctGrid,
+        response: recalledGrid,
+        n_correct: response.button,
+        accuracy: accuracy,
+        rt: response.rt
+      };
+      if (trial.is_local) {
+        console.log("local");
+        console.log("all: " + JSON.stringify(data_recall_clean));
+      } else if (!trial.is_local) {
+        console.log("not local");
+        var file_name = "SS_recall_" + trial.participant_id + ".json";
+        saveData(JSON.stringify(data_recall_clean), file_name)
+      }
 
       // move on to the next trial
       jsPsych.finishTrial(trial_data);

@@ -246,6 +246,12 @@
     data: function () {
       return { set_size: setSizes[n] }
     },
+    trial_id_recall: function () {
+      return n
+    },
+    is_local: function () {
+      return local
+    },
     on_finish: function () {
       nSquares = setSizes[n]
       nSquaresRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
