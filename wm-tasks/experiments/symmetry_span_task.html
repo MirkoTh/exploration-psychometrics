@@ -175,6 +175,12 @@
     stimulus: "Is this image symmetric?",
     session_id: function () { return session_id },
     counter_symmetry: function () { return counter_symmetry },
+    trial_id_recall: function () {
+      return n
+    },
+    is_local: function () {
+      return local
+    },
     proportion: function () {
       counter_symmetry += 1;
       nProportionDemo += 1
@@ -197,6 +203,12 @@
     stimulus: "Is this image symmetric?",
     session_id: function () { return session_id },
     counter_symmetry: function () { return counter_symmetry },
+    trial_id_recall: function () {
+      return n
+    },
+    is_local: function () {
+      return local
+    },
     on_finish: function () {
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
       counter_symmetry += 1;

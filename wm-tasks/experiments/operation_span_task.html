@@ -55,7 +55,7 @@
   repSet = 3 // number of times each set size should be repeated
   randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
   file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
-  local = false // save the data file locally.
+  local = true // save the data file locally.
   // If this test is being run online (e.g., on MTurk), true will cause the file to be downloaded to the participant's computer.
   // If this test is on a server, and you wish to save the data file to that server, change this to false.
   // If changed to false, ensure that the php file (its in the directory!) and the empty "data" folder has also been appropriately uploaded to the server.
@@ -250,6 +250,7 @@
     stimulus: function () {
       return cogloadf(eqCorrect)
     },
+    trial_id_recall: function () { return n },
     trial_id_processing: function () { return proc_position },
     choices: ["True", "False"],
     is_local: function () {
