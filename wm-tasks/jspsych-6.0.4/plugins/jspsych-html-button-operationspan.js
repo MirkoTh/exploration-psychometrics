@@ -74,9 +74,9 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
       },
       equation_accuracy: {
         type: jsPsych.plugins.parameterType.BOOL,
-        pretty_name: 'Response ends trial',
+        pretty_name: 'Accuracy of Equation',
         default: true,
-        description: 'If true, then trial will end when user responds.'
+        description: 'Is the currently presented equation correct of false?'
       },
       trial_id_processing: {
         type: jsPsych.plugins.parameterType.array,
@@ -157,15 +157,13 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
     // function to handle responses by the subject
     function after_response(choice) {
 
-      var accuracy;
-      if (choice == 0 + trial.equation_accuracy) { accuracy = 1 } else { accuracy = 0 };
       // measure rt
 
       var end_time = Date.now();
       var rt = end_time - start_time;
       response.button = choice;
       response.rt = rt;
-      response.accuracy = accuracy;
+      response.accuracy = choice;
 
       // after a valid response, the stimulus will have the CSS class 'responded'
       // which can be used to provide visual feedback that a response was recorded
