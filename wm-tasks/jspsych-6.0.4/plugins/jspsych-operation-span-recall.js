@@ -112,7 +112,6 @@ jsPsych.plugins["operation-span-recall"] = (function () {
 
     clearSpace = function (data) {
       recalledGrid = recalledGrid.slice(0, (recalledGrid.length - 1))
-      console.log(recalledGrid)
       var div = document.getElementById('recall_space');
       display = display.slice(0, (display.length - 2))
       div.innerHTML = display
@@ -159,8 +158,6 @@ jsPsych.plugins["operation-span-recall"] = (function () {
           acc += 1
         }
       }
-      //  console.log(correctLetters, )
-      //console.log(indexOfArray(correctGrid[1], matrix), recalledGrid[1])
       after_response(acc);
     });
 
@@ -240,7 +237,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
         rt: rt
       };
       if (trial.is_local) {
-        console.log(data_recall_clean);
+        console.log("data to be saved: " + data_recall_clean);
         //console.log(jsPsych.data.get().filter([{ trial_type: 'html-button-operationspan', trial_type: 'operation-span-recall' }]).csv());
       } else if (!trial.is_local) {
         var file_name = "OS_recall_" + trial.participant_id + ".json";

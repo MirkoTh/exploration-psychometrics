@@ -266,7 +266,7 @@ var comp_feedback_old = {
             return "<p align='center'><b>Not all questions were answered correctyly.</b> Please try again. </p>"
         }
     },
-    choices: ['Next']
+    choices: ['Next'],
 };
 
 

@@ -485,12 +485,14 @@
 
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_os_loop = {
-    //    timeline: [comprehension_question_os_allinone, comp_feedback_old],
-    timeline: [instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
+    timeline: [fullDemo, comprehension_question_os_allinone, comp_feedback_old],
+    //    timeline: [instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
     loop_function: function (data) {
+      len_data = data.values().length;
       console.log('data: ', data.values());
+      console.log('data[len_data - 2].correct: ', data.values()[len_data - 2].correct);
       if (
-        data.values()[0].correct == true
+        data.values()[len_data - 2].correct == true
       ) {
         return false;
       } else {

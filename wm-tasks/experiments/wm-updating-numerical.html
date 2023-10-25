@@ -9,16 +9,15 @@
     <script src="../jspsych-dist/dist/plugin-survey-text.js"></script>
     <script src="../jspsych-dist/dist/plugin-survey-multi-choice.js"></script>
     <script src="../jspsych-dist/dist/plugin-fullscreen.js"></script>
-    <script src="../jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
     <script src="https://pixijs.download/release/pixi.js"></script>
     <script src="../jquery.min.js"></script>
     <script src="../js-helpers.js"></script>
     <script src="../jspsych-psychophysics.js"></script>
     <link rel="stylesheet" href="../jspsych-dist/dist/jspsych.css">
-    <link rel="stylesheet" href="my-style.css">
+
     <style>
         .jspsych-display-element {
-            font-size: 40px;
+            font-size: 35px;
         }
     </style>
     </link>
@@ -320,6 +319,7 @@
         repetitions: 2,
     };
     timeline_mixed.push(mixed_node_practice);
+    timeline_mixed = [];
     timeline_mixed.push(comp_check_wmu_loop);
 
     const mixed_node_main = {
