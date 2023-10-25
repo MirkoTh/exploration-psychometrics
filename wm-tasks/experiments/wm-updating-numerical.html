@@ -9,17 +9,13 @@
     <script src="../jspsych-dist/dist/plugin-survey-text.js"></script>
     <script src="../jspsych-dist/dist/plugin-survey-multi-choice.js"></script>
     <script src="../jspsych-dist/dist/plugin-fullscreen.js"></script>
+    <script src="../jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
     <script src="https://pixijs.download/release/pixi.js"></script>
     <script src="../jquery.min.js"></script>
     <script src="../js-helpers.js"></script>
     <script src="../jspsych-psychophysics.js"></script>
     <link rel="stylesheet" href="../jspsych-dist/dist/jspsych.css">
 
-    <style>
-        .jspsych-display-element {
-            font-size: 35px;
-        }
-    </style>
     </link>
 </head>
 
@@ -143,32 +139,32 @@
 
     var instructionsGo = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;"><br>Click on "Next" to start.<br></div>',
+        stimulus: '<div style="font-size:30px;"><br>Click on "Next" to start.<br><br></div>',
         choices: ["Next"]
     };
     var instructions1 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;"><b>INSTRUCTIONS</b><br>This is the updating task. <br>This task has two parts: <br>(1) Memorization of the initially presented digits <br>(2) Individually updating selected digits </div>',
+        stimulus: '<div style="font-size:40px;"><b>INSTRUCTIONS</b><br><br><br>This is the updating task. It has two parts: <br><br>(1) Memorization of the initially presented digits <br><br>(2) Individually updating selected digits <br><br><br><br>This task is going to be in full-screen mode.<br><br><b> Please do not leave the full-screen mode. Otherwise, the presented numbers may be illegible.<br><br></div>',
         choices: ["Next"]
     };
     var instructions2 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:24px;">In every trial, four digits colored in different colors are presented on the screen. Remember these four digits in the correct order.<br>There will be a series of seven updating steps.<br>At every updating step, one digit is replaced by a different digit.<br>Occasionally, it may be replaced by the same digit already presented previously at that location. <br> In the end of the trial, you are required to recall the last four digits at every location.<br> Please note that the ordering of the digits is important. A recalled digit is only going to be counted as correct if it is recalled in the correct location.</div>',
+        stimulus: '<div style="font-size:32px;">In every trial, four digits colored in different colors are presented on the screen. Remember these four digits in the correct order.<br><br>There will be a series of seven updating steps.<br><br>At every updating step, one digit is replaced by a different digit.<br><br>Occasionally, it may be replaced by the same digit already presented previously at that location. <br><br> In the end of the trial, you are required to recall the last four digits at every location.<br><br> Please note that the ordering of the digits is important. A recalled digit is only going to be counted as correct if it is recalled in the correct location.<br><br></div>',
         choices: ["Next"]
     };
     var instructions3 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;">Recall the digits using the number pad on your keyboard.<br>For example, if the last four digits were 9, 3, 6, 9, please respond "9369".<br><br><br>If you are unsure what has been presented most recently at one or several locations, please guess in these locations.</div>',
+        stimulus: '<div style="font-size:40px;">Recall the digits using the number pad on your keyboard.<br><br>For example, if the last four digits were 9, 3, 6, 9, please respond "9369".<br><br><br>If you are unsure what has been presented most recently at one or several locations, please guess in these locations.<br><br></div>',
         choices: ["Next"]
     };
     var instructions4 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;">Occasionally, you have to recall the initial set of digits immediately. Again, please recall in the correct order.<br>You get two practice trials to get used to the two versions of the task (immediate recall and recall after the updating steps).</div>',
+        stimulus: '<div style="font-size:40px;">Occasionally, you have to recall the initial set of digits immediately. Again, please recall in the correct order.<br><br>You get two practice trials to get used to the two versions of the task (immediate recall and recall after the updating steps).<br><br></div>',
         choices: ["Start Practice"]
     };
     var instructions_test = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;">These were the two practice trials.<br>The main part of the updating task is going to start now.<br>Good luck. </div>',
+        stimulus: '<div style="font-size:40px;">These were the two practice trials.<br><br>The main part of the updating task is going to start now.<br>Good luck. </div>',
         choices: ["Start Main Part"]
     };
 
@@ -180,10 +176,10 @@
     stepsize_y = screen.height / 10;
 
     trial_time_updating = n_upd_steps * viewing_time_updating + viewing_time_initial;
-    rect_object_ll_u = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_updating);
-    rect_object_l_u = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_updating);
-    rect_object_r_u = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_updating);
-    rect_object_rr_u = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_updating);
+    rect_object_ll_u = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
+    rect_object_l_u = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
+    rect_object_r_u = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
+    rect_object_rr_u = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
 
     const updating_object = [rect_object_ll_u, rect_object_l_u, rect_object_r_u, rect_object_rr_u];
     for (let i = set_size; i < (n_upd_steps + 2 * set_size); i++) {
@@ -194,10 +190,10 @@
     }
 
     trial_time_immediate = viewing_time_initial;
-    rect_object_ll_i = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_immediate);
-    rect_object_l_i = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_immediate);
-    rect_object_r_i = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_immediate);
-    rect_object_rr_i = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y, trial_time_immediate);
+    rect_object_ll_i = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
+    rect_object_l_i = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
+    rect_object_r_i = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
+    rect_object_rr_i = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
 
     const immediate_object = [rect_object_ll_i, rect_object_l_i, rect_object_r_i, rect_object_rr_i];
     for (let i = set_size; i < 2 * set_size; i++) {
@@ -207,7 +203,6 @@
         immediate_object.push(immediate_temporal_object)
     }
 
-    
     const cued_response = {
         type: jsPsychSurveyText,
         textarea: "width:40%;height:40%",
@@ -243,7 +238,12 @@
                 sequence_recalled: result_array,
                 rt: data.rt
             };
-            saveSeveralData(JSON.stringify(data_recall), file_name + participant_id + ".json")
+            if (local) {
+                console.log("all data = " + JSON.stringify(data_recall));
+
+            } else if (!local) {
+                saveSeveralData(JSON.stringify(data_recall), file_name + participant_id + ".json")
+            }
 
             // update trial counters
             console.log("trial_type[n] = " + trial_type[n])
@@ -267,7 +267,13 @@
                 return immediate_object
             }
         },
-        trial_duration: n_upd_steps * viewing_time_updating + viewing_time_initial,
+        trial_duration: function () {
+            if (trial_type[n] == "update") {
+                return n_upd_steps * viewing_time_updating + viewing_time_initial
+            } else if (trial_type[n] == "immediate") {
+                return viewing_time_initial
+            }
+        },
         //response_start_time: viewing_time_initial + (viewing_time_updating + isi) * n_upd_steps - isi, // not to respond until all images are presented.
         on_start: function (trial) {
             // Set parameters for each image dynamically
@@ -307,19 +313,33 @@
     }
 
     timeline_mixed = [];
-    timeline_mixed = [instructions1, instructions2, instructions3, instructions4];
-    timeline_mixed.push({
+
+    const fullscreen_on = {
         type: jsPsychFullscreen,
         fullscreen_mode: true
-    });
-    timeline_mixed.push(instructionsGo);
+    };
 
     const mixed_node_practice = {
         timeline: [mixed_trial, cued_response],
         repetitions: 2,
     };
-    timeline_mixed.push(mixed_node_practice);
-    timeline_mixed = [];
+
+    //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
+    var comp_check_wmu_loop = {
+        //timeline: [comprehension_question_wmu1, comprehension_question_wmu2, comprehension_question_wmu3, comprehension_question_wmu4, comp_feedback],
+        timeline: [instructions1, fullscreen_on, instructions2, instructions3, instructions4, instructionsGo, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
+        loop_function: function (data) {
+            len_data = data.values().length;
+            console.log('data: ', data.values());
+            if (
+                data.values()[len_data - 2].correct == true
+            ) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    };
     timeline_mixed.push(comp_check_wmu_loop);
 
     const mixed_node_main = {
@@ -338,86 +358,14 @@
         stimulus: '<div style="font-size:30px;"><br>Click on "Next" to continue with the questionnaires.<br></div>',
         choices: ["Next"],
         on_finish: function () {
-      //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
-      window.location.href = "cpilab.org";
-    }
+            //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
+            window.location.href = "cpilab.org";
+        }
     };
     timeline_mixed.push(instructions_go_on);
 
     jsPsych.run(timeline_mixed);
 
-    /*
-        const image1 = {
-            obj_type: 'image',
-            file: jsPsych.timelineVariable('first_image'),
-            show_start_time: 500, // ms after the start of the trial
-            show_end_time: 1000,
-            startX: jsPsych.timelineVariable('first_image_position'),
-            origin_center: true
-        }
-    
-        const image2 = {
-            obj_type: 'image',
-            file: jsPsych.timelineVariable('second_image'),
-            show_start_time: 1000, // ms after the start of the trial
-            show_end_time: 1500,
-            startX: jsPsych.timelineVariable('second_image_position'),
-            origin_center: true
-        }
-    
-        const two_consecutive_images = {
-            type: jsPsychPsychophysics,
-            pixi: pixi_flag,
-            stimuli: [image1, image2],
-            trial_duration: 2000, // The trial continues during this duration.
-            choices: "NO_KEYS" // Any participant's responses are not allowed.
-        }
-    
-        const likert = {
-            type: jsPsychSurveyLikert,
-            questions: [
-                { prompt: "Which image do you prefer?", name: 'favorite_image', labels: ["Left", "Right"], required: true }
-            ],
-            data: {
-                'first_image': jsPsych.timelineVariable('first_image'),
-                'second_image': jsPsych.timelineVariable('second_image'),
-                'first_image_position': jsPsych.timelineVariable('first_image_position'),
-                'second_image_position': jsPsych.timelineVariable('second_image_position'),
-            },
-            on_finish: function (data) {
-                jsPsych.data.get().addToLast(data.response); // separate into individual columns in an output CSV file.
-            }
-        };
-    
-        const text_input = {
-            type: jsPsychSurveyText,
-            questions: [
-                { prompt: 'Describe your impressions about the two images.', name: 'impression', rows: 5 }
-            ],
-            data: function () {
-                const tmp_object = {
-                    'first_image': jsPsych.timelineVariable('first_image'),
-                    'second_image': jsPsych.timelineVariable('second_image'),
-                    'first_image_position': jsPsych.timelineVariable('first_image_position'),
-                    'second_image_position': jsPsych.timelineVariable('second_image_position'),
-                };
-                return Object.assign(tmp_object, jsPsych.data.getLastTrialData().values()[0].response);
-            },
-            on_finish: function (data) {
-                jsPsych.data.get().addToLast(data.response); // separate into individual columns in an output CSV file.
-            }
-        }
-    
-        const trial = {
-            timeline: [two_consecutive_images, likert, text_input],
-            timeline_variables: [
-                { first_image: images[0], second_image: images[1], first_image_position: -200, second_image_position: 200 },
-                { first_image: images[2], second_image: images[3], first_image_position: 200, second_image_position: -200 },
-                { first_image: images[4], second_image: images[5], first_image_position: -200, second_image_position: 200 }
-            ],
-            randomize_order: true
-        }
-     */
 
 </script>
 

@@ -272,20 +272,3 @@ var comp_feedback = {
     },
     choices: ['Next']
 };
-
-//compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
-var comp_check_wmu_loop = {
-    //timeline: [comprehension_question_wmu1, comprehension_question_wmu2, comprehension_question_wmu3, comprehension_question_wmu4, comp_feedback],
-    timeline: [comprehension_question_wmu_allinone, comp_feedback],
-    loop_function: function (data) {
-        len_data = data.values().length;
-        console.log('data: ', data.values());
-        if (
-            data.values()[len_data - 2].correct == true
-        ) {
-            return false;
-        } else {
-            return true;
-        }
-    }
-};
