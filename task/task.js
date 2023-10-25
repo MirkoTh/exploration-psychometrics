@@ -4,7 +4,10 @@
 
 // settings
 
+var quickrunthrough = 1
+
 // variables we need
+var session = 1
 
 var totalScore = 0;
 var Ntrials
@@ -21,8 +24,13 @@ var fixedChoicesCollect
 var rewardCollect
 var NtrialsCollect
 var score = 0
-var comprehensionAttempts = 1
+var comprehensionAttemptsH = 1
+var comprehensionAttemptsS = 1
+var comprehensionAttemptsR = 1
 var understood = false
+var horizonRewards
+var samRewards
+var restlessRewards
 
 // slot machines (image + button)
 var machine1 = document.getElementById('mach_div1');
@@ -36,6 +44,24 @@ var machButton3 = document.getElementById('machine3');
 var machButton4 = document.getElementById('machine4');
 var slot_machines = document.getElementById('slot_machines');
 
+// pre-load rewards
+$.getJSON("rewardsHorizon"+ session+".json", function(data) {
+    horizonRewards = data;
+  })
+$.getJSON("fixedChoices"+ session+".json", function(data) {
+    fixedChoicesCollect = data;
+  })
+
+$.getJSON("Horizon"+ session+".json", function(data) {
+    NtrialsCollect = data;
+  })
+
+$.getJSON("rewardsSam"+ session+".json", function(data) {
+    samRewards = data;
+  })
+$.getJSON("rewards4ARB"+ session+".json", function(data) {
+    restlessRewards = data;
+  })
 
 
 // click function
@@ -45,13 +71,7 @@ var clickMachine = function(machine, task) {
     // task: which task are we in (horizon, sam, restless)
     
     // get variables ---------------
-    if (task == "restless") {rewards = rewardCollect[trial]} // bc of drifting rewards need to get the one for the given trial but only 1 block
-    else {
-        rewards = rewardCollect[currentBlock]
-        if (task == "sam" ) {rewards = rewards[trial]} // bc of drifting rewards need to get the one for the given trial
-    }
-    rewards = rewardCollect[currentBlock]
-    if (task == "sam" ) {rewards = rewards[trial]} // bc of drifting rewards need to get the one for the given trial
+    rewards = rewardCollect[currentBlock][trial]
     console.log(rewards)
     Ntrials = NtrialsCollect[currentBlock]
     fixedChoices = fixedChoicesCollect[currentBlock]
@@ -59,16 +79,12 @@ var clickMachine = function(machine, task) {
     console.log("clicked machine " + machine  + " in task " +task )
 
     // was this a machine they were allowed to chlick in the horizon task? Do we still have trials left this round?
-    if (((trial > 3 | task != "horizon") | machine == fixedChoices[trial])& Ntrials - trial > 0) { // if either not a fixed choice or not Horizon task or they clicked the right one AND trials left
+    if (((trial > 3 | task != "horizon") | machine == fixedChoices[trial])& Ntrials - trial > 0) { // if (either not a fixed choice OR not Horizon task OR they clicked the right one) AND trials left
         
 
         // get rewards and display them-----------------------------
-
-
-        // generate noise
-    var noise = Math.round(Math.random()*4 - 2); //! change noise level to our liking
     // display reward
-    var reward = rewards[machine] + noise;
+    var reward = rewards[machine]
     if (machine == 0) {
         machine1.append(reward + ' points');
         // remove score after 1 second
@@ -217,14 +233,26 @@ var clickMachine = function(machine, task) {
 
 function horizonTask() {
     // set up variables
-    rewardCollect = [[20, 30], [200, 300]] //! place holder
-    fixedChoicesCollect = [[0,1,0,1], [0,0,0,1]] //! change to actual fixed choices
-    Nblocks = 2; //! + 1 for practice!!!
-    NtrialsCollect = [5, 10] // lengthen to length(Nblocks)
+
+    // load rewards or quickly get some place holder rewards
+    if (quickrunthrough == 1) { 
+        Nblocks = 2; 
+        rewardCollect = Array(Nblocks).fill([[20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30]] )
+        fixedChoicesCollect = [[0,1,0,1], [0,0,0,1]] 
+        NtrialsCollect = [5, 5] 
+    }
+    else {
+        rewardCollect = horizonRewards
+
+        // number of blocks is length of the list of Ntrials    
+        Nblocks = NtrialsCollect.length;
+
+
+    }
+    
     currentBlock = 0;
     trial = 0;
     Ntrials = NtrialsCollect[currentBlock]
-
     nextTaskButton.onclick = samTask;
     nextTaskButton.style.display = 'none';
 
@@ -233,6 +261,8 @@ function horizonTask() {
     document.getElementById('task').style.display = 'none';
     
     document.getElementById('instructions').firstElementChild.innerHTML = "Game 1 Instructions"
+
+    if (comprehensionAttemptsH > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
 
     startPracticeButton.innerHTML = "Start Practice Round";
     startPracticeButton.style.display = 'block';
@@ -245,6 +275,7 @@ function horizonTask() {
     // start practice --------------------------
 
     startPracticeButton.onclick = function() {
+        console.log("started practice Horizon task")
         // display slot machines
         document.getElementById('task').style.display = 'block';
         startPracticeButton.style.display = 'none';
@@ -290,36 +321,68 @@ function samTask() {
     nextTaskButton.style.display = 'none';
     console.log("started sam task")
     // rewards here are a list of lists of lists bc we need to allow for the drifting rewards
-    rewardCollect = [[[20,20], [20,21], [20,20], [20,19], [20,18]], [[50,20], [50,21], [50,20], [50,19], [50,18]]] //! place holder
-    Nblocks = 2; //TODO: increase number of blocks
+        // load rewards or quickly get some place holder rewards
+    if (quickrunthrough == 1) { 
+        Nblocks = 3; 
+        rewardCollect = Array(Nblocks).fill([[20, 30], [20, 30], [20, 30], [20, 30], [20, 30]])
+    }
+    else {
+        rewardCollect = samRewards
+        Nblocks = rewardCollect.length;
+    }
+    //console.log("I got here 1")
     fixedChoicesCollect = Array(Nblocks).fill(0);
-    NtrialsCollect = Array(Nblocks).fill(5); //TODO: increase number of trials (this is the equivalent of the R code rep(5, Nblocks))
+    NtrialsCollect = Array(Nblocks).fill(rewardCollect[1].length); //TODO: here is where to change number of trials
     currentBlock = 0;
     trial = 0;
     Ntrials = NtrialsCollect[currentBlock]
 
-    // display slot machines
-    slot_machines.style.display = 'flex';
-    document.getElementById('task').style.display = 'block';
-    machine1.style.display = 'inline-block';
-    machine2.style.display = 'inline-block';
-    document.getElementById("mach_div3").style.display = 'none'; // we only have 2 arms here
-    document.getElementById("mach_div4").style.display = 'none';
-    
-    
-    document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!';
- 
-    fixedChoices = fixedChoicesCollect[currentBlock] // just bc we need this to make it fit with the horizon task
-    document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
-    
-    // inputs to clickMachine function: machine, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices
-    //machButton1.addEventListener('click', clickMachine(0, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
-    //machButton2.addEventListener('click', clickMachine(1, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
+    // instructions first -----------------
+    //console.log("I got here 2")
+    document.getElementById('task').style.display = 'none';
+    //console.log("I got here 3")
+    document.getElementById('instructions').firstElementChild.innerHTML = "Game 2 Instructions"
+    //console.log("I got here 4")
+    if (comprehensionAttemptsS > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
+    //console.log("I got here 5")
+    startPracticeButton.innerHTML = "Start Practice Round";
+    startPracticeButton.style.display = 'block';
+    //console.log("I got here 6")
+    document.getElementById('instructions').style.display = 'block';
+    document.getElementById('instructionText').innerHTML = "In this game you will choose between two slot machines that give different average rewards. Sometimes, the average rewards for one or both of the machines changes over time. You can choose either machine at any time. You will play "+ (Nblocks-1)+
+    " rounds of this game consisting of "+ Ntrials+" choices each. <br> <br> Click the button below to start a practice round.";
+   // console.log("I got here 7")
 
-    machButton1.onclick =  function(){clickMachine(0, "sam")};
-    machButton2.onclick = function(){clickMachine(1, "sam")};
+    // start practice --------------------------------
 
-    nextTaskButton.onclick = restlessTask;
+    startPracticeButton.onclick = function() {
+        
+        console.log("started practice round sam")
+        // display slot machines
+        
+        document.getElementById('task').style.display = 'block';
+        slot_machines.style.display = 'flex';
+        machine1.style.display = 'inline-block';
+        machine2.style.display = 'inline-block';
+        document.getElementById("mach_div3").style.display = 'none'; // we only have 2 arms here
+        document.getElementById("mach_div4").style.display = 'none';
+        
+        
+        document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!';
+    
+        fixedChoices = fixedChoicesCollect[currentBlock] // just bc we need this to make it fit with the horizon task
+        document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
+        
+        // inputs to clickMachine function: machine, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices
+        //machButton1.addEventListener('click', clickMachine(0, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
+        //machButton2.addEventListener('click', clickMachine(1, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
+
+        machButton1.onclick =  function(){clickMachine(0, "sam")};
+        machButton2.onclick = function(){clickMachine(1, "sam")};
+
+        nextTaskButton.onclick = restlessTask;
+
+    }
 
 
 }
@@ -340,30 +403,50 @@ function restlessTask() {
     trial = 0;
     Ntrials = NtrialsCollect[currentBlock]
 
-    // display slot machines
-    slot_machines.style.display = 'flex';
-    document.getElementById('task').style.display = 'block';
-    machine1.style.display = 'inline-block';
-    machine2.style.display = 'inline-block';
-    machine3.style.display = 'inline-block';
-    machine4.style.display = 'inline-block';
+    // instructions first -----------------
+
+    document.getElementById('task').style.display = 'none';
+
+    document.getElementById('instructions').firstElementChild.innerHTML = "Game 3 Instructions"
+    if (comprehensionAttemptsR > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
+
+    startPracticeButton.innerHTML = "Start Practice Round";
+    startPracticeButton.style.display = 'block';
+
+    document.getElementById('instructions').style.display = 'block';
+    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time. You can choose any machine at any time. In this game, you will only play one round consisting of "+ 
+    Ntrials+" choices. <br> <br> Click the button below to start a practice round.";
 
 
-    document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!';
+    // start practice --------------------------------
 
-    fixedChoices = fixedChoicesCollect[currentBlock] // just bc we need this to make it fit with the horizon task
+    startPracticeButton.onclick = function() {
 
-    document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
-    
-    // inputs to clickMachine function: machine, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices
-    //machButton1.addEventListener('click', clickMachine(0, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
-    //machButton2.addEventListener('click', clickMachine(1, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
+        // display slot machines
+        slot_machines.style.display = 'flex';
+        document.getElementById('task').style.display = 'block';
+        machine1.style.display = 'inline-block';
+        machine2.style.display = 'inline-block';
+        machine3.style.display = 'inline-block';
+        machine4.style.display = 'inline-block';
 
-    machButton1.onclick =  function(){clickMachine(0, "restless")};
-    machButton2.onclick = function(){clickMachine(1, "restless")};
-    machButton3.onclick = function(){clickMachine(2, "restless")};
-    machButton4.onclick = function(){clickMachine(3, "restless")};
 
+        document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!';
+
+        fixedChoices = fixedChoicesCollect[currentBlock] // just bc we need this to make it fit with the horizon task
+
+        document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
+        
+        // inputs to clickMachine function: machine, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices
+        //machButton1.addEventListener('click', clickMachine(0, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
+        //machButton2.addEventListener('click', clickMachine(1, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
+
+        machButton1.onclick =  function(){clickMachine(0, "restless")};
+        machButton2.onclick = function(){clickMachine(1, "restless")};
+        machButton3.onclick = function(){clickMachine(2, "restless")};
+        machButton4.onclick = function(){clickMachine(3, "restless")};
+
+    }
 
 }
 
@@ -390,20 +473,247 @@ var restlessInstructions = "In this game you will choose between four slot machi
 
 // comprehension questions -----------------------------
 
+function createQuestion(questionnaireName, questionData) { // function from Toby's questionnaire code
+    // This function creates an individual item
+  
+    var f = document.createElement("form");
+    f.setAttribute('method',"post");
+    f.setAttribute('action',"submit.php");
+    f.setAttribute('id', questionnaireName.concat('_' + questionData.qNumber.toString()));
+    f.setAttribute("name", "form_");
+  
+    var fieldset = document.createElement("fieldset");
+    fieldset.setAttribute("class", "form__options");
+    fieldset.setAttribute('id', questionnaireName.concat('_' + questionData.qNumber.toString()));
+    fieldset.setAttribute("name", "fs_");
+  
+    var legend = document.createElement("legend");
+    legend.setAttribute("class", "form__question");
+    legend.setAttribute("name", "legend");
+    legend.append(questionData.prompt);
+  
+    fieldset.appendChild(legend);
+  
+    var labels = [];
+    var i
+    for (i = 0; i < questionData.labels.length; i++) {
+  
+        var p = document.createElement("p");
+        p.setAttribute('class', 'form__answer');
+        var c = document.createElement("input");
+        c.type = "radio";
+        c.id = questionnaireName.concat(questionData.qNumber.toString()).concat("answer".concat(i.toString()));
+        c.name = "question";
+        c.value = i;
+  
+        var l = document.createElement("label");
+        l.setAttribute('for', c.id);
+        l.append(questionData.labels[i]);
+  
+        p.appendChild(c);
+        p.appendChild(l);
+  
+        labels.push(p);
+  
+        fieldset.appendChild(p)
+  
+    }
+  
+    f.appendChild(fieldset);
+  
+  
+    return f;
+  
+}
+
+
+function checkComprehension(task){
+    console.log("checking comprehension")
+  
+    var inputs = document.getElementsByName("fs_");
+  
+      // Loop through the items nad get their values
+    var values = {};
+    var incomplete = [];
+    var i
+      for (i = 0; i < inputs.length; i++) {
+  
+          if (inputs[i].id.length > 0) {
+              var id
+              // Get responses to questionnaire items
+              id = inputs[i].id;
+              var legend = inputs[i].querySelectorAll('[name="legend"]')[0];
+  
+              var checked = inputs[i].querySelector('input[name="question"]:checked');
+  
+              if (checked != null) {
+                  legend.style.color = "#000000";
+                 var value = checked.value;
+                  values[id] = value;
+              }else {
+                  legend.style.color = "#ff0000";
+                  incomplete.push(id);
+              }
+          }
+            
+      }
+        
+      
+      // This checks for any items that were missed and scrolls to them
+      if (incomplete.length > 0) {
+  
+          $('html, body').animate({ // go to first missed items
+                  scrollTop: $(document.getElementById(incomplete[0])).offset().top - 100
+                  }, 400);
+         
+  
+          if(incomplete.length > 1){ // if you missed more than one item
+             
+              for (i = 0; i < incomplete.length -1; i++){ // loops through all missed questions and attaches an event listener to each of them
+              
+              $(document.getElementById(incomplete[i])).children().click(function (e) { 
+                  var target = e.target.parentElement.parentElement.parentElement.id // name of the given question
+                  var n = incomplete.indexOf(target)// I can't simply use i as the index as it is already done with the loop by the time one clicks
+                  var nextMiss = document.getElementById(incomplete[n+1])
+                  $('html, body').animate({ // go to next question
+                  scrollTop: $(nextMiss).offset().top - 100
+                  }, 400);
+              });
+  
+              }
+          }
+  
+          
+  
+       // everything filled in   
+      } else if (task == "horizon" & (values["Q1_0"] == "1" && values["Q2_1"] == "0" && values["Q3_2"] == "1" && values["Q4_3"] == "0")|
+                task == "sam" & (values["Q1_0"] == "2" && values["Q2_1"] == "1" && values["Q3_2"] == "2" && values["Q4_3"] == "0")|
+                task == "restless" & (values["Q1_0"] == "1" && values["Q2_1"] == "2" && values["Q3_2"] == "2" && values["Q4_3"] == "2")) {
+        understood = true
+        
+        // hide quiz
+        $(document.getElementById("questionnaire")).hide()
+        $(startTaskButton).hide()
+  
+        window.scrollTo(0,0);
+        
+      } else {
+  
+        // hide quiz
+        $(document.getElementById("questionnaire")).hide()
+        $(startTaskButton).hide()
+  
+        window.scrollTo(0,0);
+
+        // set everything to beginning
+        if (task == "horizon") {comprehensionAttemptsH +=1; horizonTask()} else if (task == "sam") {comprehensionAttemptsS += 1; samTask()} else {comprehensionAttemptsR += 1; restlessTask()}
+        
+      }
+  
+}
+
 function startComprehension(task){
 
     document.getElementById('instructions').style.display = 'none';
     document.getElementById('task').style.display = 'none';
     document.getElementById("questionnaire").style.display = 'block';
 
-    //TODO: add comprehension questions
+    window.scrollTo(0, 0);
+
+
+    //! this appends the new questions to the previous ones. 
+    // TODO: fix that!
     // basically this is supposed to insert different questions for the different tasks
+
+    if (task == "horizon") {
+        var q1Data = {
+            qNumber: 0,
+            prompt: "How many choices can you make in each round?",
+            labels: ['5', 'Sometimes 5, sometimes 10. Indicated by number of trials left', '10']
+          };
+          var q2Data = {
+            qNumber: 1,
+            prompt: "What happens when you play the same slot machine several times?",
+            labels: ['You will get approximately the same number of points.', 'The number of points you get will gradually decrease.', 'The number of points you get will gradually increase.']
+          };
+          
+          var q3Data = {
+            qNumber: 2,
+            prompt: "Can you choose freely which slot machine to play?",
+            labels: ['No, I always select the highlighted one.', 'I select the highlighted one for the first 4 choices, then I can choose freely.', 'Yes, I can choose freely at any time.']
+          };
+          
+          var q4Data = {
+            qNumber: 3,
+            prompt: "Do the points you get for each slot machine change between rounds?",
+            labels: ['Yes. New round = completely new machines', 'No. They stay the same', 'They sometimes change, sometimes stay the same.']
+          };
+
+    } else if (task == "sam") {
+        var q1Data = {
+            qNumber: 0,
+            prompt: "How many choices can you make in each round?",
+            labels: ['5', 'Sometimes 5, sometimes 10. Indicated by number of trials left', '10']
+          };
+          var q2Data = {
+            qNumber: 1,
+            prompt: "Do the points you get for each slot machine change over time?",
+            labels: ['No they stay the same on average.', 'Sometimes they change over time for one or both slot machines.', 'They change over time for both slot machines.']
+          };
+          
+          var q3Data = {
+            qNumber: 2,
+            prompt: "Can you choose freely which slot machine to play?",
+            labels: ['No, I always select the highlighted one.', 'I select the highlighted one for the first 4 choices, then I can choose freely.', 'Yes, I can choose freely at any time.']
+          };
+          
+          var q4Data = {
+            qNumber: 3,
+            prompt: "Do the points you get for each slot machine change between rounds?",
+            labels: ['Yes. New round = completely new machines', 'No. They stay the same', 'They sometimes change, sometimes stay the same.']
+          };
+
+    } else if (task == "restless") {
+        var q1Data = {
+            qNumber: 0,
+            prompt: "How many choices can you make in each round?",
+            labels: ['5', 'There is only one round with 200 choices', '10']
+          };
+          var q2Data = {
+            qNumber: 1,
+            prompt: "Do the points you get for each slot machine change over time?",
+            labels: ['No they stay the same on average.', 'Sometimes they change over time for one or several slot machines.', 'They change over time for all slot machines.']
+          };
+          
+          var q3Data = {
+            qNumber: 2,
+            prompt: "Can you choose freely which slot machine to play?",
+            labels: ['No, I always select the highlighted one.', 'I select the highlighted one for the first 4 choices, then I can choose freely.', 'Yes, I can choose freely at any time.']
+          };
+          
+          var q4Data = {
+            qNumber: 3,
+            prompt: "Do the points you get for each slot machine change between rounds?",
+            labels: ['Yes. New round = completely new machines', 'No. They stay the same', 'There is only one round.']
+          };
+    }
+
+    var Q1 = createQuestion('Q1', q1Data);
+    var Q2 = createQuestion('Q2', q2Data);
+    var Q3 = createQuestion('Q3', q3Data);
+    var Q4 = createQuestion('Q4', q4Data);
+    document.getElementById('questionnaire').appendChild(Q1);
+    document.getElementById('questionnaire').appendChild(Q2);
+    document.getElementById('questionnaire').appendChild(Q3);
+    document.getElementById('questionnaire').appendChild(Q4);
+    console.log(Q1)
+
 
     startTaskButton.style.display = 'block';
     startTaskButton.onclick = function() {
-        //TODO insert check comprehension function
+        
+        checkComprehension(task)
 
-        //TODO for now as place holder simply goes to task but in the end the check comprehension function will lead us to the task
         trial = 0;
         scoreThisBlock = 0;
         Ntrials = NtrialsCollect[currentBlock]
@@ -731,18 +1041,14 @@ nextTaskButton.style.display = 'none';
 endTaskButton.style.display = 'none';
 startTaskButton.style.display = 'none';
 
-startPracticeButton.addEventListener('click', () => {
+startPracticeButton.onclick = function(){
     // Hide instructions and show practice trials
     
-    //document.getElementById('instructions').style.display = 'none';
-
-    //! edits made here to skip practice trials
-    //document.getElementById('practiceTrials').style.display = 'block';
     startPracticeButton.style.display = 'none';
     horizonTask();
 
     // Call a function to display practice trials
-});
+}
 
 startTaskButton.addEventListener('click', () => {
     // Hide practice trials and show task trials
