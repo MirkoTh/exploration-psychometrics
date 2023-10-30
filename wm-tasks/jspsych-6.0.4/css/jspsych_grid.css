@@ -129,7 +129,7 @@
   cursor: none;
   padding: 0px 0px;
   margin: 0px;
-  white-space: solid transparent;
+  /* white-space: solid transparent; */
   vertical-align: middle;
   border: 0px solid transparent;
   color: #333;

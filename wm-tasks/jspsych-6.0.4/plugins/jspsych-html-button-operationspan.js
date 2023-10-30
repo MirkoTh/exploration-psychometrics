@@ -8,7 +8,7 @@
  *
  **/
 
-jsPsych.plugins["html-button-operationspan"] = (function() {
+jsPsych.plugins["html-button-operationspan"] = (function () {
 
   var plugin = {};
 
@@ -74,17 +74,35 @@ jsPsych.plugins["html-button-operationspan"] = (function() {
       },
       equation_accuracy: {
         type: jsPsych.plugins.parameterType.BOOL,
-        pretty_name: 'Response ends trial',
+        pretty_name: 'Accuracy of Equation',
         default: true,
-        description: 'If true, then trial will end when user responds.'
+        description: 'Is the currently presented equation correct of false?'
+      },
+      trial_id_processing: {
+        type: jsPsych.plugins.parameterType.array,
+        pretty_name: 'Processing Position',
+        default: null,
+        description: 'Processing position within one OS trial'
+      },
+      trial_id_recall: {
+        type: jsPsych.plugins.parameterType.array,
+        pretty_name: 'Trial Counter',
+        default: null,
+        description: 'Counter over OS span trials'
+      },
+      participant_id: {
+        type: jsPsych.plugins.parameterType.array,
+        pretty_name: 'ID of participant',
+        default: null,
+        description: 'ID of participant'
       }
     }
   }
 
-  plugin.trial = function(display_element, trial) {
+  plugin.trial = function (display_element, trial) {
 
     // display stimulus
-    var html = '<div id="jspsych-html-button-response-stimulus">'+trial.stimulus+'</div>';
+    var html = '<div id="jspsych-html-button-response-stimulus">' + trial.stimulus + '</div>';
 
     //display buttons
     var buttons = [];
@@ -102,7 +120,7 @@ jsPsych.plugins["html-button-operationspan"] = (function() {
     html += '<div id="jspsych-html-button-response-btngroup">';
     for (var i = 0; i < trial.choices.length; i++) {
       var str = buttons[i].replace(/%choice%/g, trial.choices[i]);
-      html += '<div class="jspsych-html-button-response-button" style="display: inline-block; margin:'+20+' '+20+'" id="jspsych-html-button-response-button-' + i +'" data-choice="'+i+'">'+str+'</div>';
+      html += '<div class="jspsych-html-button-response-button" style="display: inline-block; margin:' + 20 + ' ' + 20 + '" id="jspsych-html-button-response-button-' + i + '" data-choice="' + i + '">' + str + '</div>';
     }
     html += '</div>';
 
@@ -117,13 +135,13 @@ jsPsych.plugins["html-button-operationspan"] = (function() {
 
     // add event listeners to buttons
     for (var i = 0; i < trial.choices.length; i++) {
-      display_element.querySelector('#jspsych-html-button-response-button-' + i).addEventListener('click', function(e){
+      display_element.querySelector('#jspsych-html-button-response-button-' + i).addEventListener('click', function (e) {
         var choice = e.currentTarget.getAttribute('data-choice'); // don't use dataset for jsdom compatibility
-        if ((trial.equation_accuracy) && (choice==0)){
+        if ((trial.equation_accuracy) && (choice == 0)) {
           acc = 1
-        } else if ((!trial.equation_accuracy) && (choice == 1)){
-          acc =1
-        } else{
+        } else if ((!trial.equation_accuracy) && (choice == 1)) {
+          acc = 1
+        } else {
           acc = 0
         }
         after_response(acc);
@@ -140,10 +158,12 @@ jsPsych.plugins["html-button-operationspan"] = (function() {
     function after_response(choice) {
 
       // measure rt
+
       var end_time = Date.now();
       var rt = end_time - start_time;
       response.button = choice;
       response.rt = rt;
+      response.accuracy = choice;
 
       // after a valid response, the stimulus will have the CSS class 'responded'
       // which can be used to provide visual feedback that a response was recorded
@@ -151,7 +171,7 @@ jsPsych.plugins["html-button-operationspan"] = (function() {
 
       // disable all the buttons after a response
       var btns = document.querySelectorAll('.jspsych-html-button-response-button button');
-      for(var i=0; i<btns.length; i++){
+      for (var i = 0; i < btns.length; i++) {
         //btns[i].removeEventListener('click');
         btns[i].setAttribute('disabled', 'disabled');
       }
@@ -169,9 +189,11 @@ jsPsych.plugins["html-button-operationspan"] = (function() {
 
       // gather the data to store for the trial
       var trial_data = {
-        "rt": response.rt,
-        "stimulus": trial.stimulus,
-        "accuracy": response.button
+        participant_id: trial.participant_id,
+        trial_id_recall: trial.trial_id_recall,
+        processing_position: trial.trial_id_processing,
+        rt: response.rt,
+        accuracy: response.accuracy
       };
 
       // clear the display
@@ -179,18 +201,27 @@ jsPsych.plugins["html-button-operationspan"] = (function() {
 
       // move on to the next trial
       jsPsych.finishTrial(trial_data);
+
+      if (trial.is_local) {
+        console.log("local");
+        console.log("all: " + JSON.stringify(trial_data));
+      } else if (!trial.is_local) {
+        console.log("not local");
+        var file_name = "OS_processing_" + trial.participant_id + ".json";
+        saveData(JSON.stringify(trial_data), file_name)
+      }
     };
 
     // hide image if timing is set
     if (trial.stimulus_duration !== null) {
-      jsPsych.pluginAPI.setTimeout(function() {
+      jsPsych.pluginAPI.setTimeout(function () {
         display_element.querySelector('#jspsych-html-button-response-stimulus').style.visibility = 'hidden';
       }, trial.stimulus_duration);
     }
 
     // end trial if time limit is set
     if (trial.trial_duration !== null) {
-      jsPsych.pluginAPI.setTimeout(function() {
+      jsPsych.pluginAPI.setTimeout(function () {
         end_trial();
       }, trial.trial_duration);
     }

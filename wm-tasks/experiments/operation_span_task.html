@@ -243,13 +243,19 @@
         eqCorrect = false
       } else {
         //eqCorrect = jsPsych.randomization.sampleWithReplacement([true, false], 1)[0]
+        console.log("session_id = " + session_id);
+        console.log("id_current_demo = " + id_current_demo);
         eqCorrect = eqsCorrect_demo[session_id][id_current_demo];
+        console.log("id_current_demo: " + id_current_demo);
+
+        console.log("current equation is correct: " + eqCorrect);
       }
       return eqCorrect
     },
     stimulus: function () {
       return cogloadf(eqCorrect)
     },
+    trial_id_recall: function () { return n },
     trial_id_processing: function () { return proc_position },
     choices: ["True", "False"],
     is_local: function () {
@@ -274,6 +280,9 @@
     equation_accuracy: function () {
       eqCorrect = eqsCorrect[session_id][id_current]
       //eqCorect = jsPsych.randomization.sampleWithReplacement([true, false], 1)[0]
+      console.log("id_current: " + id_current);
+
+      console.log("current equation is correct: " + eqCorrect);
       return eqCorrect
     },
     stimulus: function () {
@@ -291,11 +300,11 @@
     },
     on_finish: function () {
       proc_position = proc_position + 1;
+      id_current = (n) * maxSetSize + proc_position;
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
       if (acc == 1) {
         nMathAcc += 1
       };
-
     }
   }
 
@@ -398,7 +407,7 @@
   var conclusion = {
     type: 'html-keyboard-response',
     stimulus: function () {
-      return '<div style="font-size:20px;">This task is over.<br><br>Thank you for your participation in this task. <br><br>Please tell the Research Assistant that you have finished the task.</div>'
+      return '<div style="font-size:20px;">This task is over.<br><br>Thank you for your participation in this task. <br><br>The upcoming task is the symmetry span task.</div>'
     },
     choices: jsPsych.NO_KEYS
   }
@@ -485,12 +494,15 @@
 
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_os_loop = {
-    //    timeline: [comprehension_question_os_allinone, comp_feedback_old],
+    //    timeline: [fullDemo, comprehension_question_os_allinone, comp_feedback_old],
     timeline: [instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
+    // timeline: [loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
     loop_function: function (data) {
+      len_data = data.values().length;
       console.log('data: ', data.values());
+      console.log('data[len_data - 2].correct: ', data.values()[len_data - 2].correct);
       if (
-        data.values()[0].correct == true
+        data.values()[len_data - 2].correct == true
       ) {
         return false;
       } else {
@@ -508,7 +520,7 @@
   timeline.push(comp_check_os_loop);
   timeline.push(instructions_before_test);
   timeline.push(test_procedure);
-  timeline.push(dataLog);
+  //timeline.push(dataLog);
   timeline.push(conclusion);
 
   jsPsych.init({
