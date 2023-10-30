@@ -1,9 +1,10 @@
 library(tidyverse)
+library(permute)
 
 my_two_seeds <- c(39737632, 8567389)
 # set session_id to 1 or 2
 # stimulus sets for all tasks are generated for that session
-session_id <- 2
+session_id <- 1
 set.seed(my_two_seeds[session_id])
 
 setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
@@ -410,12 +411,12 @@ nBlocks = 81 # 1 extra for practice
 nTrials = 10 # just always sample 10 trials even if it is a short horizon and the round is over after 5 trials bc simpler this way
 
 
-
+subs <- sample(unique(data$Subject), 2, replace = F)
 rewards <- data.frame(block = 1:nBlocks,
-                      reward1 = c(40, data$mu_L[data$Subject == data$Subject[3000] & data$Trial == 1]), # their rewards are perfectly balanced, just different order for every subject
-                      reward2 = c(60, data$mu_R[data$Subject == data$Subject[3000] & data$Trial == 1]),
-                      infoCond = c(-1, data$Info[data$Subject == data$Subject[1] & data$Trial == 1]), # stealing infoCond and Horizon from Zaller et al. bc it is a pain to get it as perfectly orthogonal as they did without having a pattern
-                      Horizon = c(10, data$Horizon[data$Subject == data$Subject[1] & data$Trial == 1]))
+                      reward1 = c(40, data$mu_L[data$Subject == subs[1] & data$Trial == 1]), # their rewards are perfectly balanced, just different order for every subject
+                      reward2 = c(60, data$mu_R[data$Subject == subs[1] & data$Trial == 1]),
+                      infoCond = c(-1, data$Info[data$Subject == subs[2] & data$Trial == 1]), # stealing infoCond and Horizon from Zaller et al. bc it is a pain to get it as perfectly orthogonal as they did without having a pattern
+                      Horizon = c(10, data$Horizon[data$Subject == subs[2] & data$Trial == 1]))
 
 
 
