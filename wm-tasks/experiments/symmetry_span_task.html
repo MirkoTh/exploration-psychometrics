@@ -12,7 +12,6 @@
   <script src="../jspsych-6.0.4/plugins/jspsych-symmetry-judgement-task.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-survey-text.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-survey-multi-choice.js"></script>
-  <script src="../jspsych-6.0.4/plugins/jspsych-sur.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-fullscreen.js"></script>
   <script src="../jspsych-6.0.4/plugins/jspsych-spatial-span.js"></script>
@@ -84,7 +83,8 @@
     }
   };
 
-  var nTrials = setSizes.length
+  //var nTrials = setSizes.length
+  var nTrials = 2;
   /* if (randomize) {
     setSizes = jsPsych.randomization.sampleWithoutReplacement(setSizes, nTrials)
   } */ // shuffle through the set sizes
@@ -175,6 +175,12 @@
     stimulus: "Is this image symmetric?",
     session_id: function () { return session_id },
     counter_symmetry: function () { return counter_symmetry },
+    trial_id_recall: function () {
+      return n
+    },
+    is_local: function () {
+      return local
+    },
     proportion: function () {
       counter_symmetry += 1;
       nProportionDemo += 1
@@ -187,11 +193,7 @@
       }
     }
   }
-  console.log("blackBoxesAll = " + blackBoxesAll)
-  console.log("blackBoxesAll[0][0][0] = " + blackBoxesAll[0][0][0])
 
-  console.log("session_id = " + session_id)
-  console.log("counter_symmetry = " + counter_symmetry)
   blackBoxesAll[session_id][counter_symmetry]
   var cog_load = {
     type: 'symmetry-judgement-task',
@@ -201,6 +203,12 @@
     stimulus: "Is this image symmetric?",
     session_id: function () { return session_id },
     counter_symmetry: function () { return counter_symmetry },
+    trial_id_recall: function () {
+      return n
+    },
+    is_local: function () {
+      return local
+    },
     on_finish: function () {
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
       counter_symmetry += 1;
@@ -249,6 +257,12 @@
     },
     data: function () {
       return { set_size: setSizes[n] }
+    },
+    trial_id_recall: function () {
+      return n
+    },
+    is_local: function () {
+      return local
     },
     on_finish: function () {
       nSquares = setSizes[n]
@@ -308,7 +322,6 @@
     on_finish: function () {
       partN = jsPsych.data.get().last(1).values()[0].partNum
       partN = partN.replace(/['"]+/g, '')
-      //      console.log(partN[0])
     }
   }
 
@@ -346,6 +359,8 @@
         }
         if (!local) {
           saveSeveralData(JSON.stringify(data_clean), file_name + participant_id + ".json")
+        } else {
+          console.log("data to be saved are: " + JSON.stringify(data_clean));
         }
       }
 
@@ -396,12 +411,15 @@
 
 
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
+  //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_ss_loop = {
-    timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
+    //timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
+    timeline: [fullDemo, comprehension_question_ss_allinone, comp_feedback_old],
     loop_function: function (data) {
+      len_data = data.values().length;
       console.log('data: ', data.values());
       if (
-        data.values()[0].correct == true
+        data.values()[len_data - 2].correct == true
       ) {
         return false;
       } else {
@@ -426,7 +444,7 @@
     type: 'fullscreen',
     fullscreen_mode: false
   });
-  timeline.push(dataLog)
+  //timeline.push(dataLog)
   timeline.push(conclusion)
 
   jsPsych.init({

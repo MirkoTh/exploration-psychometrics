@@ -70,6 +70,18 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
         pretty_name: 'Symmetry Counter',
         default: null,
         description: 'Counter, which selects the according stimulus from the predefined set'
+      },
+      trial_id_recall: {
+        type: jsPsych.plugins.parameterType.array,
+        pretty_name: 'Trial Counter',
+        default: null,
+        description: 'Counter over SS span trials'
+      },
+      participant_id: {
+        type: jsPsych.plugins.parameterType.array,
+        pretty_name: 'ID of participant',
+        default: null,
+        description: 'ID of participant'
       }
     }
   }
@@ -214,7 +226,8 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
     // store response
     var response = {
       rt: null,
-      button: null
+      button: null,
+      accuracy: null
     };
 
     function after_response(choice) {
@@ -267,12 +280,24 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
 
       // gather the data to store for the trial
       var trial_data = {
+        participant_id: trial.participant_id,
+        trial_id_recall: trial.trial_id_recall,
+        processing_position: trial.counter_symmetry,
         rt: response.rt,
         accuracy: response.correct
       };
 
       // move on to the next trial
       jsPsych.finishTrial(trial_data);
+
+      if (trial.is_local) {
+        console.log("local");
+        console.log("all: " + JSON.stringify(trial_data));
+      } else if (!trial.is_local) {
+        console.log("not local");
+        var file_name = "SS_processing_" + trial.participant_id + ".json";
+        saveData(JSON.stringify(trial_data), file_name)
+      }
     };
 
   };

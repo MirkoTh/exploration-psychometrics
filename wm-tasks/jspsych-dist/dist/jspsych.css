@@ -355,7 +355,7 @@
 /* Form elements like input fields and buttons */
 .jspsych-display-element input[type=text] {
   font-family: "Open Sans", "Arial", sans-serif;
-  font-size: 14px;
+  font-size: 40px;/* 14px; */
 }
 
 /* borrowing Bootstrap style for btn elements, but combining styles a bit */
@@ -363,7 +363,7 @@
   display: inline-block;
   padding: 6px 12px;
   margin: 0px;
-  font-size: 14px;
+  font-size: 40px;/*14px;*/
   font-weight: 400;
   font-family: "Open Sans", "Arial", sans-serif;
   cursor: pointer;
