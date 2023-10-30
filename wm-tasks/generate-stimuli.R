@@ -5,10 +5,11 @@ library(tidyverse)
 # stimulus sets for all tasks are generated for that session
 session_id <- 2
 my_two_seeds <- c(39737632, 8567389)
+
+#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+source("wm-tasks/utils-gen-stim.R")
+
 set.seed(my_two_seeds[session_id])
-
-
-
 
 
 
@@ -250,3 +251,224 @@ plot(tbl_4a_rlb$avg_difference)
 hist(tbl_4a_rlb$avg_difference)
 
 cor(tbl_4a_rlb$min_diff_to_max, tbl_4a_rlb$avg_difference)
+
+## make practice trials
+
+tbl_4a_rlb_practice <- generate_rl_bandits_as_required(FALSE, abs(session_id - 3)) # practice from other session
+
+tbl_4a_rlb$block <- 2
+tbl_4a_rlb_practice$block <- 1
+
+rewards <- rbind(tbl_4a_rlb_practice, tbl_4a_rlb)
+
+## save as json
+nBlocks <- 2 # 1 for practice
+nTrials <- c(10,200)# first is practice
+
+ls = list()
+for (i in 1:nBlocks){
+  block = list()
+  for (j in 1:nTrials[i]){
+    re <- c(round(rewards$`Arm 1`[rewards$block == i & rewards$trial_id == j]), 
+            round(rewards$`Arm 2`[rewards$block == i & rewards$trial_id == j]),
+            round(rewards$`Arm 3`[rewards$block == i & rewards$trial_id == j]),
+            round(rewards$`Arm 4`[rewards$block == i & rewards$trial_id == j]))
+    block[[j]] <- re
+
+  }
+  ls[[i]] <- block
+}
+
+library(jsonlite)
+
+json = toJSON(ls)
+
+write(json, paste("task/rewards4ARB", session_id, ".json", sep = ""))
+
+# Sam's task -------------------------------------------------------------
+
+
+nBlocks = 32
+nTrials = 10
+# same for all subjects so nSubs = 1
+
+# 5% mean diff 1&0
+# 15% mean diff 2
+# 60% mean diff [3-5]
+# 15% mean diff [6-8]
+# 5% mean diff [9-23]
+
+# create differences in initial reward means
+
+diffs <- data.frame(diff = seq(0,23),
+                    prob = c(5,5,15,60,60,60,15,15,15,rep(5,15)))
+
+# normalise probabilities by number of elements in that bin so that it represents the actual probability of that difference being drawn and not probability of a number in that bin being drawn
+diffs$prob[1:2] <- diffs$prob[1:2]/2
+diffs$prob[4:6] <- diffs$prob[4:6]/3
+diffs$prob[7:9] <- diffs$prob[7:9]/3
+diffs$prob[10:24] <- diffs$prob[10:24]/15
+
+# make them actual probabilities not percentages
+diffs$prob <- diffs$prob/100
+
+
+# sample start rewards differences
+
+rewards <- data.frame(trial = rep(1:nTrials, nBlocks),
+                      block = rep(1:nBlocks, each = nTrials),
+                      reward1 = NA,
+                      reward2 = NA,
+                      cond = NA)
+
+rewards$reward1[rewards$trial == 1] <- runif(nBlocks, 10, 90)
+
+rewards$reward2[rewards$trial == 1] <- ifelse(runif(nBlocks)>0.5, rewards$reward1[rewards$trial == 1] + sample(diffs$diff, nBlocks, replace = T, prob = diffs$prob), # randomise whether 1 or 2 is higher
+                                              rewards$reward1[rewards$trial == 1] - sample(diffs$diff, nBlocks, replace = T, prob = diffs$prob))
+
+# make condition random
+library(permute)
+
+for (i in seq(1,nTrials*(nBlocks-1), 4*nTrials)){
+  conds <- c("FF", "SS", "FS", "SF")
+  inds <- rep(shuffle(4), each = nTrials)
+  rewards$cond[i:(i+4*nTrials-1)] <- conds[inds]
+}
+
+## create remaining trials
+
+# stable condition:
+
+rewards$reward1[rewards$trial != 1 & (rewards$cond == "SS" | rewards$cond == "SF")] <- rep(rewards$reward1[rewards$trial == 1 & (rewards$cond == "SS" | rewards$cond == "SF")], each = nTrials-1)
+rewards$reward2[rewards$trial != 1 & (rewards$cond == "SS" | rewards$cond == "FS")] <- rep(rewards$reward2[rewards$trial == 1& (rewards$cond == "SS" | rewards$cond == "FS")], each = nTrials-1)
+
+# random walk
+for (i in 1:nBlocks){
+  if (rewards$cond[rewards$block == i & rewards$trial == 1] == "SS"){next} # for stable cond nothing to do
+  else if (rewards$cond[rewards$block == i & rewards$trial == 1] == "FF"){# for both fluctuating random walk of both
+    done = F
+    while (done == F){
+      for (j in 2:nTrials){
+        rewards$reward1[rewards$trial == j & rewards$block == i] <- rnorm(1,rewards$reward1[rewards$trial == j-1 & rewards$block == i],4)
+        rewards$reward2[rewards$trial == j & rewards$block == i] <- rnorm(1,rewards$reward2[rewards$trial == j-1 & rewards$block == i],4)
+      }
+      # calculate mean distance between rewards
+      dist = mean(abs(rewards$reward1[rewards$block == i] - rewards$reward2[rewards$block == i]))
+      print(dist)
+      if (dist < 15) {done = T} # if average difference in rewards is still below 20, keep it, else, do this again
+    }
+    
+  } else if (rewards$cond[rewards$block == i & rewards$trial == 1] == "SF"){# right fluctuating
+    done = F
+    while (done == F){
+      for (j in 2:nTrials){
+        rewards$reward2[rewards$trial == j & rewards$block == i] <- rnorm(1,rewards$reward2[rewards$trial == j-1 & rewards$block == i],4)
+      }
+      # calculate mean distance between rewards
+      dist = mean(abs(rewards$reward1[rewards$block == i] - rewards$reward2[rewards$block == i]))
+      print(dist)
+      if (dist < 15) {done = T} # if average difference in rewards is still below 20, keep it, else, do this again
+    }
+  }else if (rewards$cond[rewards$block == i & rewards$trial == 1] == "FS"){# left fluctating
+    done = F
+    while (done == F){
+      for (j in 2:nTrials){
+        rewards$reward1[rewards$trial == j & rewards$block == i] <- rnorm(1,rewards$reward1[rewards$trial == j-1 & rewards$block == i],4)
+      }
+      # calculate mean distance between rewards
+      dist = mean(abs(rewards$reward1[rewards$block == i] - rewards$reward2[rewards$block == i]))
+      print(dist)
+      if (dist < 15) {done = T} # if average difference in rewards is still below 20, keep it, else, do this again
+    }
+    
+  }
+  
+}
+
+# add noise and round to integers
+rewards$reward1 <- round(rewards$reward1 + rnorm(nrow(rewards), 0, 1), 0)
+rewards$reward2 <- round(rewards$reward2 + rnorm(nrow(rewards), 0, 1), 0)
+
+######## save the rewards
+
+ls = list()
+for (i in 1:nBlocks){
+  block = list()
+  for (j in 1:nTrials){
+    re <- c(rewards$reward1[rewards$block == i & rewards$trial == j], rewards$reward2[rewards$block == i & rewards$trial == j])
+    block[[j]] <- re
+    
+  }
+  ls[[i]] <- block
+}
+
+library(jsonlite)
+
+json = toJSON(ls)
+
+write(json, paste("task/rewardsSam", session_id, ".json" , sep = ""))
+
+################ Horizon task -----------------------------------------------
+data <- read.csv("wm-tasks/ZallerEtAl.csv")
+
+nBlocks = 81 # 1 extra for practice
+nTrials = 10 # just always sample 10 trials even if it is a short horizon and the round is over after 5 trials bc simpler this way
+
+
+
+rewards <- data.frame(block = 1:nBlocks,
+                      reward1 = c(40, data$mu_L[data$Subject == data$Subject[3000] & data$Trial == 1]), # their rewards are perfectly balanced, just different order for every subject
+                      reward2 = c(60, data$mu_R[data$Subject == data$Subject[3000] & data$Trial == 1]),
+                      infoCond = c(-1, data$Info[data$Subject == data$Subject[1] & data$Trial == 1]), # stealing infoCond and Horizon from Zaller et al. bc it is a pain to get it as perfectly orthogonal as they did without having a pattern
+                      Horizon = c(10, data$Horizon[data$Subject == data$Subject[1] & data$Trial == 1]))
+
+
+
+
+noise_var <- 17 # variance inferred from dataset by Zaller et al
+
+
+## save rewards
+
+ls = list()
+for (i in 1:nBlocks){
+  block = list()
+  for (j in 1:nTrials){
+    re <- c(round(rewards$reward1[rewards$block == i] + rnorm(1,0,sqrt(noise_var))), round(rewards$reward2[rewards$block == i]+ rnorm(1,0,sqrt(noise_var))))
+    block[[j]] <- re
+    
+  }
+  ls[[i]] <- block
+}
+
+library(jsonlite)
+
+json = toJSON(ls)
+
+write(json, paste("task/rewardsHorizon", session_id,".json", sep = ""))
+
+## save fixed choices
+
+fixed <- list()
+
+for (i in 1:nBlocks){
+  if (rewards$infoCond[rewards$block == i] == -1){ # right more info
+    choices <- c(0,1,1,1)
+  } else if (rewards$infoCond[rewards$block == i] == 0){# equal info
+    choices <- c(1,1,0,0)
+  }else if (rewards$infoCond[rewards$block == i] == 1){# left more info
+    choices <- c(0,0,0,1)
+  }
+  fixed[[i]] <- choices[shuffle(4)]
+}
+
+json = toJSON(fixed)
+
+write(json, paste("task/fixedChoices", session_id,".json", sep = ""))
+
+## save horizon
+
+horizon <- rewards$Horizon
+
+json = toJSON(horizon)
+write(json, paste("task/Horizon", session_id,".json", sep = ""))
