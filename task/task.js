@@ -4,7 +4,7 @@
 
 // settings
 
-var quickrunthrough = 1
+var quickrunthrough = 1 // if 1, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
 var session = 1
@@ -31,6 +31,24 @@ var understood = false
 var horizonRewards
 var samRewards
 var restlessRewards
+var data = {}
+var bonusPayment
+var tic 
+var toc
+data["horizon"] = {}
+data["sam"] = {}
+data["restless"] = {}
+data["horizon"]["choice"] = {}
+data["horizon"]["reward"] = {}
+data["horizon"]["time"] = {}
+data["sam"]["choice"] = {}
+data["sam"]["reward"] = {}
+data["sam"]["time"] = {}
+data["restless"]["choice"] = {}
+data["restless"]["reward"] = {}
+data["restless"]["time"] = {}
+
+
 
 // slot machines (image + button)
 var machine1 = document.getElementById('mach_div1');
@@ -63,12 +81,46 @@ $.getJSON("rewards4ARB"+ session+".json", function(data) {
     restlessRewards = data;
   })
 
+function saveData(filedata){
+    console.log(data)
+    var filename = "../data/" + subjectID + "data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt";
+    $.post("./results_data.php", {postresult: filedata + "\n", postfile: filename })
+  
+}
+
+function saveTemp(filedata){
+    console.log(data)
+    var filename = "../data/" + subjectID + "temp_data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt";
+    $.post("./results_data.php", {postresult: filedata + "\n", postfile: filename })
+  
+}
+
+function getQueryVariable(variable)
+{
+    var query = window.location.search.substring(1);
+    var vars = query.split("&");
+  
+    for (var i=0;i<vars.length;i++) {
+        var pair = vars[i].split("=");
+        if(pair[0] == variable){return pair[1];}
+    }
+    return(false);
+}
+
+if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
+    var subjectID = getQueryVariable('PROLIFIC_PID');
+} else {
+    var subjectID = "test-" + Math.random().toString(36).substring(7);
+    console.log(subjectID)
+}
 
 // click function
 var clickMachine = function(machine, task) {
     // input:
     // machine: which machine was clicked (0-3)
     // task: which task are we in (horizon, sam, restless)
+
+    toc = Number(new Date())
     
     // get variables ---------------
     rewards = rewardCollect[currentBlock][trial]
@@ -115,8 +167,23 @@ var clickMachine = function(machine, task) {
    
     }
 
+    // save data
+    if (trial == 0) {
+        data[task]["choice"][currentBlock] = {}
+        data[task]["reward"][currentBlock] = {}
+        data[task]["time"][currentBlock] = {}
+    }
+    data[task]["choice"][currentBlock][trial] = machine
+    data[task]["reward"][currentBlock][trial] = reward
+    data[task]["time"][currentBlock][trial] = toc - tic
+
+
+    
+
     // increment trial
     trial += 1
+
+    if (trial > Ntrials) {tic = Number(new Date())} // timing for next click
     
     console.log(trial)
     // fixed choice
@@ -152,20 +219,26 @@ var clickMachine = function(machine, task) {
     if (trial == Ntrials) { 
         currentBlock += 1;
 
+        // save data
+        saveTemp(JSON.stringify(data))
+
         // was this a practice round?
         if (currentBlock == 1) { // practice round
 
             // go to comprehension
+            setTimeout(function() {
             startComprehension(task)
-
+            }, 1500)
 
 
         } else if (currentBlock == Nblocks) { // game over
             scoreThisBlock = 0;
+
+
             if (task != "restless") {
-            slot_machines.style.display = 'none';
             document.getElementById('machine_title').innerHTML = "This Game is over. Click the button to proceed to the next game."
             setTimeout(function() {
+                slot_machines.style.display = 'none';
                 document.getElementById('score').innerHTML = ""
                 nextTaskButton.style.display = 'block';
             }, 1500)
@@ -176,21 +249,39 @@ var clickMachine = function(machine, task) {
             document.getElementById('score').innerHTML ='<br> Total score: ' + totalScore 
             endTaskButton.style.display = 'block';
 
+            // save data
+            data["totalScore"] = totalScore
+            data["bonusPayment"] = bonusPayment
+            data["subjectID"] = subjectID
+            data["session"] = session
+            data["comprehensionAttemptsH"] = comprehensionAttemptsH
+            data["comprehensionAttemptsS"] = comprehensionAttemptsS
+            data["comprehensionAttemptsR"] = comprehensionAttemptsR
+            
+
+
+            saveData(JSON.stringify(data))
+
         }
 
         } else { // go to next block
 
-            document.getElementById('machine_title').innerHTML = 'New round!';
-            slot_machines.style.display = "none";
-            // reset trial
-            trial = 0;
-            Ntrials = NtrialsCollect[currentBlock]
-
-            //document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
-            scoreThisBlock = 0;
+            setTimeout(function() {
+                document.getElementById('machine_title').innerHTML = 'New round!';
+                slot_machines.style.display = "none";
+                // reset trial
+                trial = 0;
+                Ntrials = NtrialsCollect[currentBlock]
+    
+                //document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
+                scoreThisBlock = 0;
+            } , 1500)
+            
 
             setTimeout(function() {
+                tic = Number(new Date())
                 slot_machines.style.display = "flex";
+
                 // update score
                 document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
            
@@ -233,6 +324,7 @@ var clickMachine = function(machine, task) {
 
 function horizonTask() {
     // set up variables
+    tic = Number(new Date())
 
     // load rewards or quickly get some place holder rewards
     if (quickrunthrough == 1) { 
@@ -276,6 +368,9 @@ function horizonTask() {
 
     startPracticeButton.onclick = function() {
         console.log("started practice Horizon task")
+        toc = Number(new Date())
+        data["horizon"]["instructionTime"] = toc - tic
+        tic = Number(new Date())
         // display slot machines
         document.getElementById('task').style.display = 'block';
         startPracticeButton.style.display = 'none';
@@ -320,6 +415,7 @@ function horizonTask() {
 function samTask() {
     nextTaskButton.style.display = 'none';
     console.log("started sam task")
+    tic = Number(new Date())
     // rewards here are a list of lists of lists bc we need to allow for the drifting rewards
         // load rewards or quickly get some place holder rewards
     if (quickrunthrough == 1) { 
@@ -356,9 +452,11 @@ function samTask() {
     // start practice --------------------------------
 
     startPracticeButton.onclick = function() {
-        
+        toc = Number(new Date())
+        data["sam"]["instructionTime"] = toc - tic
         console.log("started practice round sam")
         // display slot machines
+        tic = Number(new Date())
         
         document.getElementById('task').style.display = 'block';
         slot_machines.style.display = 'flex';
@@ -394,11 +492,23 @@ function samTask() {
 function restlessTask() {
     nextTaskButton.style.display = 'none';
     console.log("started restless task")
+    tic = Number(new Date())
+
+    // load rewards or quickly get some place holder rewards
+    if (quickrunthrough == 1) { 
+        Nblocks = 2; 
+        rewardCollect = Array(Nblocks).fill([[20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 3, 20, 300]] )
+        NtrialsCollect = [10, 10]
+    }
+    else {
+        rewardCollect = restlessRewards
+
+        // number of blocks is length of the list of Ntrials    
+        Nblocks = rewardCollect.length;
+        NtrialsCollect = [10, 200]
+    }
     // rewards here are a list of lists bc the rewards do drift but there is only 1 block so there are Ntrials lists containing 4 rewards (1 for each arm)
-    rewardCollect = [[20,20, 20, 20], [20,21, 19, 20], [21,20,20, 21], [24, 23,18, 22], [26, 24,16, 25], [28, 25,14, 28], [30, 26,12, 31], [32, 27,10, 34], [34, 27,10, 37], [36, 28, 8, 40]] //! place holder
-    Nblocks = 1; // here we just have 1 block
     fixedChoicesCollect = Array(Nblocks).fill(0);
-    NtrialsCollect = Array(Nblocks).fill(10); //TODO: increase number of trials (this is the equivalent of the R code rep(5, Nblocks))
     currentBlock = 0;
     trial = 0;
     Ntrials = NtrialsCollect[currentBlock]
@@ -415,13 +525,15 @@ function restlessTask() {
 
     document.getElementById('instructions').style.display = 'block';
     document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time. You can choose any machine at any time. In this game, you will only play one round consisting of "+ 
-    Ntrials+" choices. <br> <br> Click the button below to start a practice round.";
+    NtrialsCollect[1] +" choices. <br> <br> Click the button below to start a practice round.";
 
 
     // start practice --------------------------------
 
     startPracticeButton.onclick = function() {
-
+        toc = Number(new Date())
+        data["restless"]["instructionTime"] = toc - tic
+        tic = Number(new Date())
         // display slot machines
         slot_machines.style.display = 'flex';
         document.getElementById('task').style.display = 'block';
@@ -461,7 +573,7 @@ document.getElementById('questionnaire').style.display = 'none';
 document.getElementById('instructionText').innerHTML= "Welcome to the experiment! <br> <br> In this experiment, you will have to choose between playing different slot machines across a series of games. <br> <br> Each slot machine gives you a different average reward. <br> <br> "+
 "Your goal is to earn as many points as possible. <br> <br> You will play 3 different games. Each game consists of several rounds, in which the slot machines have different rewards. Thus, if a new round starts, the average rewards of the slot machines have changed and you need to learn them again!"+
 " You know how many clicks you have left in a round through the 'trials left this round' indicator. <br>" +
-"Below, you can see what an example game looks like: [insert screenshot]" //TODO: add screenshot
+"Below, you can see what an example game looks like: <br><br><img src='task.png' height = 500>" 
 
 var horizonInstructions = "In this game, you will choose between two slot machines that give different average rewards. Before making your choice, you will have to make 4 choices that we pre-determined. You will see which machine is highlighted and have to choose the highlighted machine."+
 " <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 5 free choices. You can see how many choices you can make under 'Trials left in this round'. You will play"+ (Nblocks-1)+"  rounds of this game. <br> <br> Click the button below to start a practice round.";
@@ -529,6 +641,9 @@ function createQuestion(questionnaireName, questionData) { // function from Toby
 
 function checkComprehension(task){
     console.log("checking comprehension")
+    toc = Number(new Date())
+
+    data[task]["comprehensionTime"] = toc - tic
   
     var inputs = document.getElementsByName("fs_");
   
@@ -558,10 +673,9 @@ function checkComprehension(task){
             
       }
         
-      
       // This checks for any items that were missed and scrolls to them
-      if (incomplete.length > 0) {
-  
+      if (incomplete.length > 0) {// missing items
+            console.log("you missed sth")
           $('html, body').animate({ // go to first missed items
                   scrollTop: $(document.getElementById(incomplete[0])).offset().top - 100
                   }, 400);
@@ -588,16 +702,42 @@ function checkComprehension(task){
        // everything filled in   
       } else if (task == "horizon" & (values["Q1_0"] == "1" && values["Q2_1"] == "0" && values["Q3_2"] == "1" && values["Q4_3"] == "0")|
                 task == "sam" & (values["Q1_0"] == "2" && values["Q2_1"] == "1" && values["Q3_2"] == "2" && values["Q4_3"] == "0")|
-                task == "restless" & (values["Q1_0"] == "1" && values["Q2_1"] == "2" && values["Q3_2"] == "2" && values["Q4_3"] == "2")) {
+                task == "restless" & (values["Q1_0"] == "1" && values["Q2_1"] == "2" && values["Q3_2"] == "2" && values["Q4_3"] == "2")) {// complete and correct
         understood = true
         
-        // hide quiz
-        $(document.getElementById("questionnaire")).hide()
         $(startTaskButton).hide()
   
         window.scrollTo(0,0);
+        tic = Number(new Date())
+
+        trial = 0;
+        scoreThisBlock = 0;
+        Ntrials = NtrialsCollect[currentBlock]
+        document.getElementById("questionnaire").style.display = 'none';
+        document.getElementById('task').style.display = 'block';
+
+        if (task == "horizon") {
+            document.getElementById('machine_title').innerHTML = 'Select the machine that is highlighted.';
+
+            fixedChoices = fixedChoicesCollect[currentBlock]
+
+            if (fixedChoices[trial] == 0) {
+                machine1.style.display = 'inline-block';
+                machine2.style.display = 'inline-block';
+                machine2.style.opacity = 0.5;
+
+            } else {
+                machine2.style.display = 'inline-block';
+                machine1.style.display = 'inline-block';
+                machine1.style.opacity = 0.5;
+            }
+
+            document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
+
+        }
+
         
-      } else {
+      } else {//complete but incorrect
   
         // hide quiz
         $(document.getElementById("questionnaire")).hide()
@@ -619,6 +759,8 @@ function startComprehension(task){
     document.getElementById("questionnaire").style.display = 'block';
 
     window.scrollTo(0, 0);
+
+    while (document.getElementById("questionnaires").lastChild) {document.getElementById("questionnaires").removeChild(document.getElementById("questionnaires").lastChild);} 
 
 
     //! this appends the new questions to the previous ones. 
@@ -702,44 +844,19 @@ function startComprehension(task){
     var Q2 = createQuestion('Q2', q2Data);
     var Q3 = createQuestion('Q3', q3Data);
     var Q4 = createQuestion('Q4', q4Data);
-    document.getElementById('questionnaire').appendChild(Q1);
-    document.getElementById('questionnaire').appendChild(Q2);
-    document.getElementById('questionnaire').appendChild(Q3);
-    document.getElementById('questionnaire').appendChild(Q4);
+    document.getElementById('questionnaires').appendChild(Q1);
+    document.getElementById('questionnaires').appendChild(Q2);
+    document.getElementById('questionnaires').appendChild(Q3);
+    document.getElementById('questionnaires').appendChild(Q4);
     console.log(Q1)
-
+    tic = Number(new Date())
 
     startTaskButton.style.display = 'block';
     startTaskButton.onclick = function() {
         
         checkComprehension(task)
 
-        trial = 0;
-        scoreThisBlock = 0;
-        Ntrials = NtrialsCollect[currentBlock]
-        document.getElementById("questionnaire").style.display = 'none';
-        document.getElementById('task').style.display = 'block';
-
-        if (task == "horizon") {
-            document.getElementById('machine_title').innerHTML = 'Select the machine that is highlighted.';
-
-            fixedChoices = fixedChoicesCollect[currentBlock]
-
-            if (fixedChoices[trial] == 0) {
-                machine1.style.display = 'inline-block';
-                machine2.style.display = 'inline-block';
-                machine2.style.opacity = 0.5;
-
-            } else {
-                machine2.style.display = 'inline-block';
-                machine1.style.display = 'inline-block';
-                machine1.style.opacity = 0.5;
-            }
-
-            document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
-
-        }
-
+       
         
 
     }
