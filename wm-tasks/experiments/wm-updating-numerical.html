@@ -365,8 +365,8 @@
     //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
     var comp_check_wmu_loop = {
         //timeline: [comprehension_question_wmu1, comprehension_question_wmu2, comprehension_question_wmu3, comprehension_question_wmu4, comp_feedback],
-        timeline: [instructions1, fullscreen_on, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
-        //timeline: [instructions1, fullscreen_on, instructions2, instructions3, instructions4, instructionsGo, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
+        //timeline: [instructions1, fullscreen_on, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
+        timeline: [instructions1, fullscreen_on, instructions2, instructions3, instructions4, instructionsGo, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
         loop_function: function (data) {
             len_data = data.values().length;
             console.log('data: ', data.values());
