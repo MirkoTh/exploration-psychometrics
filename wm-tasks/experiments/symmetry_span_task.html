@@ -45,6 +45,7 @@
   randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
   file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
   local = true // save the data file locally.
+  var n_comprehension_attempts = 1;
   // If this test is being run online (e.g., on MTurk), true will cause the file to be downloaded to the participant's computer.
   // If this test is on a server, and you wish to save the data file to that server, change this to false.
   // If changed to false, ensure that the php file (its in the directory!) and the empty "data" folder has also been appropriately uploaded to the server.
@@ -420,11 +421,22 @@
     loop_function: function (data) {
       len_data = data.values().length;
       console.log('data: ', data.values());
+      data_comprehension = {
+        participant_id: participant_id,
+        n_attempts: n_comprehension_attempts
+      };
       if (
         data.values()[len_data - 2].correct == true
       ) {
+        saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json");
+        console.log("nr attempts data = " + JSON.stringify(data_comprehension));
         return false;
       } else {
+        n_comprehension_attempts += 1;
+        n = 0;
+        selection = selections_symm[session_id][n]
+        selection_id = -1;
+        counter_symmetry = 0;
         return true;
       }
     }
