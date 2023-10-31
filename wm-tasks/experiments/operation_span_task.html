@@ -76,27 +76,14 @@
     var studyID = getQueryVariable('STUDY_ID');
   }
 
-  console.log("current participant_id = " + participant_id);
-
   var possibleLetters = ["B", "C", "D", "F", "G", "H", "K", "L", "M", "N", "P", "R", "S", "T", "V", "W", "X", "Z"]
   const ncols_mat = 4;
   const nrows_mat = Math.ceil(possibleLetters.length / ncols_mat);
 
-  var setSizes = []    // different set sizes
-  for (var i = minSetSize; i <= maxSetSize; i++) {
-    for (var r = 1; r <= repSet; r++) {
-      setSizes.push(i)
-    }
-  }
-  //console.log(setSizes)
+  var setSizes;    // different set sizes
+  setSizes = SetSizes_prep[session_id];
 
   var nTrials = setSizes.length // number of trials
-
-  Math.seedrandom((13876 * session_id).toString());
-  if (randomize) {
-    //setSizes = jsPsych.randomization.sampleWithoutReplacement(setSizes, nTrials)
-    setSizes = SetSizes_prep[session_id];
-  } // shuffle through the set sizes
 
   var letterMemDemoArray = [4, 5]  // set sizes of initial demo trials
   var fullDemoArray = [4, 5]       // set sizes of full demo trials
@@ -111,10 +98,10 @@
   //var selection = jsPsych.randomization.sampleWithoutReplacement(possibleLetters, setSizes[n])
   var letterLists = letterlists_prep[session_id];
   var demolists = [["C", "M", "L", "K"], ["Z", "R", "V", "X", "B"], ["L", "G", "K", "D"], ["X", "F", "H", "B", "G"]]
-  var all_letterLists = demolists.concat(letterLists);
-  var selection = all_letterLists[n];
+  var selection = demolists[n];
   var selection_id = 0 //keeps track of recall items within a test stack
   var proc_position = 0 // keeps track of processing position within one memory trial
+  var is_practice = 1;
 
   var nLetterRecalled = 0 // feedback
   var nMathAcc = 0 // feedback
@@ -187,7 +174,7 @@
     type: 'instructions',
     pages: function () {
       pageOne = '<div style="font-size:20px;">We will now practice the two tasks together.<br><br>In the next practice set, you will first be presented with a letter.<br>Try and remember that letter.<br>After the letter dissapears, you will be provided with a math problem<br>and you have to judge if the answer provided is true or false.<br><br>It is important to work QUICKLY and ACCURATELY on the math problem.<br>Each math problem will be presented for only 6 seconds.<br><br></div>'
-      pageTwo = '<div style="font-size:20px;">After the math problem, you will be shown another letter to remember,<br>which will be followed by another math problem.<br><br>Therefore, letter presentations and math problems will alternate.<br>After 3 to 6 letters have been presented, the recall screen will appear.<br>Use the mouse to select the presented letters in their correct order.<br><br>Do you have any questions?<br>Press "Next" to start practice rounds.<br><br></div>'
+      pageTwo = '<div style="font-size:20px;">After the math problem, you will be shown another letter to remember,<br>which will be followed by another math problem.<br><br>Therefore, letter presentations and math problems will alternate.<br>After 4 to 8 letters have been presented, the recall screen will appear.<br>Use the mouse to select the presented letters in their correct order.<br><br>Do you have any questions?<br>Press "Next" to start practice rounds.<br><br></div>'
       return [pageOne, pageTwo]
     },
     allow_backward: false,
@@ -244,12 +231,7 @@
         eqCorrect = false
       } else {
         //eqCorrect = jsPsych.randomization.sampleWithReplacement([true, false], 1)[0]
-        console.log("session_id = " + session_id);
-        console.log("id_current_demo = " + id_current_demo);
         eqCorrect = eqsCorrect_demo[session_id][id_current_demo];
-        console.log("id_current_demo: " + id_current_demo);
-
-        console.log("current equation is correct: " + eqCorrect);
       }
       return eqCorrect
     },
@@ -281,9 +263,6 @@
     equation_accuracy: function () {
       eqCorrect = eqsCorrect[session_id][id_current]
       //eqCorect = jsPsych.randomization.sampleWithReplacement([true, false], 1)[0]
-      console.log("id_current: " + id_current);
-
-      console.log("current equation is correct: " + eqCorrect);
       return eqCorrect
     },
     stimulus: function () {
@@ -365,7 +344,11 @@
       nLettersRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
       n += 1
       //selection = jsPsych.randomization.sampleWithoutReplacement(possibleLetters, setSizes[n])
-      selection = all_letterLists[n];
+      if (is_practice == 1) {
+        selection = demolists[n];
+      } else if (is_practice == 0) {
+        selection = letterLists[n];
+      }
       selection_id = 0;
       proc_position = 0;
     }
@@ -398,7 +381,6 @@
       } else {
         text += '<div style="font-size:35px; color:rgb(240 0 0)"><b>Incorrect<br><br><br><br></div>'
       }
-      //text += '<div style="font-size:30px; color:rgb(0 0 0)"><br><br>New trial starting now.</div>'
       return text
     },
     choices: jsPsych.NO_KEYS,
@@ -419,20 +401,9 @@
     on_finish: function () {
       partN = jsPsych.data.get().last(1).values()[0].partNum
       partN = partN.replace(/['"]+/g, '')
-      //  console.log(partN)
     }
   }
-  /* 
-    function saveData(filename, filedata) {
-      $.ajax({
-        type: 'post',
-        cache: false,
-        url: 'save_data.php', // this is the path to the above PHP script
-        data: { filename: filename, filedata: filedata }
-      });
-    };
-   */
-  //var IDsub = Date.now()
+
   var dataLog = {
     type: 'html-keyboard-response',
     stimulus: " ",
@@ -499,9 +470,12 @@
     timeline: [instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
     // timeline: [loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
     loop_function: function (data) {
+      // reset all counters after comprehension check failure
+      n = 0;
+
+      selection_id = 0;
+      id_current = 0;
       len_data = data.values().length;
-      console.log('data: ', data.values());
-      console.log('data[len_data - 2].correct: ', data.values()[len_data - 2].correct);
       data_comprehension = {
         participant_id: participant_id,
         n_attempts: n_comprehension_attempts
@@ -509,16 +483,13 @@
       if (
         data.values()[len_data - 2].correct == true
       ) {
+        selection = letterLists[n];
+        is_practice = 0;
         saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json");
-        console.log("nr attempts data = " + JSON.stringify(data_comprehension));
         return false;
       } else {
+        selection = demolists[n];
         n_comprehension_attempts += 1;
-        n = 0;
-        selection = all_letterLists[n];
-        selection_id = 0;
-        id_current = 0;
-        console.log("n = " + n);
         return true;
       }
     }

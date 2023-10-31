@@ -9,21 +9,6 @@ function getQueryVariable(variable) {
     return (false);
 }
 
-
-function saveData(filedata, task) {
-    var filename = "./data/" + task + "-participant-" + participant_id + ".json";
-    $.post("save_data.php", { postresult: filedata + "\n", postfile: filename })
-}
-
-async function saveSeveralData(filedata, task) {
-    var filename = "./data/" + task + "-participant-" + participant_id + ".json";
-    var n_data = filedata.length;
-    for (var i = 0; i < n_data; i++) {
-        $.post("save_data.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename })
-    }
-}
-
-
 function download(content, fileName, contentType) {
     var a = document.createElement("a");
     var file = new Blob([content], { type: contentType });
