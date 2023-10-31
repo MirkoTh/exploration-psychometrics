@@ -168,6 +168,8 @@
         choices: ["Start Main Part"]
     };
 
+
+
     const viewing_time_initial = 5250; // 5000
     const viewing_time_updating = 1500; // ms
     const isi = 250; // ms
@@ -202,7 +204,9 @@
         }
         immediate_object.push(immediate_temporal_object)
     }
-
+    function toNumber(value) {
+        return Number(value);
+    }
     const cued_response = {
         type: jsPsychSurveyText,
         textarea: "width:40%;height:40%",
@@ -212,11 +216,13 @@
                 Please guess when you are unsure about a position: `}
         ],
         on_finish: function (data) {
+            n_recalled_correctly = 0;
             var str_response = data.response["Q0"].toString();
             var str_trim = str_response.trim();
             var regex = /[.,;:]/g;
             var result = str_trim.replace(regex, '');
             var result_array = result.split("");
+            var result_array = result_array.map(toNumber);
             data.response_clean = result;
             data.response_array = result_array;
 
@@ -229,6 +235,11 @@
                 n_type = n_immediate;
                 correct_sequence = immediate_set[n_immediate];
             }
+            for (let i = 0; i < set_size; i++) {
+                if (correct_sequence[i] == result_array[i]) {
+                    n_recalled_correctly += 1
+                }
+            }
             data_recall = {
                 participant_id: participant_id,
                 trial_type: trial_type[n],
@@ -236,8 +247,15 @@
                 set_size: set_size,
                 sequence_correct: correct_sequence,
                 sequence_recalled: result_array,
+                n_correct: n_recalled_correctly,
                 rt: data.rt
             };
+
+            var trial_data = {
+                rt: data.rt,
+                accuracy: n_recalled_correctly
+            }
+
             if (local) {
                 console.log("all data = " + JSON.stringify(data_recall));
 
@@ -253,8 +271,24 @@
                 n_immediate += 1;
             }
             n += 1;
+            // move on to the next trial
+            jsPsych.finishTrial(trial_data);
         }
     };
+
+    var feedback = {
+        type: jsPsychHtmlButtonResponse,
+        stimulus: function () {
+            pageOne = "<div style='font-size:20px;'><b>You recalled <font color='blue'>" + n_recalled_correctly + " digits in their correct order.</b><br><br>"
+            return pageOne
+        },
+        allow_backward: false,
+        choices: ["Next Trial"],
+        show_clickable_nav: true,
+        on_finish: function () {
+            n_recalled_correctly = 0
+        }
+    }
 
 
     const mixed_trial = {
@@ -312,6 +346,8 @@
         }
     }
 
+
+
     timeline_mixed = [];
 
     const fullscreen_on = {
@@ -320,14 +356,15 @@
     };
 
     const mixed_node_practice = {
-        timeline: [mixed_trial, cued_response],
+        timeline: [mixed_trial, cued_response, feedback],
         repetitions: 2,
     };
 
     //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
     var comp_check_wmu_loop = {
         //timeline: [comprehension_question_wmu1, comprehension_question_wmu2, comprehension_question_wmu3, comprehension_question_wmu4, comp_feedback],
-        timeline: [instructions1, fullscreen_on, instructions2, instructions3, instructions4, instructionsGo, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
+        timeline: [instructions1, fullscreen_on, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
+        //timeline: [instructions1, fullscreen_on, instructions2, instructions3, instructions4, instructionsGo, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
         loop_function: function (data) {
             len_data = data.values().length;
             console.log('data: ', data.values());
@@ -343,7 +380,7 @@
     timeline_mixed.push(comp_check_wmu_loop);
 
     const mixed_node_main = {
-        timeline: [mixed_trial, cued_response],
+        timeline: [mixed_trial, cued_response, feedback],
         repetitions: nTrials_update + nTrials_immediate,
     };
     timeline_mixed.push(instructions_test);
