@@ -145,6 +145,7 @@
 
     var n_recalled;
     var n_recalled_correctly;
+    var data_cumulative = [];
 
     var instructionsGo = {
         type: jsPsychHtmlButtonResponse,
@@ -251,6 +252,7 @@
             }
             data_recall = {
                 participant_id: participant_id,
+                is_practice: is_practice,
                 trial_type: trial_type[n],
                 trial_id: n_type,
                 set_size: set_size,
@@ -259,6 +261,7 @@
                 n_correct: n_recalled_correctly,
                 rt: data.rt
             };
+            data_cumulative.push(data_recall);
 
             var trial_data = {
                 rt: data.rt,
@@ -269,7 +272,7 @@
                 console.log("all data = " + JSON.stringify(data_recall));
 
             } else if (!local) {
-                saveSeveralData(JSON.stringify(data_recall), file_name + participant_id + ".json")
+                saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json")
             }
 
             // update trial counters
@@ -426,6 +429,7 @@
             };
             console.log("data_bonus = " + JSON.stringify(data_bonus));
             saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json");
+            saveSeveralData(JSON.stringify(data_cumulative), "WMU_allinone_" + participant_id + ".json")
             window.location.href = "../../task/main.html";
         }
     };

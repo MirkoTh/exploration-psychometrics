@@ -280,6 +280,7 @@
     is_local: function () {
       return local
     },
+    is_practice: function () { return is_practice },
     on_finish: function () {
       nSquaresRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
 

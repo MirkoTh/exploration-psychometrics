@@ -251,6 +251,14 @@ async function saveSeveralData(filedata, task) {
     }
 }
 
+async function saveSeveralDataOverwrite(filedata, task) {
+    var filename = "./data/" + task + "-participant-" + participant_id + ".json";
+    var n_data = filedata.length;
+    for (var i = 0; i < n_data; i++) {
+        $.post("save_data_overwrite.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename })
+    }
+}
+
 
 // COMPREHENSION CHECK SYMMETRY SPAN
 var comprehension_question_ss_allinone = {

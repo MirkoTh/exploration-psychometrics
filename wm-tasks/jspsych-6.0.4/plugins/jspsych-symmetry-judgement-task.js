@@ -308,6 +308,7 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
     }
 
 
+    var data_cumulative = [];
     function end_trial() {
 
       // kill any remaining setTimeout handlers
@@ -316,11 +317,13 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
       // gather the data to store for the trial
       var trial_data = {
         participant_id: trial.participant_id,
+        is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         processing_position: trial.counter_symmetry,
         rt: response.rt,
         accuracy: response.correct
       };
+      data_cumulative.push(trial_data);
 
       // move on to the next trial
       jsPsych.finishTrial(trial_data);
@@ -331,7 +334,9 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
       } else if (!trial.is_local) {
         //console.log("not local");
         var file_name = "SS_processing_" + trial.participant_id + ".json";
-        saveData(JSON.stringify(trial_data), file_name)
+        var file_name_cum = "SS_processing_allinone_" + trial.participant_id + ".json";
+        saveData(JSON.stringify(trial_data), file_name);
+        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum);
       }
     };
 
