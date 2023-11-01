@@ -49,7 +49,7 @@
     rep_set = 3 // number of times each set size should be repeated
     randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
     file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
-    local = true // save the data file locally.
+    local = false // save the data file locally.
     var n_comprehension_attempts = 1;
 
     var t_start = Date.now();
@@ -95,6 +95,7 @@
     var n = 0 //keeps track of number of trials gone by
     var n_update = 0;
     var n_immediate = 0;
+    var is_practice = 1;
 
 
     // uncomment below and comment references to pre-loaded arrays below to randomly generate stimuli for every participant on the fly
@@ -272,7 +273,7 @@
                 console.log("all data = " + JSON.stringify(data_recall));
 
             } else if (!local) {
-                saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json")
+                saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json", "WMU")
             }
 
             // update trial counters
@@ -388,12 +389,13 @@
             if (
                 data.values()[len_data - 2].correct == true
             ) {
+                is_practice = 0;
                 data_comprehension = {
                     participant_id: participant_id,
                     n_attempts: n_comprehension_attempts,
                     t_comprehension: Date.now() - t_start
                 };
-                saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json");
+                saveData(JSON.stringify(data_comprehension), "WMU_comprehension_check_" + participant_id + ".json", "WMU");
                 console.log("nr attempts data = " + JSON.stringify(data_comprehension));
                 return false;
             } else {
@@ -428,8 +430,8 @@
                 prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
             };
             console.log("data_bonus = " + JSON.stringify(data_bonus));
-            saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json");
-            saveSeveralData(JSON.stringify(data_cumulative), "WMU_allinone_" + participant_id + ".json")
+            saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
+            saveSeveralData(JSON.stringify(data_cumulative), "WMU_allinone_" + participant_id + ".json", "WMU")
             window.location.href = "../../task/main.html";
         }
     };

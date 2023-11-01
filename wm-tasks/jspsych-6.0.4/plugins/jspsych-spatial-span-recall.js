@@ -11,6 +11,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
   jsPsych.pluginAPI.registerPreload('visual-search-circle', 'fixation_image', 'image');
 
 
+
   plugin.info = {
     name: 'spatial-span-recall',
     description: '',
@@ -43,7 +44,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
         description: 'current recall trial id'
       },
       is_local: {
-        type: jsPsych.plugins.parameterType.INT,
+        type: jsPsych.plugins.parameterType.BOOL,
         default: undefined,
         description: 'print locally or save on server'
       },
@@ -51,6 +52,12 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
         type: jsPsych.plugins.parameterType.INT,
         default: undefined,
         description: 'practice or experimental trials?'
+      },
+      participant_id: {
+        type: jsPsych.plugins.parameterType.INT,
+        pretty_name: 'ID of participant',
+        default: null,
+        description: 'ID of participant'
       }
     }
   }
@@ -205,7 +212,6 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
     }
 
     var data_cumulative = [];
-
     function end_trial() {
 
       // kill any remaining setTimeout handlers
@@ -237,10 +243,10 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
         console.log("all: " + JSON.stringify(data_recall_clean));
       } else if (!trial.is_local) {
         console.log("not local");
-        var file_name = "SS_recall_" + trial.participant_id + ".json";
-        var file_name_cum = "SS_recall_allinone_" + trial.participant_id + ".json";
-        saveData(JSON.stringify(data_recall_clean), file_name);
-        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum);
+        var file_name = "SS_recall_" + participant_id + ".json";
+        var file_name_cum = "SS_recall_allinone_" + participant_id + ".json";
+        saveData(JSON.stringify(data_recall_clean), file_name, "SS");
+        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "SS");
       }
 
       // move on to the next trial

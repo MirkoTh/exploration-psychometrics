@@ -11,6 +11,7 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
   jsPsych.pluginAPI.registerPreload('visual-search-circle', 'fixation_image', 'image');
 
 
+
   plugin.info = {
     name: 'symmetry-judgement-task',
     description: '',
@@ -78,7 +79,7 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
         description: 'Counter over SS span trials'
       },
       participant_id: {
-        type: jsPsych.plugins.parameterType.array,
+        type: jsPsych.plugins.parameterType.INT,
         pretty_name: 'ID of participant',
         default: null,
         description: 'ID of participant'
@@ -88,6 +89,11 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
         pretty_name: 'Is Practice or Experimental?',
         default: null,
         description: 'Practice Trials or Experimental Trials?'
+      },
+      is_local: {
+        type: jsPsych.plugins.parameterType.BOOL,
+        default: undefined,
+        description: 'printed locally or on the server?'
       }
     }
   }
@@ -297,6 +303,8 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
 
     if (trial.trial_duration !== null) {
       jsPsych.pluginAPI.setTimeout(function () {
+        response.rt = trial.trial_duration; // default to trial duration if no response within time window available
+        response.correct = 0; // default if no response within time window available
         clear_display();
         end_trial();
       }, trial.trial_duration);
@@ -306,7 +314,6 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
     function clear_display() {
       display_element.innerHTML = '';
     }
-
 
     var data_cumulative = [];
     function end_trial() {
@@ -333,10 +340,10 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
         //console.log("all: " + JSON.stringify(trial_data));
       } else if (!trial.is_local) {
         //console.log("not local");
-        var file_name = "SS_processing_" + trial.participant_id + ".json";
-        var file_name_cum = "SS_processing_allinone_" + trial.participant_id + ".json";
-        saveData(JSON.stringify(trial_data), file_name);
-        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum);
+        var file_name = "SS_processing_" + participant_id + ".json";
+        var file_name_cum = "SS_processing_allinone_" + participant_id + ".json";
+        saveData(JSON.stringify(trial_data), file_name, "SS");
+        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "SS");
       }
     };
 

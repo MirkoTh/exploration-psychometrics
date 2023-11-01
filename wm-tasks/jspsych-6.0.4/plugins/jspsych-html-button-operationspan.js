@@ -91,7 +91,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
         description: 'Counter over OS span trials'
       },
       participant_id: {
-        type: jsPsych.plugins.parameterType.array,
+        type: jsPsych.plugins.parameterType.INT,
         pretty_name: 'ID of participant',
         default: null,
         description: 'ID of participant'
@@ -100,6 +100,11 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
         type: jsPsych.plugins.parameterType.INT,
         default: undefined,
         description: 'practice or experimental trials?'
+      },
+      is_local: {
+        type: jsPsych.plugins.parameterType.BOOL,
+        default: undefined,
+        description: 'printed locally or on the server?'
       }
     }
   }
@@ -216,9 +221,9 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
       } else if (!trial.is_local) {
         console.log("not local");
         var file_name = "OS_processing_" + trial.participant_id + ".json";
-        saveData(JSON.stringify(trial_data), file_name)
+        saveData(JSON.stringify(trial_data), file_name, "OS")
         var file_name_cum = "OS_processing_allinone_" + trial.participant_id + ".json";
-        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum)
+        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "OS")
       }
     };
 
@@ -232,6 +237,8 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
     // end trial if time limit is set
     if (trial.trial_duration !== null) {
       jsPsych.pluginAPI.setTimeout(function () {
+        response.rt = trial.trial_duration // default to trial duration if no response within time window available
+        response.accuracy = 0; // default if no response within time window available
         end_trial();
       }, trial.trial_duration);
     }

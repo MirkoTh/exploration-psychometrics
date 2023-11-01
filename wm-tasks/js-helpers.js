@@ -68,16 +68,28 @@ function make_rect(x_start, y_start, stepsize_x, stepsize_y, ending_time) {
     return (rect_object);
 }
 
-function saveData(filedata, task) {
-    var filename = "./data/" + task + "-participant-" + participant_id + ".json";
-    $.post("save_data.php", { postresult: filedata + "\n", postfile: filename })
+
+function saveData(filedata, filename, task) {
+    //var filename = "./data/" + task + "-participant-" + participant_id + ".json";
+    var filename_folder = "../.././data/" + task + "/" + filename;
+    $.post("save_data.php", { postresult: filedata + "\n", postfile: filename_folder })
 }
 
-async function saveSeveralData(filedata, task) {
-    var filename = "./data/" + task + "-participant-" + participant_id + ".json";
+async function saveSeveralData(filedata, filename, task) {
+    //var filename = "./data/" + task + "-participant-" + participant_id + ".json";
+    var filename_folder = "../.././data/" + task + "/" + filename;
     var n_data = filedata.length;
     for (var i = 0; i < n_data; i++) {
-        $.post("save_data.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename })
+        $.post("save_data.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
+    }
+}
+
+async function saveSeveralDataOverwrite(filedata, filename, task) {
+    //var filename = "./data/" + task + "-participant-" + participant_id + ".json";
+    var filename_folder = "../.././data/" + task + "/" + filename;
+    var n_data = filedata.length;
+    for (var i = 0; i < n_data; i++) {
+        $.post("save_data_overwrite.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
     }
 }
 

@@ -8,8 +8,6 @@
 
 <head>
   <title>WM operation span task</title>
-  <script src="../jspsych-dist/dist/plugin-html-button-response.js"></script>
-  <script src="../jspsych-dist/dist/plugin-survey-multi-choice.js"></script>
   <script src="../seedrandom.min.js"></script>
   <script src="../jquery.min.js"></script>
   <script src="../jspsych-6.0.4/jspsych.js"></script>
@@ -55,7 +53,7 @@
   repSet = 3 // number of times each set size should be repeated
   randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
   file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
-  local = true // save the data file locally.
+  local = false // save the data file locally.
   var n_comprehension_attempts = 1;
   // If this test is being run online (e.g., on MTurk), true will cause the file to be downloaded to the participant's computer.
   // If this test is on a server, and you wish to save the data file to that server, change this to false.
@@ -249,9 +247,7 @@
     trial_id_recall: function () { return n },
     trial_id_processing: function () { return proc_position },
     choices: ["True", "False"],
-    is_local: function () {
-      return local
-    },
+    is_local: local,
     is_practice: function () { return is_practice },
     participant_id: function () {
       return participant_id
@@ -281,9 +277,7 @@
     trial_id_recall: function () { return n },
     trial_duration: 6000,
     choices: ["True", "False"],
-    is_local: function () {
-      return local
-    },
+    is_local: local,
     is_practice: function () { return is_practice },
     participant_id: function () {
       return participant_id
@@ -340,9 +334,7 @@
     data: function () {
       return { set_size: setSizes[n] }
     },
-    is_local: function () {
-      return local
-    },
+    is_local: local,
     is_practice: function () { return is_practice },
     trial_id_recall: function () {
       return n
@@ -411,7 +403,7 @@
         participant_id: participant_id,
         prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
       };
-      saveData(JSON.stringify(data_bonus), "OS_bonus_" + participant_id + ".json");
+      saveData(JSON.stringify(data_bonus), "OS_bonus_" + participant_id + ".json", "OS");
     }
   }
 
@@ -446,7 +438,7 @@
           data_clean = prepare_processing(data_processing);
         }
         if (!local) {
-          saveSeveralData(JSON.stringify(data_clean), file_name + participant_id + ".json")
+          saveSeveralData(JSON.stringify(data_clean), file_name + participant_id + ".json", "OS")
         }
       }
 
@@ -506,7 +498,7 @@
         };
         selection = letterLists[n];
         is_practice = 0;
-        saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json");
+        saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json", "OS");
         return false;
       } else {
         selection = demolists[n];
