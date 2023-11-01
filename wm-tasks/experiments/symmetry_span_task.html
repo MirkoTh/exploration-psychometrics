@@ -70,13 +70,14 @@
 
   console.log("current participant_id = " + participant_id);
 
-
-  var setSizes = []    // different set sizes
+  var setSizes = setSizes_symm[session_id];
+  var totalTrials = setSizes.length //total number of trials in the entire task
+  /* var setSizes = []    // different set sizes
   for (var i = minSetSize; i <= maxSetSize; i++) {
     for (var r = 1; r <= repSet; r++) {
       setSizes.push(i)
     }
-  }
+  } */
 
   // max possible number correct recalled items
   const n_max_correct = setSizes.reduce(function (a, b) { return a + b; }, 0);
@@ -107,8 +108,7 @@
   var nfullDemo = fullDemoArray.length
 
   //var setSizes = squaregridDemoArray.concat(fullDemoArray, setSizes)
-  var setSizes = setSizes_symm[session_id];
-  var totalTrials = setSizes.length //total number of trials in the entire task
+
   var n = 0 //keeps track of number of trials gone by
   var counter_symmetry = 0
   selections_practice = [[[2, 3], [2, 1], [1, 1]], [[1, 2], [3, 3], [1, 1], [1, 3]], [[3, 1], [0, 3], [0, 2], [2, 2]], [[3, 0], [3, 1], [2, 3]], [[2, 3], [1, 1], [3, 3]], [[3, 2], [1, 2], [3, 3], [1, 3]]]
@@ -465,6 +465,7 @@
           t_comprehension: Date.now() - t_start
         };
         is_practice = 0;
+        nSquares = setSizes[n]
         selection = selections_symm[session_id][n]
         saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + participant_id + ".json", "SS");
         console.log("nr attempts data = " + JSON.stringify(data_comprehension));

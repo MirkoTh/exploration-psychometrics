@@ -95,7 +95,7 @@
   var nfullDemo = fullDemoArray.length
   var nCogLoadDemo = 0
 
-  var setSizes = letterMemDemoArray.concat(fullDemoArray, setSizes)
+  var setSizes_practice = letterMemDemoArray.concat(fullDemoArray);
   var totalTrials = setSizes.length //total number of trials in the entire task (demo + main task)
 
   var n = 0 //keeps track of number of trials gone by
@@ -332,7 +332,14 @@
       return ncols_mat
     },
     data: function () {
-      return { set_size: setSizes[n] }
+
+      var sets;
+      if (is_practice == 1) {
+        sets = setSizes_practice[n]
+      } else if (is_practice == 2) {
+        sets = SetSizes[n]
+      }
+      return { set_size: sets }
     },
     is_local: local,
     is_practice: function () { return is_practice },
@@ -343,7 +350,11 @@
       return participant_id
     },
     on_finish: function () {
-      nLetters = setSizes[n]
+      if (is_practice == 1) {
+        nLetters = setSizes_practice[n]
+      } else if (is_practice == 0) {
+        nLetters = setSizes[n];
+      }
       nLettersRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
       n += 1
       //selection = jsPsych.randomization.sampleWithoutReplacement(possibleLetters, setSizes[n])
@@ -497,12 +508,15 @@
           t_comprehension: Date.now() - t_start
         };
         selection = letterLists[n];
+        nLetters = setSizes[n]
+
         is_practice = 0;
         saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json", "OS");
         return false;
       } else {
         selection = demolists[n];
         n_comprehension_attempts += 1;
+        nLetters = setSizes_practice[n]
         return true;
       }
     }
