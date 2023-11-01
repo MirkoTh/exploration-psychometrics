@@ -46,6 +46,7 @@
   file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
   local = true // save the data file locally.
   var n_comprehension_attempts = 1;
+  var is_practice = 1;
   // If this test is being run online (e.g., on MTurk), true will cause the file to be downloaded to the participant's computer.
   // If this test is on a server, and you wish to save the data file to that server, change this to false.
   // If changed to false, ensure that the php file (its in the directory!) and the empty "data" folder has also been appropriately uploaded to the server.
@@ -92,6 +93,7 @@
 
   var squaregridDemoArray = [3, 4, 4]
   var fullDemoArray = [3, 3, 4]
+  var demoArray = [3, 4, 4, 3, 3, 4];
   var nPracticeTrials = squaregridDemoArray.length //number of practice trials for square memorization
   var nfullDemo = fullDemoArray.length
 
@@ -100,8 +102,9 @@
   var totalTrials = setSizes.length //total number of trials in the entire task
   var n = 0 //keeps track of number of trials gone by
   var counter_symmetry = 0
+  selections_practice = [[[2, 3], [2, 1], [1, 1]], [[1, 2], [3, 3], [1, 1], [1, 3]], [[3, 1], [0, 3], [0, 2], [2, 2]], [[3, 0], [3, 1], [2, 3]], [[2, 3], [1, 1], [3, 3]], [[3, 2], [1, 2], [3, 3], [1, 3]]]
 
-  var selection = selections_symm[session_id][n];
+  var selection = selections_practice[n];
   //var selection = jsPsych.randomization.sampleWithoutReplacement(matrix, setSizes[n])
   var selection_id = -1  //keeps track of recall items within a test stack
 
@@ -183,6 +186,7 @@
     is_local: function () {
       return local
     },
+    is_practice: function () { return is_practice },
     proportion: function () {
       counter_symmetry += 1;
       nProportionDemo += 1
@@ -196,7 +200,6 @@
     }
   }
 
-  blackBoxesAll[session_id][counter_symmetry]
   var cog_load = {
     type: 'symmetry-judgement-task',
     size: 8,
@@ -212,6 +215,7 @@
     is_local: function () {
       return local
     },
+    is_practice: function () { return is_practice },
     on_finish: function () {
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
       counter_symmetry += 1;
@@ -268,11 +272,20 @@
       return local
     },
     on_finish: function () {
-      nSquares = setSizes[n]
       nSquaresRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
+
+      if (is_practice == 1) {
+        nSquares = demoArray[n]
+
+      } else if (is_practice == 0) {
+        nSquares = setSizes[n]
+      }
       n += 1
-      selection = selections_symm[session_id][n]
-      //selection = jsPsych.randomization.sampleWithoutReplacement(matrix, setSizes[n])
+      if (is_practice == 1) {
+        selection = selections_practice[n]
+      } else if (is_practice == 0) {
+        selection = selections_symm[session_id][n]
+      }
       selection_id = -1
     }
   }
@@ -419,24 +432,26 @@
     timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
     //timeline: [fullDemo, comprehension_question_ss_allinone, comp_feedback_old],
     loop_function: function (data) {
-      len_data = data.values().length;
-      console.log('data: ', data.values());
+      // reset counters
+      n = 0;
+      selection_id = -1;
+      counter_symmetry = 0;
       data_comprehension = {
         participant_id: participant_id,
         n_attempts: n_comprehension_attempts
       };
+      len_data = data.values().length;
       if (
         data.values()[len_data - 2].correct == true
       ) {
+        is_practice = 0;
+        selection = selections_symm[session_id][n]
         saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json");
         console.log("nr attempts data = " + JSON.stringify(data_comprehension));
         return false;
       } else {
         n_comprehension_attempts += 1;
-        n = 0;
-        selection = selections_symm[session_id][n]
-        selection_id = -1;
-        counter_symmetry = 0;
+        selection = selections_practice[n]
         return true;
       }
     }
