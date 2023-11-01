@@ -48,6 +48,7 @@
   var n_comprehension_attempts = 1;
   var is_practice = 1;
 
+
   var t_start = Date.now();
   // If this test is being run online (e.g., on MTurk), true will cause the file to be downloaded to the participant's computer.
   // If this test is on a server, and you wish to save the data file to that server, change this to false.
@@ -76,6 +77,12 @@
       setSizes.push(i)
     }
   }
+
+  // max possible number correct recalled items
+  const n_max_correct = setSizes.reduce(function (a, b) { return a + b; }, 0);
+  console.log("n_max_correct = " + n_max_correct);
+  // counter for actually correctly recalled items
+  var n_recalled_cumulative = 0;
 
   var grid = 4;
   var matrix = [];
@@ -286,6 +293,7 @@
       if (is_practice == 1) {
         selection = selections_practice[n]
       } else if (is_practice == 0) {
+        n_recalled_cumulative += nSquaresRecalled;
         selection = selections_symm[session_id][n]
       }
       selection_id = -1
@@ -331,7 +339,15 @@
     stimulus: function () {
       return '<div style="font-size:20px;">This task is over.<br><br>The next task is going to be the working memory updating task.</div>'
     },
-    choices: jsPsych.NO_KEYS
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 5000,
+    on_finish: function () {
+      data_bonus = {
+        participant_id: participant_id,
+        prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+      };
+      saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json");
+    }
   }
 
   var p_details = {

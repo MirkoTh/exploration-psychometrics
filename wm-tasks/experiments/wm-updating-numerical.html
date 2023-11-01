@@ -81,9 +81,14 @@
     var possibleNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
-    var nTrials_update = 20 // number of trials
-    var nTrials_immediate = 5 //
+    var nTrials_update = 1//20 // number of trials
+    var nTrials_immediate = 1//5 //
     var nPracticeTrials = 2
+
+    // max possible number correct recalled items
+    const n_max_correct = (nTrials_immediate + nTrials_update) * set_size;
+    // counter for actually correctly recalled items
+    var n_recalled_cumulative = 0;
 
     var totalTrials = nPracticeTrials + nTrials_update + nTrials_immediate; //total number of trials in the entire task (practice + main task)
 
@@ -274,6 +279,10 @@
             } else if (trial_type[n] == "immediate") {
                 n_immediate += 1;
             }
+
+            if (n >= nPracticeTrials) {
+                n_recalled_cumulative += n_recalled_correctly;
+            }
             n += 1;
             // move on to the next trial
             jsPsych.finishTrial(trial_data);
@@ -411,7 +420,12 @@
         stimulus: '<div style="font-size:30px;"><br>Click on "Next" to continue with the questionnaires.<br></div>',
         choices: ["Next"],
         on_finish: function () {
-            //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
+            data_bonus = {
+                participant_id: participant_id,
+                prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+            };
+            console.log("data_bonus = " + JSON.stringify(data_bonus));
+            saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json");
             window.location.href = "../../task/main.html";
         }
     };

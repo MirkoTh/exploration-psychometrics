@@ -83,6 +83,12 @@
   var setSizes;    // different set sizes
   setSizes = SetSizes_prep[session_id];
 
+
+  // max possible number correct recalled items
+  const n_max_correct = setSizes.reduce(function (a, b) { return a + b; }, 0);
+  // counter for actually correctly recalled items
+  var n_recalled_cumulative = 0;
+
   var nTrials = setSizes.length // number of trials
 
   var letterMemDemoArray = [4, 5]  // set sizes of initial demo trials
@@ -349,6 +355,7 @@
       if (is_practice == 1) {
         selection = demolists[n];
       } else if (is_practice == 0) {
+        n_recalled_cumulative += nLetterRecalled;
         selection = letterLists[n];
       }
       selection_id = 0;
@@ -394,7 +401,15 @@
     stimulus: function () {
       return '<div style="font-size:20px;">This task is over.<br><br>Thank you for your participation in this task. <br><br>The upcoming task is the symmetry span task.</div>'
     },
-    choices: jsPsych.NO_KEYS
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 5000,
+    on_finish: function () {
+      data_bonus = {
+        participant_id: participant_id,
+        prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+      };
+      saveData(JSON.stringify(data_bonus), "OS_bonus_" + participant_id + ".json");
+    }
   }
 
   var p_details = {
@@ -474,7 +489,6 @@
     loop_function: function (data) {
       // reset all counters after comprehension check failure
       n = 0;
-
       selection_id = 0;
       id_current = 0;
       len_data = data.values().length;
