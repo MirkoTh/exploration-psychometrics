@@ -103,6 +103,8 @@
   var proc_position = 0 // keeps track of processing position within one memory trial
   var is_practice = 1;
 
+  var t_start = Date.now();
+
   var nLetterRecalled = 0 // feedback
   var nMathAcc = 0 // feedback
 
@@ -476,13 +478,15 @@
       selection_id = 0;
       id_current = 0;
       len_data = data.values().length;
-      data_comprehension = {
-        participant_id: participant_id,
-        n_attempts: n_comprehension_attempts
-      };
+
       if (
         data.values()[len_data - 2].correct == true
       ) {
+        data_comprehension = {
+          participant_id: participant_id,
+          n_attempts: n_comprehension_attempts,
+          t_comprehension: Date.now() - t_start
+        };
         selection = letterLists[n];
         is_practice = 0;
         saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json");

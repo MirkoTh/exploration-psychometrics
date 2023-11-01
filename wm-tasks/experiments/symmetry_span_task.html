@@ -47,6 +47,8 @@
   local = true // save the data file locally.
   var n_comprehension_attempts = 1;
   var is_practice = 1;
+
+  var t_start = Date.now();
   // If this test is being run online (e.g., on MTurk), true will cause the file to be downloaded to the participant's computer.
   // If this test is on a server, and you wish to save the data file to that server, change this to false.
   // If changed to false, ensure that the php file (its in the directory!) and the empty "data" folder has also been appropriately uploaded to the server.
@@ -436,14 +438,15 @@
       n = 0;
       selection_id = -1;
       counter_symmetry = 0;
-      data_comprehension = {
-        participant_id: participant_id,
-        n_attempts: n_comprehension_attempts
-      };
       len_data = data.values().length;
       if (
         data.values()[len_data - 2].correct == true
       ) {
+        data_comprehension = {
+          participant_id: participant_id,
+          n_attempts: n_comprehension_attempts,
+          t_comprehension: Date.now() - t_start
+        };
         is_practice = 0;
         selection = selections_symm[session_id][n]
         saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json");
