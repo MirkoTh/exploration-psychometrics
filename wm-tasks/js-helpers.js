@@ -84,12 +84,17 @@ async function saveSeveralData(filedata, filename, task) {
     }
 }
 
+
 async function saveSeveralDataOverwrite(filedata, filename, task) {
     //var filename = "./data/" + task + "-participant-" + participant_id + ".json";
     var filename_folder = "../.././data/" + task + "/" + filename;
     var n_data = filedata.length;
     for (var i = 0; i < n_data; i++) {
-        $.post("save_data_overwrite.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
+        if (i == 0) {
+            $.post("save_data_overwrite.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
+        } else if (i > 0) {
+            $.post("save_data.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
+        }
     }
 }
 

@@ -73,6 +73,8 @@
     if (window.location.search.indexOf('STUDY_ID') > -1) {
         var studyID = getQueryVariable('STUDY_ID');
     }
+    progress_url = updateQueryStringParameter("../../task/main.html/", "PROLIFIC_ID", participant_id);
+
 
     console.log("current participant_id = " + participant_id);
 
@@ -81,8 +83,8 @@
     var possibleNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
-    var nTrials_update = 1//20 // number of trials
-    var nTrials_immediate = 1//5 //
+    var nTrials_update = 20 // 1// number of trials
+    var nTrials_immediate = 5 // 1 //
     var nPracticeTrials = 2
 
     // max possible number correct recalled items
@@ -146,7 +148,9 @@
 
     var n_recalled;
     var n_recalled_correctly;
-    var data_cumulative = [];
+    var data_cumulative;
+    data_cumulative = [];
+    console.log("data_cumulative after creation: " + data_cumulative);
 
     var instructionsGo = {
         type: jsPsychHtmlButtonResponse,
@@ -263,6 +267,8 @@
                 rt: data.rt
             };
             data_cumulative.push(data_recall);
+            console.log("data_cumulative after pushing: " + JSON.stringify(data_cumulative));
+
 
             var trial_data = {
                 rt: data.rt,
@@ -273,7 +279,8 @@
                 console.log("all data = " + JSON.stringify(data_recall));
 
             } else if (!local) {
-                saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json", "WMU")
+                saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json", "WMU");
+                saveSeveralDataOverwrite(data_cumulative, "WMU_allinone_" + participant_id + ".json", "WMU");
             }
 
             // update trial counters
@@ -431,8 +438,8 @@
             };
             console.log("data_bonus = " + JSON.stringify(data_bonus));
             saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
-            saveSeveralData(JSON.stringify(data_cumulative), "WMU_allinone_" + participant_id + ".json", "WMU")
             window.location.href = "../../task/main.html";
+            window.location.href = progress_url;
         }
     };
     timeline_mixed.push(instructions_go_on);

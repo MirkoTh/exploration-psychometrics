@@ -62,17 +62,31 @@
 
   //----------------------------------------------------------------------
   // participant info
+
+  function updateQueryStringParameter(uri, key, value) {
+    var re = new RegExp("([?&])" + key + "=.*?(&|$)", "i");
+    var separator = uri.indexOf('?') !== -1 ? "&" : "?";
+    if (uri.match(re)) {
+      return uri.replace(re, '$1' + key + "=" + value + '$2');
+    }
+    else {
+      return uri + separator + key + "=" + value;
+    }
+  }
+
   if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
     var participant_id = getQueryVariable('PROLIFIC_PID');
   }
   // If no ID is present, generate one using random numbers - this is useful for testing
   else {
     var participant_id = Math.floor(Math.random() * 1000);
+
   }
   // STUDY ID
   if (window.location.search.indexOf('STUDY_ID') > -1) {
     var studyID = getQueryVariable('STUDY_ID');
   }
+  progress_url = updateQueryStringParameter("symmetry_span_task.html/", "PROLIFIC_ID", participant_id);
 
   var possibleLetters = ["B", "C", "D", "F", "G", "H", "K", "L", "M", "N", "P", "R", "S", "T", "V", "W", "X", "Z"]
   const ncols_mat = 4;
@@ -539,7 +553,8 @@
     on_finish: function () {
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
-      window.location.href = "symmetry_span_task.html";
+      //window.location.href = "symmetry_span_task.html";
+      window.location.href = progress_url;
     }
   });
 

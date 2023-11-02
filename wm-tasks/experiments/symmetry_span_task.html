@@ -67,6 +67,7 @@
   if (window.location.search.indexOf('STUDY_ID') > -1) {
     var studyID = getQueryVariable('STUDY_ID');
   }
+  progress_url = updateQueryStringParameter("wm-updating-numerical.html/", "PROLIFIC_ID", participant_id);
 
   console.log("current participant_id = " + participant_id);
 
@@ -502,7 +503,8 @@
     on_finish: function () {
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
-      window.location.href = "wm-updating-numerical.html";
+      //window.location.href = "wm-updating-numerical.html";
+      window.location.href = progress_url;
     }
   });
 
