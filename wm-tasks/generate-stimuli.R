@@ -6,7 +6,8 @@ library(tidyverse)
 session_id <- 2
 my_two_seeds <- c(39737632, 8567389)
 
-#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+
+setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
 source("wm-tasks/utils-gen-stim.R")
 
 set.seed(my_two_seeds[session_id])
@@ -414,13 +415,13 @@ data <- read.csv("wm-tasks/ZallerEtAl.csv")
 nBlocks = 81 # 1 extra for practice
 nTrials = 10 # just always sample 10 trials even if it is a short horizon and the round is over after 5 trials bc simpler this way
 
-
+sub <- sample(unique(data$Subject),1)
 
 rewards <- data.frame(block = 1:nBlocks,
-                      reward1 = c(40, data$mu_L[data$Subject == data$Subject[3000] & data$Trial == 1]), # their rewards are perfectly balanced, just different order for every subject
-                      reward2 = c(60, data$mu_R[data$Subject == data$Subject[3000] & data$Trial == 1]),
-                      infoCond = c(-1, data$Info[data$Subject == data$Subject[1] & data$Trial == 1]), # stealing infoCond and Horizon from Zaller et al. bc it is a pain to get it as perfectly orthogonal as they did without having a pattern
-                      Horizon = c(10, data$Horizon[data$Subject == data$Subject[1] & data$Trial == 1]))
+                      reward1 = c(40, data$mu_L[data$Subject == sub & data$Trial == 1]), # their rewards are perfectly balanced, just different order for every subject
+                      reward2 = c(60, data$mu_R[data$Subject == sub & data$Trial == 1]),
+                      infoCond = c(-1, data$Info[data$Subject == sub & data$Trial == 1]), # stealing infoCond and Horizon from Zaller et al. bc it is a pain to get it as perfectly orthogonal as they did without having a pattern
+                      Horizon = c(10, data$Horizon[data$Subject == sub & data$Trial == 1]))
 
 
 
@@ -450,6 +451,8 @@ write(json, paste("task/rewardsHorizon", session_id,".json", sep = ""))
 ## save fixed choices
 
 fixed <- list()
+
+library(permute)
 
 for (i in 1:nBlocks){
   if (rewards$infoCond[rewards$block == i] == -1){ # right more info

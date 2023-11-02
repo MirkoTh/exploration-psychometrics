@@ -47,6 +47,9 @@ data["sam"]["time"] = {}
 data["restless"]["choice"] = {}
 data["restless"]["reward"] = {}
 data["restless"]["time"] = {}
+data["horizon"]["taskReward"] = 0
+data["sam"]["taskReward"] = 0
+data["restless"]["taskReward"] = 0
 
 
 
@@ -176,6 +179,7 @@ var clickMachine = function(machine, task) {
     data[task]["choice"][currentBlock][trial] = machine
     data[task]["reward"][currentBlock][trial] = reward
     data[task]["time"][currentBlock][trial] = toc - tic
+    data[task]["taskReward"] += reward
 
 
     
@@ -183,7 +187,7 @@ var clickMachine = function(machine, task) {
     // increment trial
     trial += 1
 
-    if (trial > Ntrials) {tic = Number(new Date())} // timing for next click
+    if (trial < Ntrials) {tic = Number(new Date())} // timing for next click
     
     console.log(trial)
     // fixed choice
@@ -233,6 +237,7 @@ var clickMachine = function(machine, task) {
 
         } else if (currentBlock == Nblocks) { // game over
             scoreThisBlock = 0;
+
 
 
             if (task != "restless") {
@@ -850,6 +855,7 @@ function startComprehension(task){
     document.getElementById('questionnaires').appendChild(Q4);
     console.log(Q1)
     tic = Number(new Date())
+    console.log(tic)
 
     startTaskButton.style.display = 'block';
     startTaskButton.onclick = function() {
@@ -1180,8 +1186,8 @@ startTaskButton.addEventListener('click', () => {
 endTaskButton.addEventListener('click', () => {
     // Hide task trials and display completion message
 
-    setTimeout(function () { //KW: makes the text "next block" be displayed on the grid for 1s then disappear.
-          window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" ;  //TODO: replace this with postquestionnaire page or prolific link
+    setTimeout(function () { 
+          window.location.href = "questionnaires.html" ;  
           }, 500)
     
 });

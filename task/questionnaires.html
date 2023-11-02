@@ -509,9 +509,15 @@ function getValues() {
         saveData(JSON.stringify(values));
 
         // move onto next page after a little delay to make sure data is saved
+        
         setTimeout(function(){
-            window.location.href = nextPage;
-        }, 3000);
+            $(document.getElementById("questionnaires")).hide()
+            $(document.getElementById("header")).hide()
+            window.scrollTo(0.0)
+            var complete_url = nextPage;    
+            document.getElementById('instruction').innerHTML = 'This is the end of this study. Thank you very much for your participation. <br/>Your data has been recorded.<br/>Please click' +
+            ' <a href="' + complete_url + '">here</a> to return to Prolific';
+        }, 2000);
 
         
 
@@ -570,7 +576,7 @@ var startQuestionnaires = function() {
         }
     }
 
-        nextPage = "main.html?" + "PROLIFIC_PID=" + subjectID   // This passes the subjectID
+        nextPage = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" // experiment done
 
 
 
