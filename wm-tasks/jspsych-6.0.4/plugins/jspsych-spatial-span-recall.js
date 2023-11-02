@@ -11,6 +11,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
   jsPsych.pluginAPI.registerPreload('visual-search-circle', 'fixation_image', 'image');
 
 
+
   plugin.info = {
     name: 'spatial-span-recall',
     description: '',
@@ -36,6 +37,27 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
         type: jsPsych.plugins.parameterType.INT,
         default: undefined,
         description: 'Recored the correct array'
+      },
+      trial_id_recall: {
+        type: jsPsych.plugins.parameterType.INT,
+        default: undefined,
+        description: 'current recall trial id'
+      },
+      is_local: {
+        type: jsPsych.plugins.parameterType.BOOL,
+        default: undefined,
+        description: 'print locally or save on server'
+      },
+      is_practice: {
+        type: jsPsych.plugins.parameterType.INT,
+        default: undefined,
+        description: 'practice or experimental trials?'
+      },
+      participant_id: {
+        type: jsPsych.plugins.parameterType.INT,
+        pretty_name: 'ID of participant',
+        default: null,
+        description: 'ID of participant'
       }
     }
   }
@@ -189,7 +211,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
       display_element.innerHTML = '';
     }
 
-
+    var data_cumulative = [];
     function end_trial() {
 
       // kill any remaining setTimeout handlers
@@ -206,6 +228,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
       if (response.button == trial["data"]["set_size"]) { accuracy = 1 } else { accuracy = 0 };
       var data_recall_clean = {
         participant_id: participant_id,
+        is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         set_size: trial["data"]["set_size"],
         stimuli: correctGrid,
@@ -214,13 +237,16 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
         accuracy: accuracy,
         rt: response.rt
       };
+      data_cumulative.push(data_recall_clean);
       if (trial.is_local) {
         console.log("local");
         console.log("all: " + JSON.stringify(data_recall_clean));
       } else if (!trial.is_local) {
         console.log("not local");
-        var file_name = "SS_recall_" + trial.participant_id + ".json";
-        saveData(JSON.stringify(data_recall_clean), file_name)
+        var file_name = "SS_recall_" + participant_id + ".json";
+        var file_name_cum = "SS_recall_allinone_" + participant_id + ".json";
+        saveData(JSON.stringify(data_recall_clean), file_name, "SS");
+        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "SS");
       }
 
       // move on to the next trial

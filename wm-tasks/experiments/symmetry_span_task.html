@@ -44,7 +44,12 @@
   repSet = 3 // number of times each set size should be repeated
   randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
   file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
-  local = true // save the data file locally.
+  local = false // save the data file locally.
+  var n_comprehension_attempts = 1;
+  var is_practice = 1;
+
+
+  var t_start = Date.now();
   // If this test is being run online (e.g., on MTurk), true will cause the file to be downloaded to the participant's computer.
   // If this test is on a server, and you wish to save the data file to that server, change this to false.
   // If changed to false, ensure that the php file (its in the directory!) and the empty "data" folder has also been appropriately uploaded to the server.
@@ -62,16 +67,24 @@
   if (window.location.search.indexOf('STUDY_ID') > -1) {
     var studyID = getQueryVariable('STUDY_ID');
   }
+  progress_url = updateQueryStringParameter("wm-updating-numerical.html", "PROLIFIC_PID", participant_id);
 
   console.log("current participant_id = " + participant_id);
 
-
-  var setSizes = []    // different set sizes
+  var setSizes = setSizes_symm[session_id];
+  var totalTrials = setSizes.length //total number of trials in the entire task
+  /* var setSizes = []    // different set sizes
   for (var i = minSetSize; i <= maxSetSize; i++) {
     for (var r = 1; r <= repSet; r++) {
       setSizes.push(i)
     }
-  }
+  } */
+
+  // max possible number correct recalled items
+  const n_max_correct = setSizes.reduce(function (a, b) { return a + b; }, 0);
+  console.log("n_max_correct = " + n_max_correct);
+  // counter for actually correctly recalled items
+  var n_recalled_cumulative = 0;
 
   var grid = 4;
   var matrix = [];
@@ -83,24 +96,25 @@
     }
   };
 
-  //var nTrials = setSizes.length
-  var nTrials = 2;
+  var nTrials = setSizes.length
+  //var nTrials = 2;
   /* if (randomize) {
     setSizes = jsPsych.randomization.sampleWithoutReplacement(setSizes, nTrials)
   } */ // shuffle through the set sizes
 
   var squaregridDemoArray = [3, 4, 4]
   var fullDemoArray = [3, 3, 4]
+  var demoArray = [3, 4, 4, 3, 3, 4];
   var nPracticeTrials = squaregridDemoArray.length //number of practice trials for square memorization
   var nfullDemo = fullDemoArray.length
 
   //var setSizes = squaregridDemoArray.concat(fullDemoArray, setSizes)
-  var setSizes = setSizes_symm[session_id];
-  var totalTrials = setSizes.length //total number of trials in the entire task
+
   var n = 0 //keeps track of number of trials gone by
   var counter_symmetry = 0
+  selections_practice = [[[2, 3], [2, 1], [1, 1]], [[1, 2], [3, 3], [1, 1], [1, 3]], [[3, 1], [0, 3], [0, 2], [2, 2]], [[3, 0], [3, 1], [2, 3]], [[2, 3], [1, 1], [3, 3]], [[3, 2], [1, 2], [3, 3], [1, 3]]]
 
-  var selection = selections_symm[session_id][n];
+  var selection = selections_practice[n];
   //var selection = jsPsych.randomization.sampleWithoutReplacement(matrix, setSizes[n])
   var selection_id = -1  //keeps track of recall items within a test stack
 
@@ -173,6 +187,7 @@
     trial_duration: null,
     number_darkened: [17, 18, 19],
     stimulus: "Is this image symmetric?",
+    participant_id: participant_id,
     session_id: function () { return session_id },
     counter_symmetry: function () { return counter_symmetry },
     trial_id_recall: function () {
@@ -181,6 +196,7 @@
     is_local: function () {
       return local
     },
+    is_practice: function () { return is_practice },
     proportion: function () {
       counter_symmetry += 1;
       nProportionDemo += 1
@@ -194,13 +210,13 @@
     }
   }
 
-  blackBoxesAll[session_id][counter_symmetry]
   var cog_load = {
     type: 'symmetry-judgement-task',
     size: 8,
     trial_duration: 6000,
     number_darkened: [17, 18, 19],
     stimulus: "Is this image symmetric?",
+    participant_id: participant_id,
     session_id: function () { return session_id },
     counter_symmetry: function () { return counter_symmetry },
     trial_id_recall: function () {
@@ -209,6 +225,7 @@
     is_local: function () {
       return local
     },
+    is_practice: function () { return is_practice },
     on_finish: function () {
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
       counter_symmetry += 1;
@@ -264,12 +281,23 @@
     is_local: function () {
       return local
     },
+    is_practice: function () { return is_practice },
     on_finish: function () {
-      nSquares = setSizes[n]
       nSquaresRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
+
+      if (is_practice == 1) {
+        nSquares = demoArray[n]
+
+      } else if (is_practice == 0) {
+        nSquares = setSizes[n]
+      }
       n += 1
-      selection = selections_symm[session_id][n]
-      //selection = jsPsych.randomization.sampleWithoutReplacement(matrix, setSizes[n])
+      if (is_practice == 1) {
+        selection = selections_practice[n]
+      } else if (is_practice == 0) {
+        n_recalled_cumulative += nSquaresRecalled;
+        selection = selections_symm[session_id][n]
+      }
       selection_id = -1
     }
   }
@@ -311,9 +339,17 @@
   var conclusion = {
     type: 'html-keyboard-response',
     stimulus: function () {
-      return '<div style="font-size:20px;">This task is over.<br><br>Thank you for your participation in this task. <br><br>Please tell the Research Assistant that you have completed the task..</div>'
+      return '<div style="font-size:20px;">This task is over.<br><br>The next task is going to be the working memory updating task.</div>'
     },
-    choices: jsPsych.NO_KEYS
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 5000,
+    on_finish: function () {
+      data_bonus = {
+        participant_id: participant_id,
+        prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+      };
+      saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
+    }
   }
 
   var p_details = {
@@ -358,7 +394,7 @@
           data_clean = prepare_processing(data_processing);
         }
         if (!local) {
-          saveSeveralData(JSON.stringify(data_clean), file_name + participant_id + ".json")
+          saveSeveralData(JSON.stringify(data_clean), file_name + participant_id + ".json", "SS")
         } else {
           console.log("data to be saved are: " + JSON.stringify(data_clean));
         }
@@ -413,16 +449,31 @@
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_ss_loop = {
-    //timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
-    timeline: [fullDemo, comprehension_question_ss_allinone, comp_feedback_old],
+    timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
+    //timeline: [fullDemo, comprehension_question_ss_allinone, comp_feedback_old],
     loop_function: function (data) {
+      // reset counters
+      n = 0;
+      selection_id = -1;
+      counter_symmetry = 0;
       len_data = data.values().length;
-      console.log('data: ', data.values());
       if (
         data.values()[len_data - 2].correct == true
       ) {
+        data_comprehension = {
+          participant_id: participant_id,
+          n_attempts: n_comprehension_attempts,
+          t_comprehension: Date.now() - t_start
+        };
+        is_practice = 0;
+        nSquares = setSizes[n]
+        selection = selections_symm[session_id][n]
+        saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + participant_id + ".json", "SS");
+        console.log("nr attempts data = " + JSON.stringify(data_comprehension));
         return false;
       } else {
+        n_comprehension_attempts += 1;
+        selection = selections_practice[n]
         return true;
       }
     }
@@ -452,7 +503,8 @@
     on_finish: function () {
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
-      window.location.href = "wm-updating-numerical.html";
+      //window.location.href = "wm-updating-numerical.html";
+      window.location.href = progress_url;
     }
   });
 

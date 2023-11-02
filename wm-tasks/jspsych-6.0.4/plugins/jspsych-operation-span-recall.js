@@ -64,6 +64,11 @@ jsPsych.plugins["operation-span-recall"] = (function () {
         pretty_name: 'Participant ID',
         default: "not-saved-properly",
         description: "the participant id to store stuff"
+      },
+      is_practice: {
+        type: jsPsych.plugins.parameterType.INT,
+        default: undefined,
+        description: 'practice or experimental trials?'
       }
     }
   }
@@ -203,6 +208,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
     }
 
 
+    var data_cumulative = [];
     function end_trial() {
 
       // kill any remaining setTimeout handlers
@@ -211,18 +217,21 @@ jsPsych.plugins["operation-span-recall"] = (function () {
       // gather the data to store for the trial
       var trial_data = {
         participant_id: trial.participant_id,
+        is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         rt: response.rt,
         recall: recalledGrid,
         stimuli: correctLetters,
         accuracy: response.button
       };
+      data_cumulative.push(trial_data);
       // move on to the next trial
       jsPsych.finishTrial(trial_data);
 
       // save for our purposes
       var data_recall_clean = {
         participant_id: participant_id,
+        is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         set_size: trial["data"]["set_size"],
         stimuli: correctLetters,
@@ -233,8 +242,11 @@ jsPsych.plugins["operation-span-recall"] = (function () {
       if (trial.is_local) {
         console.log("all: " + JSON.stringify(data_recall_clean));
       } else if (!trial.is_local) {
+        console.log("not local");
         var file_name = "OS_recall_" + trial.participant_id + ".json";
-        saveData(JSON.stringify(data_recall_clean), file_name)
+        saveData(JSON.stringify(data_recall_clean), file_name, "OS");
+        var file_name_cum = "OS_recall_allinone_" + trial.participant_id + ".json";
+        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "OS");
       }
     }
   };
