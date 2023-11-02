@@ -210,8 +210,8 @@ var clickMachine = function(machine, task) {
     }, 800)
      
 
-    if (trial == 4 & task == "horizon") {document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!';}
-    
+    if (trial == 4 & task == "horizon" & Ntrials == 5) {document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the slot machine you would like to play!';}
+    else if (trial == 4 & task == "horizon" & Ntrials == 10){document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the slot machine you would like to play!';}
     scoreThisBlock = scoreThisBlock + reward;
     totalScore = totalScore + reward;
 
@@ -291,7 +291,9 @@ var clickMachine = function(machine, task) {
                 document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
            
                 if (task == "horizon") { // for Horizon task, we are back to fixed choice
-                    document.getElementById('machine_title').innerHTML = 'Select the highlighted slot machine.';
+                    if (NtrialsCollect[currentBlock] == 5){document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the highlighted slot machine.';} 
+                    else {document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the highlighted slot machine.';}
+
                     fixedChoices = fixedChoicesCollect[currentBlock]
                     if (fixedChoices[trial] == 0) {
                         machine1.style.opacity = 1;
@@ -366,7 +368,7 @@ function horizonTask() {
 
     document.getElementById('instructions').style.display = 'block';
     document.getElementById('instructionText').innerHTML = "In this game, you will choose between two slot machines that give different average rewards. Before making your choice, you will have to make 4 choices that we pre-determined. You will see which machine is highlighted and have to choose the highlighted machine."+
-    " <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 5 free choices. You can see how many choices you can make under 'Trials left in this round'. You will play " + (Nblocks-1)+" rounds of this game. <br> <br> Click the button below to start a practice round.";
+    " <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 5 free choices. You can see how many choices you can make under 'Trials left in this round' as well as above the slot machines where it says 'Short round' when you can only make one free choice and 'Long round' when you can make 5 free choices. You will play " + (Nblocks-1)+" rounds of this game. <br> <br> Click the button below to start a practice round.";
     
 
     // start practice --------------------------
@@ -382,7 +384,12 @@ function horizonTask() {
         document.getElementById("mach_div3").style.display = 'none'; // we only have 2 arms here
         document.getElementById("mach_div4").style.display = 'none';
         // fixed choice
-        document.getElementById('machine_title').innerHTML = 'Select the machine that is highlighted.';
+        if (Ntrials == 5) {
+            document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted.';
+        } else {
+            document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted.';
+        }
+        
 
         fixedChoices = fixedChoicesCollect[currentBlock]
 
@@ -722,7 +729,11 @@ function checkComprehension(task){
         document.getElementById('task').style.display = 'block';
 
         if (task == "horizon") {
-            document.getElementById('machine_title').innerHTML = 'Select the machine that is highlighted.';
+            if (Ntrials == 5){
+                document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted.';
+            } else {
+                document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted.';
+            }
 
             fixedChoices = fixedChoicesCollect[currentBlock]
 
