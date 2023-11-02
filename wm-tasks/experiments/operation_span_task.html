@@ -86,7 +86,7 @@
   if (window.location.search.indexOf('STUDY_ID') > -1) {
     var studyID = getQueryVariable('STUDY_ID');
   }
-  progress_url = updateQueryStringParameter("symmetry_span_task.html/", "PROLIFIC_ID", participant_id);
+  progress_url = updateQueryStringParameter("symmetry_span_task.html", "PROLIFIC_PID", participant_id);
 
   var possibleLetters = ["B", "C", "D", "F", "G", "H", "K", "L", "M", "N", "P", "R", "S", "T", "V", "W", "X", "Z"]
   const ncols_mat = 4;

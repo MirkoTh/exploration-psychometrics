@@ -73,7 +73,7 @@
     if (window.location.search.indexOf('STUDY_ID') > -1) {
         var studyID = getQueryVariable('STUDY_ID');
     }
-    progress_url = updateQueryStringParameter("../../task/main.html/", "PROLIFIC_ID", participant_id);
+    progress_url = updateQueryStringParameter("../../task/main.html", "PROLIFIC_PID", participant_id);
 
 
     console.log("current participant_id = " + participant_id);
