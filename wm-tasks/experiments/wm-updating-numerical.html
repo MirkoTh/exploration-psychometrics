@@ -332,6 +332,13 @@
                 return viewing_time_initial
             }
         },
+        response_start_time: function () {
+            if (trial_type[n] == "update") {
+                return n_upd_steps * viewing_time_updating + viewing_time_initial
+            } else if (trial_type[n] == "immediate") {
+                return viewing_time_initial
+            }
+        },
         //response_start_time: viewing_time_initial + (viewing_time_updating + isi) * n_upd_steps - isi, // not to respond until all images are presented.
         on_start: function (trial) {
             // Set parameters for each image dynamically
