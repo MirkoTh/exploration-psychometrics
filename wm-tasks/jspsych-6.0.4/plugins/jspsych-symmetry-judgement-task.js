@@ -99,6 +99,8 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
   }
 
 
+  var data_cumulative;
+  data_cumulative = [];
 
 
 
@@ -315,7 +317,6 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
       display_element.innerHTML = '';
     }
 
-    var data_cumulative = [];
     function end_trial() {
 
       // kill any remaining setTimeout handlers
@@ -343,7 +344,7 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
         var file_name = "SS_processing_" + participant_id + ".json";
         var file_name_cum = "SS_processing_allinone_" + participant_id + ".json";
         saveData(JSON.stringify(trial_data), file_name, "SS");
-        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "SS");
+        saveSeveralDataOverwrite(data_cumulative, file_name_cum, "SS");
       }
     };
 

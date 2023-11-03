@@ -73,6 +73,9 @@ jsPsych.plugins["operation-span-recall"] = (function () {
     }
   }
 
+  var data_cumulative;
+  data_cumulative = [];
+
 
   plugin.trial = function (display_element, trial) {
 
@@ -208,7 +211,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
     }
 
 
-    var data_cumulative = [];
+
     function end_trial() {
 
       // kill any remaining setTimeout handlers
@@ -246,7 +249,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
         var file_name = "OS_recall_" + trial.participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name, "OS");
         var file_name_cum = "OS_recall_allinone_" + trial.participant_id + ".json";
-        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "OS");
+        saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS");
       }
     }
   };
