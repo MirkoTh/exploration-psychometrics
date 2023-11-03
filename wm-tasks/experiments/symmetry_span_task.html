@@ -37,7 +37,7 @@
   */
 
   //----- CUSTOMIZABLE VARIABLES -----------------------------------------
-  session_id = 0; // this variable has to be read out from prolific url, eventually
+  session_id = getQueryVariable("session"); // this variable has to be read out from prolific url, eventually
 
   minSetSize = 2 // starting length of each trial (i.e., min number of letters in a trial)
   maxSetSize = 5 // ending length of each trial (i.e., max number of letters in a trial)
@@ -504,7 +504,7 @@
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
       //window.location.href = "wm-updating-numerical.html";
-      window.location.href = progress_url;
+      window.location.href = progress_url+"&session="+session_id;
     }
   });
 

@@ -7,7 +7,7 @@
 var quickrunthrough = 1 // if 1, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
-var session = 1
+//var session = 1
 
 var totalScore = 0;
 var Ntrials
@@ -66,36 +66,51 @@ var machButton4 = document.getElementById('machine4');
 var slot_machines = document.getElementById('slot_machines');
 
 // pre-load rewards
-$.getJSON("rewardsHorizon"+ session+".json", function(data) {
+$.getJSON("rewardsHorizon"+ (session+1)+".json", function(data) {
     horizonRewards = data;
   })
-$.getJSON("fixedChoices"+ session+".json", function(data) {
+$.getJSON("fixedChoices"+ (session+1)+".json", function(data) {
     fixedChoicesCollect = data;
   })
 
-$.getJSON("Horizon"+ session+".json", function(data) {
+$.getJSON("Horizon"+ (session+1)+".json", function(data) {
     NtrialsCollect = data;
   })
 
-$.getJSON("rewardsSam"+ session+".json", function(data) {
+$.getJSON("rewardsSam"+ (session+1)+".json", function(data) {
     samRewards = data;
   })
-$.getJSON("rewards4ARB"+ session+".json", function(data) {
+$.getJSON("rewards4ARB"+ (session+1)+".json", function(data) {
     restlessRewards = data;
   })
 
-function saveData(filedata){
-    console.log(data)
-    var filename = "../data/" + subjectID + "data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt";
-    $.post("./results_data.php", {postresult: filedata + "\n", postfile: filename })
+// function saveData(filedata){
+//     console.log(data)
+//     var filename = "../data/" + subjectID + "data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt";
+//     $.post("./results_data.php", {postresult: filedata + "\n", postfile: filename })
   
+// }
+
+// function saveTemp(filedata){
+//     console.log(data)
+//     var filename = "../data/" + subjectID + "temp_data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt";
+//     $.post("./results_data.php", {postresult: filedata + "\n", postfile: filename })
+  
+// }
+
+function saveData(filedata, filename) {
+    var filename = subjectID + "data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt"
+    var filename_folder = "../data/" + filename;
+    $.post("save_data.php", { postresult: filedata + "\n", postfile: filename_folder })
 }
 
-function saveTemp(filedata){
-    console.log(data)
-    var filename = "../data/" + subjectID + "temp_data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt";
-    $.post("./results_data.php", {postresult: filedata + "\n", postfile: filename })
-  
+async function saveTemp(filedata, filename) {
+    var filename = "../data/" + subjectID + "temp_data_task_session_"+ session + ".txt";
+    var filename_folder = "../data/" + filename;
+    var n_data = filedata.length;
+    for (var i = 0; i < n_data; i++) {
+        $.post("save_data.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
+    }
 }
 
 function getQueryVariable(variable)
@@ -116,6 +131,8 @@ if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
     var subjectID = "test-" + Math.random().toString(36).substring(7);
     console.log(subjectID)
 }
+
+var session = getQueryVariable('session');
 
 // click function
 var clickMachine = function(machine, task) {
@@ -250,7 +267,7 @@ var clickMachine = function(machine, task) {
             
         } else { // study over
             slot_machines.style.display = 'none';
-            document.getElementById('machine_title').innerHTML = "This study is over. Thank you for participating! Click the button below to return to prolific."
+            document.getElementById('machine_title').innerHTML = "The games are over. Click the button below to proceed to the final questionnaires."
             document.getElementById('score').innerHTML ='<br> Total score: ' + totalScore 
             endTaskButton.style.display = 'block';
 
@@ -1198,7 +1215,7 @@ endTaskButton.addEventListener('click', () => {
     // Hide task trials and display completion message
 
     setTimeout(function () { 
-          window.location.href = "questionnaires.html" ;  
+          window.location.href = "questionnaires.html&PROLIFIC_PID="+subjectID+"&session="+session ;  
           }, 500)
     
 });

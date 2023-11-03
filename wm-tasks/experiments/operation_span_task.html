@@ -45,7 +45,10 @@
 
   //----- CUSTOMIZABLE VARIABLES -----------------------------------------
 
-  session_id = 0; // this variable has to be read out from prolific url, eventually
+  if (window.location.search.indexOf('session') > -1) {
+    var session_id= getQueryVariable('session');
+  } else{
+    var session_id = 0}// this variable has to be read out from prolific url, eventually
   // 0 meaning session 1, 1 meaning session 2
 
   minSetSize = 4 // starting length of each trial (i.e., min number of letters in a trial)
@@ -543,7 +546,7 @@
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
       //window.location.href = "symmetry_span_task.html";
-      window.location.href = progress_url;
+      window.location.href = progress_url+"&session="+session_id;
     }
   });
 

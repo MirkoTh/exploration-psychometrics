@@ -43,7 +43,7 @@
     const pixi_flag = jsPsych.data.getURLVariable('pixi_flag') === '1' ? true : false;
 
 
-    session_id = 0;
+    session_id = getQueryVariable('session');
     set_size = 4 // starting length of each trial (i.e., min number of letters in a trial)
     n_upd_steps = 7 // ending length of each trial (i.e., max number of letters in a trial)
     rep_set = 3 // number of times each set size should be repeated
@@ -446,7 +446,7 @@
             };
             console.log("data_bonus = " + JSON.stringify(data_bonus));
             saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
-            window.location.href = progress_url;
+            window.location.href = progress_url+"&session="+session_id;
 
         }
     };
