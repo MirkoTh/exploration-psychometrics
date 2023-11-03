@@ -65,24 +65,6 @@ var machButton3 = document.getElementById('machine3');
 var machButton4 = document.getElementById('machine4');
 var slot_machines = document.getElementById('slot_machines');
 
-// pre-load rewards
-$.getJSON("rewardsHorizon"+ (session+1)+".json", function(data) {
-    horizonRewards = data;
-  })
-$.getJSON("fixedChoices"+ (session+1)+".json", function(data) {
-    fixedChoicesCollect = data;
-  })
-
-$.getJSON("Horizon"+ (session+1)+".json", function(data) {
-    NtrialsCollect = data;
-  })
-
-$.getJSON("rewardsSam"+ (session+1)+".json", function(data) {
-    samRewards = data;
-  })
-$.getJSON("rewards4ARB"+ (session+1)+".json", function(data) {
-    restlessRewards = data;
-  })
 
 // function saveData(filedata){
 //     console.log(data)
@@ -98,19 +80,17 @@ $.getJSON("rewards4ARB"+ (session+1)+".json", function(data) {
   
 // }
 
-function saveData(filedata, filename) {
-    var filename = subjectID + "data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt"
+function saveData(filedata) {
+    var filename = "bandits/"+subjectID+"_data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt"
     var filename_folder = "../data/" + filename;
     $.post("save_data.php", { postresult: filedata + "\n", postfile: filename_folder })
 }
 
-async function saveTemp(filedata, filename) {
-    var filename = "../data/" + subjectID + "temp_data_task_session_"+ session + ".txt";
+async function saveTemp(filedata) {
+    console.log("saving temp")
+    var filename = "bandits/" + subjectID + "_temp_data_task_session_"+ session + ".txt";
     var filename_folder = "../data/" + filename;
-    var n_data = filedata.length;
-    for (var i = 0; i < n_data; i++) {
-        $.post("save_data.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
-    }
+    $.post("save_data.php", { postresult: filedata + "\n", postfile: filename_folder })
 }
 
 function getQueryVariable(variable)
@@ -133,6 +113,28 @@ if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
 }
 
 var session = getQueryVariable('session');
+console.log("session: " + (session))
+// turn session into integer and add 1
+var s = parseInt(session)+1
+
+// pre-load rewards
+$.getJSON("rewardsHorizon"+ s+".json", function(data) {
+    horizonRewards = data;
+  })
+$.getJSON("fixedChoices"+ s+".json", function(data) {
+    fixedChoicesCollect = data;
+  })
+
+$.getJSON("Horizon"+ s+".json", function(data) {
+    NtrialsCollect = data;
+  })
+
+$.getJSON("rewardsSam"+ s+".json", function(data) {
+    samRewards = data;
+  })
+$.getJSON("rewards4ARB"+ s+".json", function(data) {
+    restlessRewards = data;
+  })
 
 // click function
 var clickMachine = function(machine, task) {
@@ -197,6 +199,8 @@ var clickMachine = function(machine, task) {
     data[task]["reward"][currentBlock][trial] = reward
     data[task]["time"][currentBlock][trial] = toc - tic
     data[task]["taskReward"] += reward
+
+    if (task == "restless" & trial%5 == 0){saveTemp(JSON.stringify(data))}
 
 
     
@@ -283,6 +287,7 @@ var clickMachine = function(machine, task) {
 
 
             saveData(JSON.stringify(data))
+            //saveData(JSON.stringify([0,0]))
 
         }
 
@@ -1215,7 +1220,7 @@ endTaskButton.addEventListener('click', () => {
     // Hide task trials and display completion message
 
     setTimeout(function () { 
-          window.location.href = "questionnaires.html&PROLIFIC_PID="+subjectID+"&session="+session ;  
+          window.location.href = "questionnaires.html?PROLIFIC_PID="+subjectID+"&session="+session ;  
           }, 500)
     
 });

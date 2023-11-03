@@ -11,7 +11,6 @@
 
 <div class="div" id="mainSection">
     <header class="form__header" id="header"><h2 id="header_title" class="form__title"></h2></header>
-    <section class="mainInstructions" id="consent"></section>
 </div>
 
 <div class="form" id = "questionnaire">
@@ -46,7 +45,7 @@ function getQueryVariable(variable)
 
 $(document.getElementById("questionnaire")).hide()
 var nextPage
-var subjectID
+var subjectID = getQueryVariable('PROLIFIC_PID');
 var studyID
 var start
 var end
@@ -56,128 +55,11 @@ var session = getQueryVariable("session");
 var uid;
 
 
-var check_consent = function (elem) {
-
-  if ($('#consent_checkbox1').is(':checked') && $('#consent_checkbox2').is(':checked') &&
-    $('#consent_checkbox3').is(':checked') && $('#consent_checkbox4').is(':checked')) 
-    // if (1 == 1) 
-    { // KW: if you checked everything --> remove consent form and go back to top of page
-
-        //Clear the page 
-        document.getElementById('consent').innerHTML = '';
-        document.getElementById('consent').style.margin = 0;
-        document.getElementById('consent').style.padding = 0;
-        document.getElementById('header_title').innerHTML = '';
-        document.getElementById('header_title').style.margin = 0;
-        document.getElementById('header_title').style.padding = 0;
-        var mainSection = document.getElementById('mainSection'); // KW: contains 'header_title', 'consent', 'header'
-        var header = document.getElementById('header');
-        mainSection.removeChild(header); // KW: irretrievably (?) removes header node which is a child of 'mainSection'
-        window.scrollTo(0, 0); // KW: go to top of page
 
 
-        startQuestionnaires();
-    }
-
-  else {
-    alert("Unfortunately you will not be able to participate in this research study if you do " +
-      "not consent to the above. Thank you for your time.");
-    return false;
-  }
-};
-
-
+  
 document.getElementById('header_title').innerHTML = "Welcome";
-    document.getElementById('consent').innerHTML = "        <p><b>Project title: Learning from positive and negative feedback</b><p>\n" +
-        "        <b>Principal investigator</b> Dean Mobbs; Address: MC 228-77, California Institute of Technology, Pasadena, " +
-        "CA 91125; Phone: 626-395-4028; Email: dmobbs@caltech.edu" +
-        "        </p>\n" +
-        "\n" +
-        "        <p><b>What is the purpose of this study?</b><p>\n" +
-        "        <p>\n" +
-        "        The purpose of this study is research. This is not a clinical study and we do not provide medical " +
-                "treatment. We wish to understand how people learn from positive and negative feedback, and how this influences how they make decisions." +
-        "        </p>\n" +
-        "\n" +
-        "        <p><b>Who can participate in the study?</b><p>\n" +
-        "        <p>\n" +
-        "            You must be 18 or over to participate in this study. Please confirm this to proceed.\n" +
-        "        </p>\n" +
-        "            <label class=\"container\">I confirm I am over 18 years old\n" +
-        "                <input type=\"checkbox\" id=\"consent_checkbox1\">\n" +
-        "                <span class=\"checkmark\"></span>\n" +
-        "            </label>\n" +
-        "        <br>\n" +
-        "\n" +
-        "        <p><b>What will happen to me if I take part?</b><p>\n" +
-        "        <p>\n" +
-        "            You will play a simple game that involves learning to make decisions that will maximize the number of points you gain.<br>" +
-        "            Before and after playing that game, you will answer some questions about yourself.<br>" +
-        "        </p>\n" +
-        "\n" +
-        "        <p><b>What are the possible disadvantages and risks of taking part?</b><p>\n" +
-        "        <p>\n" +
-        "            This study involves minimal risk, meaning there will be no more risk than in daily life<br><br>" +
-                    "You have been informed that the possible risks and discomforts of this study are as follows:<br> " +
-                    "Physical discomfort: Physical fatigue (eyestrain, tiredness)<br>" +
-                    "Psychological discomfort: Potential difficulty making decisions; potential boredom; potential frustration " +
-                    "at losing points in the task\n" +
-        "        </p>\n" +
-        "\n" +
-        "        <p><b>Alternatives</b><p>\n" +
-        "        <p>\n" +
-        "            Your alternative is to choose not to participate in this study." +
-        "        </p>\n" +
-        "\n" +
-        "        <p><b>Compensation</b><p>\n" +
-        "        <p>\n" +
-        "        You are entitled to compensation for participating in this experiment. Your compensation will include a minimum payment of $6.50 per hour. Depending on your performance in the game, you might earn up to $8.00 bonus pay. However: We included attention checks in this experiment to make sure you are actually paying attention. If you fail the majority of these checks, <u>you will not receive any bonus payment.</u>" +
-        "        </p>\n" +
-        "\n" +
-        "        <p><b>Withdrawal from Study</b><p>\n" +
-        "        <p>\n" +
-        "            Your paticipation is voluntary. If you first agree to participate and then you change your mind, you are  " +
-                    "free to withdraw your consent and discontinue your participation in this study at any time. Your decision " +
-                    "will not affect your relationship, if any, with the California Institute of Technology or the Jet Propulsion " +
-                    "Laboratory and you will not be penalized or lose any benefits to which you would otherwise be entitled.<br>" +
-                    "We may also withdraw you from the study without your consent for scientific or technical reasons. We will " +
-                    "not be able to give you detailed explanations of the reasons. " +
-        "        </p>\n" +
-        "\n" +
-        "        <p><b>Confidentiality of records</b><p>\n" +
-        "        <p>\n" +
-        "            We will not be collecting any data in this study that could be used to identify you on its own. We collect your MTurk worker ID " + 
-        "to facilitate approval and payment, which only MTurk are able to link to identifiable information. This means " + 
-        "there is no link between the data we collect and your identity, except in the extremely unlikely event that both our" + 
-        " databases and those of MTurk are the victims of hacking. Data including your MTurk worker ID will not be shared with " + 
-        "anyone outside the research team. We may share anonymized data (removing any information about your MTurk worker ID) in public research databases." +
-        "        </p>\n" +
-        "\n" +
-        "        <p><b>If you are happy to proceed please read the statement below and click the boxes to show that you\n" +
-        "            consent to this study proceeding</b><p>\n" +
-        "\n" +
-        "        <label class=\"container\">I have read the information above, and understand what the study involves.\n" +
-        "            <input type=\"checkbox\" id=\"consent_checkbox2\">\n" +
-        "            <span class=\"checkmark\"></span>\n" +
-        "        </label>\n" +
-        "\n" +
-        "        <label class=\"container\">I understand that my anonymised/pseudonymised personal data can be shared with others\n" +
-        "            for future research, shared in public databases and in scientific reports.\n" +
-        "            <input type=\"checkbox\" id=\"consent_checkbox3\">\n" +
-        "            <span class=\"checkmark\"></span>\n" +
-        "        </label>\n" +
-        "\n" +
-        "        <label class=\"container\">I understand that I am free to withdraw from this study at any time without\n" +
-        "            giving a reason and this will not affect my future medical care or legal rights.\n" +
-        "            <input type=\"checkbox\" id=\"consent_checkbox4\">\n" +
-        "            <span class=\"checkmark\"></span>\n" +
-        "        </label>\n" +
-        "\n" +
-        "        <br><br>\n" +
-        "        <button type=\"button\" id=\"start\" class=\"submit_button\">Start study</button>\n" +
-        "        <br><br>";
-
-        document.getElementById("start").onclick = check_consent;
+    
 
 // Don't let people complete the task on mobile devices
 if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
@@ -191,11 +73,11 @@ var submitted = false
 var attention
 
 
-function saveData(filedata){
-    console.log(filedata)
-    var filename = "./data/" + subjectID + "data_1" +"_attention" + attention + "_session_" +session + ".txt";
-    $.post("results_data.php", {postresult: filedata + "\n", postfile: filename })
 
+function saveData(filedata) {
+    var filename = "qs/"+subjectID+"_data_attention_" + attention + "_session_"+ session + ".txt"
+    var filename_folder = "../data/" + filename;
+    $.post("save_data.php", { postresult: filedata + "\n", postfile: filename_folder })
 }
 
 function createQuestion(questionnaireName, questionData) {
@@ -502,7 +384,7 @@ function getValues() {
             attention += 1
 
         }
-        console.log(attention)
+        console.log("attention: "+attention)
         values["attention1"] = attention;
 
         // save data
@@ -513,9 +395,9 @@ function getValues() {
         setTimeout(function(){
             $(document.getElementById("questionnaires")).hide()
             $(document.getElementById("header")).hide()
-            window.scrollTo(0.0)
+            window.scrollTo(0,0)
             var complete_url = nextPage;    
-            document.getElementById('instruction').innerHTML = 'This is the end of this study. Thank you very much for your participation. <br/>Your data has been recorded.<br/>Please click' +
+            document.getElementById('questionnaire').firstElementChild.innerHTML = 'This is the end of this study. Thank you very much for your participation. <br/>Your data has been recorded.<br/>Please click' +
             ' <a href="' + complete_url + '">here</a> to return to Prolific';
         }, 2000);
 
@@ -533,13 +415,13 @@ var startQuestionnaires = function() {
 
     // GET URL VARIABLES
     // Get Prolific ID from URL
-    if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
-        subjectID = getQueryVariable('PROLIFIC_PID');
-    }
-    // If no ID is present, generate one using random numbers - this is useful for testing
-    else {
-        var subjectID = 'test-' + Math.floor(Math.random() * (2000000 - 0 + 1)) + 0; 
-    }
+    // if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
+    //     subjectID = getQueryVariable('PROLIFIC_PID');
+    // }
+    // // If no ID is present, generate one using random numbers - this is useful for testing
+    // else {
+    //     var subjectID = 'test-' + Math.floor(Math.random() * (2000000 - 0 + 1)) + 0; 
+    // }
     console.log("session="+session)
     console.log(subjectID)
     
@@ -636,7 +518,7 @@ var startQuestionnaires = function() {
 }
 
 
-
+startQuestionnaires();
 
 
 </script>
