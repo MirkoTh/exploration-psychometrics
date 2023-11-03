@@ -96,7 +96,7 @@
     }
   };
 
-  var nTrials = setSizes.length
+  var nTrials = 2 // setSizes.length //
   //var nTrials = 2;
   /* if (randomize) {
     setSizes = jsPsych.randomization.sampleWithoutReplacement(setSizes, nTrials)
@@ -137,7 +137,7 @@
   var instructions2 = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">We will now practice SYMMETRY JUDGEMENTS.<br><br>A black and white picture will appear on the screen and you have to judge if the picture is symmetrical or asymetrical.<br>A picture is symmetrical if its left half is identical to the right half when flipped.<br>Below are examples of symmetrical and asymetrical pictures:<br> <img src="../img/symm_instructions.png" style="height:300px; width:450px"></img><br><br>Please ask the Research Assistant if you have not understood the difference between the symmetrical and asymetrical pictures.<br>Press "Next" to start practicing symmetry judgements.</div>'
+      pageOne = '<div style="font-size:20px;">We will now practice SYMMETRY JUDGEMENTS.<br><br>A black and white picture will appear on the screen and you have to judge if the picture is symmetrical or asymetrical.<br>A picture is symmetrical if its left half is identical to the right half when flipped.<br>Below are examples of symmetrical and asymetrical pictures:<br> <img src="../img/symm_instructions.png" style="height:300px; width:450px"></img><br><br>Press "Next" to start practicing symmetry judgements.</div>'
       return [pageOne]
     },
     allow_backward: false,
@@ -149,7 +149,7 @@
     type: 'instructions',
     pages: function () {
       pageOne = '<div style="font-size:20px;">We will now practice the two tasks together.<br><br>In the next practice set, you will first be presented with a red colored square.<br>Try and remember the position of that colored square.<br>After the colored square dissapears, you will be asked to make a symmetry judgement of a black and white picture.<br><br>Try making the symmetry judgement as soon as possible.<br>Each symmetry judgement picture will be presented for only 6 seconds.<br><br></div>'
-      pageTwo = '<div style="font-size:20px;">After the symmetry judgement, you will be shown another colored square to remember,<br>which will be followed by another symmetry judgement.<br><br>Therefore, colored square presentations and symmetry judgements will alternate.<br>After 3 to 6 squares have been presented, the recall grid will appear.<br>Use the mouse to select the presented squares in their correct order.<br><br>Do you have any questions?<br>Press "Next" to start practice rounds.<br><br></div>'
+      pageTwo = '<div style="font-size:20px;">After the symmetry judgement, you will be shown another colored square to remember,<br>which will be followed by another symmetry judgement.<br><br>Therefore, colored square presentations and symmetry judgements will alternate.<br>After 3 to 6 squares have been presented, the recall grid will appear.<br>Use the mouse to select the presented squares in their correct order.<br><br>Press "Next" to start practice rounds.<br><br></div>'
       return [pageOne, pageTwo]
     },
     allow_backward: false,
@@ -371,49 +371,6 @@
   }; */
 
   var IDsub = Date.now()
-  var dataLog = {
-    type: 'html-keyboard-response',
-    stimulus: " ",
-    trial_duration: 100,
-    on_finish: function (data) {
-
-      var data_recall = jsPsych.data.get().filter([{ type: 'spatial-span-recall' }]);
-      var data_processing = jsPsych.data.get().filter([{ type: 'symmetry-judgement-task' }])
-
-      const file_name_recall = "SS_recall_";
-      const file_name_processing = "SS_processing_";
-      file_names = [file_name_recall, file_name_processing];
-      var file_name;
-
-      for (var i = 0; i <= file_names.length - 1; i++) {
-        file_name = file_names[i];
-        if (file_name == "SS_recall_") {
-          var data_recall = jsPsych.data.get().last(1);//.filter([{ trial_type: 'operation-span-recall' }]);
-          data_clean = prepare_recall(data_recall);
-        } else if (file_name == "SS_processing_") {
-          data_clean = prepare_processing(data_processing);
-        }
-        if (!local) {
-          saveSeveralData(JSON.stringify(data_clean), file_name + participant_id + ".json", "SS")
-        } else {
-          console.log("data to be saved are: " + JSON.stringify(data_clean));
-        }
-      }
-
-      /* var data = jsPsych.data.get().filter([{ trial_type: 'spatial-span-recall' }, { trial_type: 'symmetry-judgement-task' }]);
-      if (file_name == null) {
-        file_name = "WM_symmetry_span_" + partN + "_" + IDsub.toString() + ".csv"
-      }
-      else {
-        file_name += ".csv"
-      }
-      if (local) {
-        data.localSave('csv', file_name)
-      } else {
-        saveData(file_name, data.csv());
-      } */
-    }
-  }
 
   var test_stack = {
     timeline: [test_stimuli, cog_load, end_test_stimuli],
@@ -495,7 +452,6 @@
     type: 'fullscreen',
     fullscreen_mode: false
   });
-  //timeline.push(dataLog)
   timeline.push(conclusion)
 
   jsPsych.init({

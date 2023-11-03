@@ -63,6 +63,10 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
   }
 
 
+  var data_cumulative;
+  data_cumulative = [];
+
+
   plugin.trial = function (display_element, trial) {
 
     // making matrix:
@@ -211,7 +215,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
       display_element.innerHTML = '';
     }
 
-    var data_cumulative = [];
+
     function end_trial() {
 
       // kill any remaining setTimeout handlers
@@ -246,7 +250,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
         var file_name = "SS_recall_" + participant_id + ".json";
         var file_name_cum = "SS_recall_allinone_" + participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name, "SS");
-        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "SS");
+        saveSeveralDataOverwrite(data_cumulative, file_name_cum, "SS");
       }
 
       // move on to the next trial

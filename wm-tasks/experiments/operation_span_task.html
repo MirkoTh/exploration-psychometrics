@@ -90,7 +90,7 @@
   // counter for actually correctly recalled items
   var n_recalled_cumulative = 0;
 
-  var nTrials = setSizes.length // number of trials
+  var nTrials = 2 // setSizes.length // number of trials
 
   var letterMemDemoArray = [4, 5]  // set sizes of initial demo trials
   var fullDemoArray = [4, 5]       // set sizes of full demo trials
@@ -160,7 +160,7 @@
     type: 'instructions',
     pages: function () {
       pageOne = '<div style="font-size:20px;"><b>INSTRUCTIONS</b><br><br><br>This is the operation span task. <br><br>This task has two parts: <br>(1) Letter memorization <br>(2) Math problem solving<br><br><br></div>'
-      pageTwo = '<div style="font-size:20px;">We will first practice LETTER MEMORIZATION.<br><br>A sequence of letters will appear on the screen one at a time (around 3 to 6 in a trial).<br>Try to remember each letter in the order presented.<br><br>After letter presentation, you will see a screen listing 12 possible letters.<br>Your task is to select each letter that was presented in its correct presentation order. <br><br>Use the mouse to select the appropriate letters <br>If you make a mistake use the provided "Backspace" button to clear your last response. <br><br>Remember, it is important that you select the letters in the order that you saw them.<br> So if you forget one of the letters, guess the best you can for that one, and select the rest in their correct order.<br><br>Press "Next" for practice trials.<br><br></div>'
+      pageTwo = '<div style="font-size:20px;">We will first practice LETTER MEMORIZATION.<br><br>A sequence of letters will appear on the screen one at a time (around 3 to 6 in a trial).<br>Try to remember each letter in the order presented.<br><br>After letter presentation, you will see a screen listing 18 possible letters.<br>Your task is to select each letter that was presented in its correct presentation order. <br><br>Use the mouse to select the appropriate letters <br>If you make a mistake use the provided "Backspace" button to clear your last response. <br><br>Remember, it is important that you select the letters in the order that you saw them.<br> So if you forget one of the letters, guess the best you can for that one, and select the rest in their correct order.<br><br>Press "Next" for practice trials.<br><br></div>'
       return [pageOne, pageTwo]//, pageThree]
     },
     allow_backward: false,
@@ -171,7 +171,7 @@
   var instructions2 = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">You will next practice MATH PROBLEM SOLVING.<br><br>A simple math equation will appear on the screen, like this:<br>3 + 4 = 7<br>Your task is to solve the math problem and determine if the answer provided to it is correct.<br><br>For example, if you see the following problem:<br>2 + 3 = 5<br>you should click the <b>"True"</b> button because 2 and 3 added together equals 5.<br><br>If you see the following problem:<br>2 + 3 = 6<br>you should click the <b>"False"</b> button because 2 and 3 added together DOES NOT equal 6.<br><br>Please ask the Research Assistant if you have not understood the task.<br>Press "Next" to start practicing math problem solving.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">You will next practice MATH PROBLEM SOLVING.<br><br>A simple math equation will appear on the screen, like this:<br>3 + 4 = 7<br>Your task is to solve the math problem and determine if the answer provided to it is correct.<br><br>For example, if you see the following problem:<br>2 + 3 = 5<br>you should click the <b>"True"</b> button because 2 and 3 added together equals 5.<br><br>If you see the following problem:<br>2 + 3 = 6<br>you should click the <b>"False"</b> button because 2 and 3 added together DOES NOT equal 6.<br><br>Press "Next" to start practicing math problem solving.<br><br></div>'
       return [pageOne]
     },
     allow_backward: false,
@@ -183,7 +183,7 @@
     type: 'instructions',
     pages: function () {
       pageOne = '<div style="font-size:20px;">We will now practice the two tasks together.<br><br>In the next practice set, you will first be presented with a letter.<br>Try and remember that letter.<br>After the letter dissapears, you will be provided with a math problem<br>and you have to judge if the answer provided is true or false.<br><br>It is important to work QUICKLY and ACCURATELY on the math problem.<br>Each math problem will be presented for only 6 seconds.<br><br></div>'
-      pageTwo = '<div style="font-size:20px;">After the math problem, you will be shown another letter to remember,<br>which will be followed by another math problem.<br><br>Therefore, letter presentations and math problems will alternate.<br>After 4 to 8 letters have been presented, the recall screen will appear.<br>Use the mouse to select the presented letters in their correct order.<br><br>Do you have any questions?<br>Press "Next" to start practice rounds.<br><br></div>'
+      pageTwo = '<div style="font-size:20px;">After the math problem, you will be shown another letter to remember,<br>which will be followed by another math problem.<br><br>Therefore, letter presentations and math problems will alternate.<br>After 4 to 8 letters have been presented, the recall screen will appear.<br>Use the mouse to select the presented letters in their correct order.<br><br>Press "Next" to start practice rounds.<br><br></div>'
       return [pageOne, pageTwo]
     },
     allow_backward: false,

@@ -109,6 +109,10 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
     }
   }
 
+  var data_cumulative;
+  data_cumulative = [];
+
+
   plugin.trial = function (display_element, trial) {
 
     // display stimulus
@@ -191,7 +195,6 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
       }
     };
 
-    var data_cumulative = [];
     // function to end trial when it is time
     function end_trial() {
 
@@ -223,7 +226,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
         var file_name = "OS_processing_" + trial.participant_id + ".json";
         saveData(JSON.stringify(trial_data), file_name, "OS")
         var file_name_cum = "OS_processing_allinone_" + trial.participant_id + ".json";
-        saveSeveralDataOverwrite(JSON.stringify(data_cumulative), file_name_cum, "OS")
+        saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS")
       }
     };
 
