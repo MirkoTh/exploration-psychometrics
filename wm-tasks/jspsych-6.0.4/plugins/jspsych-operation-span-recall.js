@@ -227,7 +227,6 @@ jsPsych.plugins["operation-span-recall"] = (function () {
         stimuli: correctLetters,
         accuracy: response.button
       };
-      data_cumulative.push(trial_data);
       // move on to the next trial
       jsPsych.finishTrial(trial_data);
 
@@ -242,6 +241,8 @@ jsPsych.plugins["operation-span-recall"] = (function () {
         n_correct: response.button,
         rt: response.rt
       };
+      data_cumulative.push(data_recall_clean);
+
       if (trial.is_local) {
         console.log("all: " + JSON.stringify(data_recall_clean));
       } else if (!trial.is_local) {

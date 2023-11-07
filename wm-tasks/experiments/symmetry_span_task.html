@@ -37,10 +37,17 @@
   */
 
   //----- CUSTOMIZABLE VARIABLES -----------------------------------------
-  session_id = getQueryVariable("session"); // this variable has to be read out from prolific url, eventually
 
-  minSetSize = 2 // starting length of each trial (i.e., min number of letters in a trial)
-  maxSetSize = 5 // ending length of each trial (i.e., max number of letters in a trial)
+  // this variable has to be read out from prolific url, eventually
+  if (window.location.search.indexOf('session') > -1) {
+    var session_id = getQueryVariable('session');
+  } else {
+    var session_id = 0
+  }
+  // 0 meaning session 1, 1 meaning session 2
+
+  minSetSize = 3 // starting length of each trial (i.e., min number of letters in a trial)
+  maxSetSize = 6 // ending length of each trial (i.e., max number of letters in a trial)
   repSet = 3 // number of times each set size should be repeated
   randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
   file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
@@ -72,7 +79,26 @@
   console.log("current participant_id = " + participant_id);
 
   var setSizes = setSizes_symm[session_id];
-  var totalTrials = setSizes.length //total number of trials in the entire task
+  console.log("setSizes = " + setSizes);
+  var setSizes_test = setSizes.slice(6,);
+  var squaregridDemoArray = setSizes.slice(0, 3);
+  var fullDemoArray = setSizes.slice(3, 6);
+  var setSizes_practice = squaregridDemoArray.concat(fullDemoArray);
+  const selections_practice = selections_symm[session_id].slice(0, 6);
+  const selections_test = selections_symm[session_id].slice(6,);
+
+  var nTrials = setSizes_test.length //2 // 
+  var nPracticeTrials = squaregridDemoArray.length //number of practice trials for square memorization
+  var nfullDemo = fullDemoArray.length;
+
+  console.log("nTrials = " + nTrials);
+  console.log("nPracticeTrials total = " + setSizes_practice.length);
+
+  //var squaregridDemoArray = [3, 4, 4]
+  //var fullDemoArray = [3, 3, 4]
+  //var setSizes_practice = [3, 4, 4, 3, 3, 4];
+
+
   /* var setSizes = []    // different set sizes
   for (var i = minSetSize; i <= maxSetSize; i++) {
     for (var r = 1; r <= repSet; r++) {
@@ -81,8 +107,7 @@
   } */
 
   // max possible number correct recalled items
-  const n_max_correct = setSizes.reduce(function (a, b) { return a + b; }, 0);
-  console.log("n_max_correct = " + n_max_correct);
+  const n_max_correct = setSizes_test.reduce(function (a, b) { return a + b; }, 0);
   // counter for actually correctly recalled items
   var n_recalled_cumulative = 0;
 
@@ -96,26 +121,19 @@
     }
   };
 
-  var nTrials = 2 // setSizes.length //
   //var nTrials = 2;
   /* if (randomize) {
     setSizes = jsPsych.randomization.sampleWithoutReplacement(setSizes, nTrials)
   } */ // shuffle through the set sizes
 
-  var squaregridDemoArray = [3, 4, 4]
-  var fullDemoArray = [3, 3, 4]
-  var demoArray = [3, 4, 4, 3, 3, 4];
-  var nPracticeTrials = squaregridDemoArray.length //number of practice trials for square memorization
-  var nfullDemo = fullDemoArray.length
 
   //var setSizes = squaregridDemoArray.concat(fullDemoArray, setSizes)
 
   var n = 0 //keeps track of number of trials gone by
   var counter_symmetry = 0
-  selections_practice = [[[2, 3], [2, 1], [1, 1]], [[1, 2], [3, 3], [1, 1], [1, 3]], [[3, 1], [0, 3], [0, 2], [2, 2]], [[3, 0], [3, 1], [2, 3]], [[2, 3], [1, 1], [3, 3]], [[3, 2], [1, 2], [3, 3], [1, 3]]]
+
 
   var selection = selections_practice[n];
-  //var selection = jsPsych.randomization.sampleWithoutReplacement(matrix, setSizes[n])
   var selection_id = -1  //keeps track of recall items within a test stack
 
   var nSymmetryAcc = 0 //feedback
@@ -273,7 +291,12 @@
       return selection
     },
     data: function () {
-      return { set_size: setSizes[n] }
+      if (is_practice == 1) {
+        var stim = setSizes_practice
+      } else if (is_practice == 0) {
+        var stim = setSizes_test
+      }
+      return { set_size: stim[n] }
     },
     trial_id_recall: function () {
       return n
@@ -286,10 +309,10 @@
       nSquaresRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
 
       if (is_practice == 1) {
-        nSquares = demoArray[n]
+        nSquares = setSizes_practice[n]
 
       } else if (is_practice == 0) {
-        nSquares = setSizes[n]
+        nSquares = setSizes_test[n]
       }
       n += 1
       if (is_practice == 1) {
@@ -297,7 +320,7 @@
       } else if (is_practice == 0) {
         n_recalled_cumulative += nSquaresRecalled;
         console.log("n_recalled_cumulative = " + n_recalled_cumulative);
-        selection = selections_symm[session_id][n]
+        selection = selections_test[n]
       }
       selection_id = -1
     }
@@ -424,8 +447,8 @@
           t_comprehension: Date.now() - t_start
         };
         is_practice = 0;
-        nSquares = setSizes[n]
-        selection = selections_symm[session_id][n]
+        nSquares = setSizes_test[n]
+        selection = selections_test[n]
         saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + participant_id + ".json", "SS");
         console.log("nr attempts data = " + JSON.stringify(data_comprehension));
         return false;
@@ -461,7 +484,7 @@
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
       //window.location.href = "wm-updating-numerical.html";
-      window.location.href = progress_url+"&session="+session_id;
+      window.location.href = progress_url + "&session=" + session_id;
     }
   });
 

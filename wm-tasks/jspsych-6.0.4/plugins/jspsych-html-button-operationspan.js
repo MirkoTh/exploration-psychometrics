@@ -206,6 +206,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
         participant_id: trial.participant_id,
         is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
+        set_size: trial.set_size,
         processing_position: trial.trial_id_processing,
         rt: response.rt,
         accuracy: response.accuracy

@@ -83,8 +83,8 @@
     var possibleNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
-    var nTrials_update = 2 // 20 // number of trials
-    var nTrials_immediate = 1 //5 // 
+    var nTrials_update = 20 // number of trials2 // 
+    var nTrials_immediate = 5 // 1 //
     var nPracticeTrials = 2
 
     // max possible number correct recalled items
@@ -446,7 +446,7 @@
             };
             console.log("data_bonus = " + JSON.stringify(data_bonus));
             saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
-            window.location.href = progress_url+"&session="+session_id;
+            window.location.href = progress_url + "&session=" + session_id;
 
         }
     };

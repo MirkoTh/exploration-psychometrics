@@ -7,8 +7,8 @@ session_id <- 2
 my_two_seeds <- c(39737632, 8567389)
 
 
-setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
-source("wm-tasks/utils-gen-stim.R")
+#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+source("utils-gen-stim.R")
 
 set.seed(my_two_seeds[session_id])
 
@@ -83,8 +83,8 @@ str_replace(tmp, "(, \\])(\\])$", replacement=, "\\2")
 
 # Symmetry Span -----------------------------------------------------------
 
-minSetSize <- 2 #// starting length of each trial (i.e., min number of letters in a trial)
-maxSetSize <- 5 #// ending length of each trial (i.e., max number of letters in a trial)
+minSetSize <- 3 #// starting length of each trial (i.e., min number of letters in a trial)
+maxSetSize <- 6 #// ending length of each trial (i.e., max number of letters in a trial)
 repSet <- 3
 
 SetSizes <- rep(seq(minSetSize, maxSetSize, by = 1), repSet)

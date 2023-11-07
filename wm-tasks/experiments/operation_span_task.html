@@ -44,11 +44,12 @@
   */
 
   //----- CUSTOMIZABLE VARIABLES -----------------------------------------
-
+  // this variable has to be read out from prolific url, eventually
   if (window.location.search.indexOf('session') > -1) {
-    var session_id= getQueryVariable('session');
-  } else{
-    var session_id = 0}// this variable has to be read out from prolific url, eventually
+    var session_id = getQueryVariable('session');
+  } else {
+    var session_id = 0
+  }
   // 0 meaning session 1, 1 meaning session 2
 
   minSetSize = 4 // starting length of each trial (i.e., min number of letters in a trial)
@@ -93,7 +94,7 @@
   // counter for actually correctly recalled items
   var n_recalled_cumulative = 0;
 
-  var nTrials = 2 // setSizes.length // number of trials
+  var nTrials = setSizes.length // 2 // number of trials
 
   var letterMemDemoArray = [4, 5]  // set sizes of initial demo trials
   var fullDemoArray = [4, 5]       // set sizes of full demo trials
@@ -547,7 +548,7 @@
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
       //window.location.href = "symmetry_span_task.html";
-      window.location.href = progress_url+"&session="+session_id;
+      window.location.href = progress_url + "&session=" + session_id;
     }
   });
 
