@@ -18,7 +18,7 @@
     </div> -->
     <header class="form__header">
         <h2 class="form__title" id="header">Some questions about you</h2>
-        <p class="form__instruction">These questions ask you about things like personality traits and emotions</p>
+        <p class="form__instruction">These questions ask you about things like personality traits and emotions but also about the games you just played and about your demographics.</p>
     </header>
     <div id="questionnaires">
     </div>
@@ -134,6 +134,54 @@ function createQuestion(questionnaireName, questionData) {
 
 }
 
+function createQuestion_slider(questionnaireName, questionData) {
+
+
+    var shockForm = document.createElement("form");
+    shockForm.setAttribute('method',"post");
+    shockForm.setAttribute('id', questionnaireName.concat('_' + questionData.qNumber.toString()));
+    shockForm.setAttribute("name", "form_");
+    shockForm.setAttribute('action',"submit.php");
+
+    var shockFieldSet = document.createElement("fieldset");
+    shockFieldSet.setAttribute("class", "form__options");
+    shockFieldSet.setAttribute('id', questionnaireName.concat('_' + questionData.qNumber.toString()));
+    shockFieldSet.setAttribute("name", "fs_");
+
+    var legendShock = document.createElement("legend");
+    legendShock.setAttribute("class", "questionDemo");
+    legendShock.setAttribute("name", "legend");
+    legendShock.innerHTML = questionData.prompt;
+
+    shockFieldSet.appendChild(legendShock);
+
+    var sliderBox = document.createElement("div");
+    sliderBox.setAttribute("class", "slidecontainer");
+
+    var slider = document.createElement("input");
+    slider.setAttribute("type", "range");
+    slider.setAttribute("min", "0");
+    slider.setAttribute("max", "100");
+    slider.setAttribute("class", "slider");
+    slider.setAttribute("id", questionnaireName.concat('_' + questionData.qNumber.toString()));
+    slider.name = 'question';
+
+    var sliderLabelLeft = document.createElement("p");
+    sliderLabelLeft.setAttribute("class", "sliderLabel");
+    sliderLabelLeft.append(questionData.labels[0]);
+    var sliderLabelRight = document.createElement("p");
+    sliderLabelRight.setAttribute("class", "sliderLabel");
+    sliderLabelRight.append(questionData.labels[1]);
+
+    sliderBox.appendChild(sliderLabelLeft);
+    sliderBox.appendChild(slider);
+    sliderBox.appendChild(sliderLabelRight);
+
+    shockFieldSet.appendChild(sliderBox);
+
+    shockForm.appendChild(shockFieldSet);
+    return shockForm
+}
 
 function createPreamble(preamble) {
     // This is used to generate an introduction to the the questionnaire
@@ -153,6 +201,8 @@ function createPreamble(preamble) {
     return h
 
 }
+
+
 
 
 function createQuestionnaire(questionnaire_data) {
@@ -178,15 +228,81 @@ function createQuestionnaire(questionnaire_data) {
 
 }
 
+function createQuestionnaire_slider(questionnaire_data) {
+    // This function creates an entire questionnaire
+
+    // Start with the introduction
+    var preamble = createPreamble(questionnaire_data.preamble);
+    document.getElementById('questionnaires').appendChild(preamble);
+
+    // Loop through the items and add them
+    for (j = 0; j < questionnaire_data.questions.length; j++) {
+      
+        questionnaire_data.questions[j].qNumber = j;
+
+        if (j < questionnaire_data.questions.length - 1) {
+            next = questionnaire_data.name.concat((j+1).toString());
+        }
+
+        document.getElementById('questionnaires').appendChild(createQuestion_slider(questionnaire_data.name,
+            questionnaire_data.questions[j], next));
+
+    }
+
+}
+
 function createDemographics() {
             // This creates demographics questions
             // This isn't automatically generated from a JSON file - these are entered manually here
         
-            var preamble = createPreamble("First, we need some information about you");
+            var preamble = createPreamble("");
         
             document.getElementById('questionnaires').appendChild(preamble);
         
+            // How motivated were you to do well in the memory tasks?
+
+            qDataMemMotivation = {
+                qNumber: 0,
+                prompt: "How motivated were you to do well in the memory tasks?",
+                labels: ['Not motivated at all', 'Extremely motivated']
+            };
         
+            motivMemQ = createQuestion_slider('motiv_mem', qDataMemMotivation);
+            document.getElementById('questionnaires').appendChild(motivMemQ);
+
+            // How motivated were you to do well in the slot machine games?
+
+            qDataSlotMotivation = {
+                qNumber: 0,
+                prompt: "How motivated were you to do well in the slot machine games?",
+                labels: ['Not motivated at all', 'Extremely motivated']
+            };
+
+            motivSlotQ = createQuestion_slider('motiv_slot', qDataSlotMotivation);  
+            document.getElementById('questionnaires').appendChild(motivSlotQ);
+
+            // did you use any external aids (e.g. pen and paper) to help you with the memory tasks?
+
+            qDataMemAid = {
+                qNumber: 0,
+                prompt: "Did you use any external aids (e.g. pen and paper) to help you with the memory tasks? Your answer will not effect your payout in any way.",
+                labels: ['No', 'Yes']
+            };
+
+            memAidQ = createQuestion('mem_aid', qDataMemAid);
+            document.getElementById('questionnaires').appendChild(memAidQ);
+
+            // did you use any external aids (e.g. pen and paper) to help you with the slot machine games?
+
+            qDataSlotAid = {
+                qNumber: 0,
+                prompt: "Did you use any external aids (e.g. pen and paper) to help you with the slot machine games? Your answer will not effect your payout in any way.",
+                labels: ['No', 'Yes']
+            };
+
+            slotAidQ = createQuestion('slot_aid', qDataSlotAid);
+            document.getElementById('questionnaires').appendChild(slotAidQ);
+
             // Sex
             qDataSex = {
                 qNumber: 0,
@@ -269,7 +385,37 @@ function createDemographics() {
         
             incomeQuestion = createQuestion('income', qDataIncome);
             document.getElementById('questionnaires').appendChild(incomeQuestion);
-        
+
+            // feedback
+
+            var ageForm = document.createElement("form");
+            ageForm.setAttribute('method',"post");
+            ageForm.setAttribute('id', "feedback");
+            ageForm.setAttribute("name", "form_");
+
+            var ageFieldSet = document.createElement("fieldset");
+            ageFieldSet.setAttribute("class", "form__options");
+            ageFieldSet.setAttribute('id', "feedback");
+            ageFieldSet.setAttribute("name", "fs_");
+
+            var legendAge = document.createElement("legend");
+            legendAge.setAttribute("class", "questionDemo");
+            legendAge.append("Do you have any feedback to us about this study? (If not, please type 'no')");
+            legendAge.setAttribute("name", "legend");
+            legendAge.name = 'question';
+
+            ageFieldSet.appendChild(legendAge);
+
+            var box = document.createElement("input");
+            box.setAttribute("class", "textEntry");
+            box.setAttribute("type", "text");
+            box.setAttribute("id", "feedback");
+            box.name = 'question';
+
+            ageFieldSet.appendChild(box);
+
+            ageForm.appendChild(ageFieldSet);
+            document.getElementById('questionnaires').appendChild(ageForm);
         }
 
 function getValues() {
@@ -471,7 +617,10 @@ var startQuestionnaires = function() {
         // and then loop through them, rather than creating them all individually as I've done here
 
         createQuestionnaire(questionnaire_data.STICSA);
+        createQuestionnaire(questionnaire_data.BIG_5);
+        createQuestionnaire(questionnaire_data.PANAS);
         createQuestionnaire(questionnaire_data.PHQ_9);
+        createQuestionnaire(questionnaire_data.CEI);
 
 
         // This next section just deals with scrolling between items automatically (but not if we are scrolling through missed items)

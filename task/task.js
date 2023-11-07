@@ -4,7 +4,7 @@
 
 // settings
 
-var quickrunthrough = 0 // if 1, we use placeholder rewards and only 2 blocks per task
+var quickrunthrough = 1 // if 1, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
 //var session = 1
@@ -244,6 +244,7 @@ var clickMachine = function(machine, task) {
     if (trial == Ntrials) { 
         currentBlock += 1;
 
+
         // save data
         saveTemp(JSON.stringify(data))
 
@@ -313,8 +314,8 @@ var clickMachine = function(machine, task) {
                 document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
            
                 if (task == "horizon") { // for Horizon task, we are back to fixed choice
-                    if (NtrialsCollect[currentBlock] == 5){document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the highlighted slot machine.';} 
-                    else {document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the highlighted slot machine.';}
+                    if (NtrialsCollect[currentBlock] == 5){document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the highlighted slot machine. Round '+ (currentBlock) +' of ' + (Nblocks-1);} 
+                    else {document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the highlighted slot machine. Round '+ currentBlock +' of ' + (Nblocks-1);}
 
                     fixedChoices = fixedChoicesCollect[currentBlock]
                     if (fixedChoices[trial] == 0) {
@@ -328,7 +329,7 @@ var clickMachine = function(machine, task) {
 
 
                 } else {
-                    document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!';
+                    document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1);
                 }
                 
             }, 2000)
@@ -558,7 +559,8 @@ function restlessTask() {
     startPracticeButton.style.display = 'block';
 
     document.getElementById('instructions').style.display = 'block';
-    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time. You can choose any machine at any time. In this game, you will only play one round consisting of "+ 
+    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time. In this game, you can also loose some rewards you collected before, if you choose a slot machine that gives a negative reward at that point in time."+
+    " However, the rewards from all slot machines change over time so a slot machine that gives negative rewards can give positive rewards later on and vice-versa. You can choose any machine at any time. In this game, you will only play one round consisting of "+ 
     NtrialsCollect[1] +" choices. <br> <br> Click the button below to start a practice round.";
 
 
@@ -752,9 +754,9 @@ function checkComprehension(task){
 
         if (task == "horizon") {
             if (Ntrials == 5){
-                document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted.';
+                document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1);
             } else {
-                document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted.';
+                document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1);
             }
 
             fixedChoices = fixedChoicesCollect[currentBlock]
@@ -771,7 +773,9 @@ function checkComprehension(task){
             }
 
             document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
-
+ 
+        } else {
+            document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1);
         }
 
         
@@ -800,9 +804,6 @@ function startComprehension(task){
 
     while (document.getElementById("questionnaires").lastChild) {document.getElementById("questionnaires").removeChild(document.getElementById("questionnaires").lastChild);} 
 
-
-    //! this appends the new questions to the previous ones. 
-    // TODO: fix that!
     // basically this is supposed to insert different questions for the different tasks
 
     if (task == "horizon") {
