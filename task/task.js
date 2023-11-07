@@ -4,7 +4,7 @@
 
 // settings
 
-var quickrunthrough = 1 // if 1, we use placeholder rewards and only 2 blocks per task
+var quickrunthrough = 0 // if 1, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
 //var session = 1
