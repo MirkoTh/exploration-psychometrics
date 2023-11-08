@@ -220,10 +220,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
       jsPsych.finishTrial(trial_data);
 
       if (trial.is_local) {
-        console.log("local");
-        console.log("all: " + JSON.stringify(trial_data));
       } else if (!trial.is_local) {
-        console.log("not local");
         var file_name = "OS_processing_" + trial.participant_id + ".json";
         saveData(JSON.stringify(trial_data), file_name, "OS")
         var file_name_cum = "OS_processing_allinone_" + trial.participant_id + ".json";

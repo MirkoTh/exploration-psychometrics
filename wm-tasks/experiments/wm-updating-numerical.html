@@ -38,7 +38,6 @@
             jsPsych.data.displayData();
         }
     })
-    console.log(`jsPsych Version ${jsPsych.version()}`)
 
     const pixi_flag = jsPsych.data.getURLVariable('pixi_flag') === '1' ? true : false;
 
@@ -74,10 +73,6 @@
         var studyID = getQueryVariable('STUDY_ID');
     }
     progress_url = updateQueryStringParameter("../../task/main.html", "PROLIFIC_PID", participant_id);
-
-
-    console.log("current participant_id = " + participant_id);
-
 
 
     var possibleNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -150,7 +145,6 @@
     var n_recalled_correctly;
     var data_cumulative;
     data_cumulative = [];
-    console.log("data_cumulative after creation: " + data_cumulative);
 
     var instructionsGo = {
         type: jsPsychHtmlButtonResponse,
@@ -267,7 +261,6 @@
                 rt: data.rt
             };
             data_cumulative.push(data_recall);
-            console.log("data_cumulative after pushing: " + JSON.stringify(data_cumulative));
 
 
             var trial_data = {
@@ -276,7 +269,6 @@
             }
 
             if (local) {
-                console.log("all data = " + JSON.stringify(data_recall));
 
             } else if (!local) {
                 saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json", "WMU");
@@ -284,7 +276,6 @@
             }
 
             // update trial counters
-            console.log("trial_type[n] = " + trial_type[n])
             if (trial_type[n] == "update") {
                 n_update += 1;
             } else if (trial_type[n] == "immediate") {
@@ -373,7 +364,6 @@
                 }
             }
             //trial.stimuli[n_upd_steps + set_size - 1].trial_duration = 0;
-            console.log(trial.stimuli)
         }
     }
 
@@ -398,7 +388,6 @@
         timeline: [instructions1, fullscreen_on, instructions2, instructions3, instructions4, instructionsGo, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
         loop_function: function (data) {
             len_data = data.values().length;
-            console.log('data: ', data.values());
 
             if (
                 data.values()[len_data - 2].correct == true
@@ -410,7 +399,6 @@
                     t_comprehension: Date.now() - t_start
                 };
                 saveData(JSON.stringify(data_comprehension), "WMU_comprehension_check_" + participant_id + ".json", "WMU");
-                console.log("nr attempts data = " + JSON.stringify(data_comprehension));
                 return false;
             } else {
                 n_comprehension_attempts += 1;
@@ -444,7 +432,6 @@
                 participant_id: participant_id,
                 prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
             };
-            console.log("data_bonus = " + JSON.stringify(data_bonus));
             saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
             window.location.href = progress_url + "&session=" + session_id;
 

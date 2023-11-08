@@ -164,7 +164,7 @@
     type: 'instructions',
     pages: function () {
       pageOne = '<div style="font-size:20px;"><b>INSTRUCTIONS</b><br><br><br>This is the operation span task. <br><br>This task has two parts: <br>(1) Letter memorization <br>(2) Math problem solving<br><br><br></div>'
-      pageTwo = '<div style="font-size:20px;">We will first practice LETTER MEMORIZATION.<br><br>A sequence of letters will appear on the screen one at a time (around 3 to 6 in a trial).<br>Try to remember each letter in the order presented.<br><br>After letter presentation, you will see a screen listing 18 possible letters.<br>Your task is to select each letter that was presented in its correct presentation order. <br><br>Use the mouse to select the appropriate letters <br>If you make a mistake use the provided "Backspace" button to clear your last response. <br><br>Remember, it is important that you select the letters in the order that you saw them.<br> So if you forget one of the letters, guess the best you can for that one, and select the rest in their correct order.<br><br>Press "Next" for practice trials.<br><br></div>'
+      pageTwo = '<div style="font-size:20px;">We will first practice LETTER MEMORIZATION.<br><br>A sequence of letters will appear on the screen one at a time (around 4 to 8 in a trial).<br>Try to remember each letter in the order presented.<br><br>After letter presentation, you will see a screen listing 18 possible letters.<br>Your task is to select each letter that was presented in its correct presentation order. <br><br>Use the mouse to select the appropriate letters. <br>If you make a mistake use the provided "Backspace" button to clear your last response. <br><br>Remember, it is important that you select the letters in the order that you saw them.<br> So if you forget one of the letters, guess the best you can for that one, and select the rest in their correct order.<br><br>Press "Next" for practice trials.<br><br></div>'
       return [pageOne, pageTwo]//, pageThree]
     },
     allow_backward: false,
@@ -343,8 +343,8 @@
       var sets;
       if (is_practice == 1) {
         sets = setSizes_practice[n]
-      } else if (is_practice == 2) {
-        sets = SetSizes[n]
+      } else if (is_practice == 0) {
+        sets = setSizes[n]
       }
       return { set_size: sets }
     },
@@ -369,7 +369,6 @@
         selection = demolists[n];
       } else if (is_practice == 0) {
         n_recalled_cumulative += nLettersRecalled;
-        console.log("n_recalled_cumulative = " + n_recalled_cumulative);
         selection = letterLists[n];
       }
       selection_id = 0;

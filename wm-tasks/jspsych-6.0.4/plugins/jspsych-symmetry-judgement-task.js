@@ -255,7 +255,6 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
       if (correctR == choice) {
         accuracy = 1
       }
-      //  console.log(pSymmetric, choice, accuracy)
 
       // measure rt
       var end_time = Date.now();
@@ -313,10 +312,7 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
       jsPsych.finishTrial(trial_data);
 
       if (trial.is_local) {
-        //console.log("local");
-        //console.log("all: " + JSON.stringify(trial_data));
       } else if (!trial.is_local) {
-        //console.log("not local");
         var file_name = "SS_processing_" + participant_id + ".json";
         var file_name_cum = "SS_processing_allinone_" + participant_id + ".json";
         saveData(JSON.stringify(trial_data), file_name, "SS");

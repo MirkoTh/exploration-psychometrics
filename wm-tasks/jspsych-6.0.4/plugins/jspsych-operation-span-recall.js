@@ -115,7 +115,6 @@ jsPsych.plugins["operation-span-recall"] = (function () {
       var div = document.getElementById('recall_space');
       display += numbertobutton[recalledN] + " "
       div.innerHTML = display;
-      //  console.log(recalledGrid)
     }
 
     clearSpace = function (data) {
@@ -211,7 +210,6 @@ jsPsych.plugins["operation-span-recall"] = (function () {
     }
 
 
-
     function end_trial() {
 
       // kill any remaining setTimeout handlers
@@ -244,9 +242,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
       data_cumulative.push(data_recall_clean);
 
       if (trial.is_local) {
-        console.log("all: " + JSON.stringify(data_recall_clean));
       } else if (!trial.is_local) {
-        console.log("not local");
         var file_name = "OS_recall_" + trial.participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name, "OS");
         var file_name_cum = "OS_recall_allinone_" + trial.participant_id + ".json";

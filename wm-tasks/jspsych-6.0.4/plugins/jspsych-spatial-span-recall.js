@@ -243,10 +243,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
       };
       data_cumulative.push(data_recall_clean);
       if (trial.is_local) {
-        console.log("local");
-        console.log("all: " + JSON.stringify(data_recall_clean));
       } else if (!trial.is_local) {
-        console.log("not local");
         var file_name = "SS_recall_" + participant_id + ".json";
         var file_name_cum = "SS_recall_allinone_" + participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name, "SS");

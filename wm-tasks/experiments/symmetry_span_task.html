@@ -76,10 +76,8 @@
   }
   progress_url = updateQueryStringParameter("wm-updating-numerical.html", "PROLIFIC_PID", participant_id);
 
-  console.log("current participant_id = " + participant_id);
 
   var setSizes = setSizes_symm[session_id];
-  console.log("setSizes = " + setSizes);
   var setSizes_test = setSizes.slice(6,);
   var squaregridDemoArray = setSizes.slice(0, 3);
   var fullDemoArray = setSizes.slice(3, 6);
@@ -90,9 +88,6 @@
   var nTrials = setSizes_test.length //2 // 
   var nPracticeTrials = squaregridDemoArray.length //number of practice trials for square memorization
   var nfullDemo = fullDemoArray.length;
-
-  console.log("nTrials = " + nTrials);
-  console.log("nPracticeTrials total = " + setSizes_practice.length);
 
   //var squaregridDemoArray = [3, 4, 4]
   //var fullDemoArray = [3, 3, 4]
@@ -166,7 +161,7 @@
   var instructions3 = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">We will now practice the two tasks together.<br><br>In the next practice set, you will first be presented with a red colored square.<br>Try and remember the position of that colored square.<br>After the colored square dissapears, you will be asked to make a symmetry judgement of a black and white picture.<br><br>Try making the symmetry judgement as soon as possible.<br>Each symmetry judgement picture will be presented for only 6 seconds.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">We will now practice the two tasks together.<br><br>In the next practice set, you will first be presented with a red colored square.<br>Try and remember the position of that colored square.<br>After the colored square disappears, you will be asked to make a symmetry judgement of a black and white picture.<br><br>Try making the symmetry judgement as soon as possible.<br>Each symmetry judgement picture will be presented for only 6 seconds.<br><br></div>'
       pageTwo = '<div style="font-size:20px;">After the symmetry judgement, you will be shown another colored square to remember,<br>which will be followed by another symmetry judgement.<br><br>Therefore, colored square presentations and symmetry judgements will alternate.<br>After 3 to 6 squares have been presented, the recall grid will appear.<br>Use the mouse to select the presented squares in their correct order.<br><br>Press "Next" to start practice rounds.<br><br></div>'
       return [pageOne, pageTwo]
     },
@@ -319,7 +314,6 @@
         selection = selections_practice[n]
       } else if (is_practice == 0) {
         n_recalled_cumulative += nSquaresRecalled;
-        console.log("n_recalled_cumulative = " + n_recalled_cumulative);
         selection = selections_test[n]
       }
       selection_id = -1
@@ -450,7 +444,6 @@
         nSquares = setSizes_test[n]
         selection = selections_test[n]
         saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + participant_id + ".json", "SS");
-        console.log("nr attempts data = " + JSON.stringify(data_comprehension));
         return false;
       } else {
         n_comprehension_attempts += 1;

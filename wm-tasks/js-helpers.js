@@ -289,5 +289,16 @@ inside of the Max Planck Society and affiliated research institutes, or at partn
 
 
 function direct_to_os() {
-    window.location.href = "wm-tasks/experiments/operation_span_task.html";
+    if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
+        var participant_id = getQueryVariable('PROLIFIC_PID');
+    }
+    // If no ID is present, generate one using random numbers - this is useful for testing
+    else {
+        var participant_id = Math.floor(Math.random() * 1000);
+
+    }
+
+    progress_url = updateQueryStringParameter("wm-tasks/experiments/operation_span_task.html", "PROLIFIC_PID", participant_id);
+
+    window.location.href = progress_url;
 }
