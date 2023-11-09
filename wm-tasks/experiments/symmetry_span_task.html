@@ -361,13 +361,13 @@
     },
     choices: jsPsych.NO_KEYS,
     trial_duration: 5000,
-    on_finish: function () {
-      data_bonus = {
-        participant_id: participant_id,
-        prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
-      };
-      saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
-    }
+    /*     on_finish: function () {
+          data_bonus = {
+            participant_id: participant_id,
+            prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+          };
+          saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
+        } */
   }
 
   var p_details = {
@@ -444,6 +444,13 @@
         nSquares = setSizes_test[n]
         selection = selections_test[n]
         saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + participant_id + ".json", "SS");
+
+        data_bonus = {
+          participant_id: participant_id,
+          prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+        };
+        saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
+
         return false;
       } else {
         n_comprehension_attempts += 1;
