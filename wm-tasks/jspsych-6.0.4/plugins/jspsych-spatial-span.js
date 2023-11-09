@@ -2,7 +2,7 @@
  * Example plugin template
  */
 
-jsPsych.plugins["spatial-span"] = (function() {
+jsPsych.plugins["spatial-span"] = (function () {
 
   var plugin = {};
 
@@ -46,64 +46,64 @@ jsPsych.plugins["spatial-span"] = (function() {
   }
 
 
-  plugin.trial = function(display_element, trial) {
+  plugin.trial = function (display_element, trial) {
 
-// making matrix:
-var grid = trial.grid_size;
+    // making matrix:
+    var grid = trial.grid_size;
 
-var matrix = [];
-for (var i=0; i<grid; i++){
-  m1 = i;
-  for (var h=0; h<grid; h++){
-    m2 = h;
-    matrix.push([m1,m2])
-  }
-};
+    var matrix = [];
+    for (var i = 0; i < grid; i++) {
+      m1 = i;
+      for (var h = 0; h < grid; h++) {
+        m2 = h;
+        matrix.push([m1, m2])
+      }
+    };
 
-red_box = trial.selected_box
+    red_box = trial.selected_box
 
-    paper_size = grid*trial.size_cells;
+    paper_size = grid * trial.size_cells;
 
     display_element.innerHTML = '<div id="jspsych-html-button-response-btngroup" style= "position: relative; width:' + paper_size + 'px; height:' + paper_size + 'px"></div>';
     var paper = display_element.querySelector("#jspsych-html-button-response-btngroup");
 
-    for (var i=0; i<matrix.length; i++){
-    paper.innerHTML += '<div class="jspsych-grid" style="position: absolute; top:'+ matrix[i][0]*(trial.size_cells-3) +'px; left:'+matrix[i][1]*(trial.size_cells-3)+'px";><div class="whiteBox" /div></div>';
-  }
+    for (var i = 0; i < matrix.length; i++) {
+      paper.innerHTML += '<div class="jspsych-grid" style="position: absolute; top:' + matrix[i][0] * (trial.size_cells - 3) + 'px; left:' + matrix[i][1] * (trial.size_cells - 3) + 'px";><div class="whiteBox" /div></div>';
+    }
 
-  if (trial.display_red_box){
-     paper.innerHTML += '<div class="jspsych-grid" style="position: absolute; top:'+ red_box[0]*(trial.size_cells-3) +'px; left:'+red_box[1]*(trial.size_cells-3)+'px";><div class="redBox" /div></div>';
-   }
+    if (trial.display_red_box) {
+      paper.innerHTML += '<div class="jspsych-grid" style="position: absolute; top:' + red_box[0] * (trial.size_cells - 3) + 'px; left:' + red_box[1] * (trial.size_cells - 3) + 'px";><div class="redBox" /div></div>';
+    }
 
-var start_time = Date.now();
+    var start_time = Date.now();
 
-if (trial.trial_duration !== null) {
-  jsPsych.pluginAPI.setTimeout(function() {
-    clear_display();
-    end_trial();
-  }, trial.trial_duration);
-}
-
-
-function clear_display(){
-    display_element.innerHTML = '';
-}
+    if (trial.trial_duration !== null) {
+      jsPsych.pluginAPI.setTimeout(function () {
+        clear_display();
+        end_trial();
+      }, trial.trial_duration);
+    }
 
 
-function end_trial() {
+    function clear_display() {
+      display_element.innerHTML = '';
+    }
 
-  // kill any remaining setTimeout handlers
-  jsPsych.pluginAPI.clearAllTimeouts();
 
-  // gather the data to store for the trial
-  var trial_data = {
-    selected_square: red_box
+    function end_trial() {
+
+      // kill any remaining setTimeout handlers
+      jsPsych.pluginAPI.clearAllTimeouts();
+
+      // gather the data to store for the trial
+      var trial_data = {
+        selected_square: red_box
+      };
+
+      // move on to the next trial
+      jsPsych.finishTrial(trial_data);
+    }
   };
-
-  // move on to the next trial
-  jsPsych.finishTrial(trial_data);
-}
-};
 
   return plugin;
 })();

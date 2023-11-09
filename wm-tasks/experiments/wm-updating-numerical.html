@@ -273,6 +273,8 @@
             } else if (!local) {
                 saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json", "WMU");
                 saveSeveralDataOverwrite(data_cumulative, "WMU_allinone_" + participant_id + ".json", "WMU");
+                setTimeout(undefined, 1000);
+
             }
 
             // update trial counters
@@ -431,7 +433,7 @@
 
     var instructions_go_on = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;"><br>Click on "Next" to continue with the decision games.<br></div>',
+        stimulus: '<div style="font-size:30px;"><br>Well done! Click on "Next" to continue with the decision games.<br></div>',
         choices: ["Next"],
         on_finish: function () {
 

@@ -184,11 +184,11 @@
   var instructions_before_test = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">Well done. The test procedure of the symmetry span is starting now.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">The test procedure of the symmetry span is starting now.<br><br></div>'
       return [pageOne]
     },
     allow_backward: false,
-    button_label_next: "Next",
+    button_label_next: "Start",
     show_clickable_nav: true
   }
 
@@ -327,6 +327,9 @@
       if (n > nPracticeTrials) {
         pageOne += "You made <font color='blue'>" + nSymmetryAcc + " out of " + nSquares + "</font> accurate symmetry judgement(s).<br><br></div>"
       }
+      if (n <= nPracticeTrials & is_practice == 0) {
+        pageOne += "You made <font color='blue'>" + nSymmetryAcc + " out of " + nSquares + "</font> accurate symmetry judgement(s).<br><br></div>"
+      }
       return [pageOne]
     },
     allow_backward: false,
@@ -425,7 +428,7 @@
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_ss_loop = {
     timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
-    //timeline: [fullDemo, comprehension_question_ss_allinone, comp_feedback_old],
+    //timeline: [instructions, comprehension_question_ss_allinone, comp_feedback_old],
     loop_function: function (data) {
       // reset counters
       n = 0;

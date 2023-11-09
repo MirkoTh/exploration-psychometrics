@@ -175,7 +175,7 @@
   var instructions2 = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">You will next practice MATH PROBLEM SOLVING.<br><br>A simple math equation will appear on the screen, like this:<br>3 + 4 = 7<br>Your task is to solve the math problem and determine if the answer provided to it is correct.<br><br>For example, if you see the following problem:<br>2 + 3 = 5<br>you should click the <b>"True"</b> button because 2 and 3 added together equals 5.<br><br>If you see the following problem:<br>2 + 3 = 6<br>you should click the <b>"False"</b> button because 2 and 3 added together DOES NOT equal 6.<br><br>Press "Next" to start practicing math problem solving.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">You will next practice MATH PROBLEM SOLVING.<br><br>A simple math equation will appear on the screen, like this:<br>3 + 4 = 7<br>Your task is to solve the math problem and determine if the answer provided to it is correct.<br><br>For example, if you see the following problem:<br>2 + 3 = 5<br>you should click the <b>"f"</b> button on your keyboard, which stands for correct, because 2 and 3 added together equals 5.<br><br>If you see the following problem:<br>2 + 3 = 6<br>you should click the <b>"j"</b> button on your keyboard, which stands for incorrect, because 2 and 3 added together DOES NOT equal 6.<br><br>Press "Next" to start practicing math problem solving.<br><br></div>'
       return [pageOne]
     },
     allow_backward: false,
@@ -209,15 +209,14 @@
     show_clickable_nav: true
   }
 
-
   var instructions_before_test = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">Well done. The test procedure of the operation span is starting now.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">The test procedure of the operation span is starting now.<br><br></div>'
       return [pageOne]
     },
     allow_backward: false,
-    button_label_next: "Next",
+    button_label_next: "Start",
     show_clickable_nav: true
   }
 
@@ -495,9 +494,9 @@
 
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_os_loop = {
-    //timeline: [fullDemo, comprehension_question_os_allinone, comp_feedback_old],
     timeline: [instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
-    // timeline: [loadDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_os_allinone, comp_feedback_old],
+    //timeline: [instructions, comprehension_question_os_allinone, comp_feedback_old],
+
     loop_function: function (data) {
       // reset all counters after comprehension check failure
       n = 0;

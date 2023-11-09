@@ -247,6 +247,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
         saveData(JSON.stringify(data_recall_clean), file_name, "OS");
         var file_name_cum = "OS_recall_allinone_" + trial.participant_id + ".json";
         saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS");
+        setTimeout(undefined, 1000);
       }
     }
   };
