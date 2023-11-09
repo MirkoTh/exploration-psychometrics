@@ -339,7 +339,6 @@
       return ncols_mat
     },
     data: function () {
-
       var sets;
       if (is_practice == 1) {
         sets = setSizes_practice[n]
@@ -509,16 +508,25 @@
       if (
         data.values()[len_data - 2].correct == true
       ) {
+        // save comprehension check attempts and duration
         data_comprehension = {
           participant_id: participant_id,
           n_attempts: n_comprehension_attempts,
           t_comprehension: Date.now() - t_start
         };
+        saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json", "OS");
+
+        // save bonus payment information
+        data_bonus = {
+          participant_id: participant_id,
+          prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+        };
+        saveData(JSON.stringify(data_bonus), "OS_bonus_" + participant_id + ".json", "OS");
+
         selection = letterLists[n];
         nLetters = setSizes[n]
-
         is_practice = 0;
-        saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json", "OS");
+
         return false;
       } else {
         selection = demolists[n];
