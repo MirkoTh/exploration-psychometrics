@@ -210,7 +210,7 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
       paper.innerHTML += '<img src="../img/blackbox.png" style="position: absolute; top:' + blackBoxesFinal[i][0] * (trial.size_cells - 2) + 'px; left:' + blackBoxesFinal[i][1] * (trial.size_cells - 2) + 'px; width:' + trial.size_cells + 'px; height:' + trial.size_cells + 'px;"></img>';
     }
 
-    var buttons = [];
+    /* var buttons = [];
     if (Array.isArray(trial.button_html)) {
       if (trial.button_html.length == trial.choices.length) {
         buttons = trial.button_html;
@@ -227,20 +227,40 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
     for (var i = 0; i < trial.choices.length; i++) {
       var str = buttons[i].replace(/%choice%/g, trial.choices[i]);
       html += '<div class="jspsych-html-button-response-button"  style="display: inline-block; margin:20px 30px" id="jspsych-html-button-response-button-' + i + '" data-choice="' + i + '">' + str + '</div>';
-    }
-    html += '</div>';
+    } */
 
-    display_element.innerHTML += html
+    document.addEventListener("keydown", handle_symmetry_keypress, false);
+    // this is weirdly coded
+    // choice refers to accuracy
+    async function handle_symmetry_keypress(e) {
+      if (e.keyCode == 70 || e.keyCode == 74) {
+        document.removeEventListener("keydown", handle_symmetry_keypress, false);
+        var ss_response;
+        if (e.keyCode == 70) {
+          ss_response = 0;
+        } else if (e.keyCode == 74) {
+          ss_response = 1;
+        }
+        after_response(ss_response);
+      }
+
+    }
+
+
+
+    //html += '</div>';
+
+    //display_element.innerHTML += html
 
     var start_time = Date.now();
 
     // add event listeners to buttons
-    for (var i = 0; i < trial.choices.length; i++) {
+    /* for (var i = 0; i < trial.choices.length; i++) {
       display_element.querySelector('#jspsych-html-button-response-button-' + i).addEventListener('click', function (e) {
         var choice = e.currentTarget.getAttribute('data-choice'); // don't use dataset for jsdom compatibility
         after_response(choice);
       });
-    }
+    } */
 
     // store response
     var response = {
@@ -318,6 +338,7 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
         saveData(JSON.stringify(trial_data), file_name, "SS");
         saveSeveralDataOverwrite(data_cumulative, file_name_cum, "SS");
       }
+      setTimeout(undefined, 250);
     };
 
   };

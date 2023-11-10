@@ -119,7 +119,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
     var html = '<div id="jspsych-html-button-response-stimulus">' + trial.stimulus + '</div>';
 
     //display buttons
-    var buttons = [];
+    /* var buttons = [];
     if (Array.isArray(trial.button_html)) {
       if (trial.button_html.length == trial.choices.length) {
         buttons = trial.button_html;
@@ -135,7 +135,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
     for (var i = 0; i < trial.choices.length; i++) {
       var str = buttons[i].replace(/%choice%/g, trial.choices[i]);
       html += '<div class="jspsych-html-button-response-button" style="display: inline-block; margin:' + 20 + ' ' + 20 + '" id="jspsych-html-button-response-button-' + i + '" data-choice="' + i + '">' + str + '</div>';
-    }
+    } */
     html += '</div>';
 
     //show prompt if there is one
@@ -148,7 +148,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
     var start_time = Date.now();
 
     // add event listeners to buttons
-    for (var i = 0; i < trial.choices.length; i++) {
+    /* for (var i = 0; i < trial.choices.length; i++) {
       display_element.querySelector('#jspsych-html-button-response-button-' + i).addEventListener('click', function (e) {
         var choice = e.currentTarget.getAttribute('data-choice'); // don't use dataset for jsdom compatibility
         if ((trial.equation_accuracy) && (choice == 0)) {
@@ -160,7 +160,33 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
         }
         after_response(acc);
       });
+    } */
+
+    document.addEventListener("keydown", handle_operation_keypress, false);
+    // this is weirdly coded
+    // choice refers to accuracy
+    async function handle_operation_keypress(e) {
+      if (e.keyCode == 70 || e.keyCode == 74) {
+        document.removeEventListener("keydown", handle_operation_keypress, false);
+        var os_response;
+        if (e.keyCode == 70) {
+          os_response = Boolean(true);
+        } else if (e.keyCode == 74) {
+          os_response = Boolean(false);
+        }
+
+        if ((trial.equation_accuracy == os_response)) {
+          choice = 1
+        } else {
+          choice = 0
+        }
+        after_response(choice);
+      }
+
     }
+
+
+
 
     // store response
     var response = {
@@ -206,7 +232,6 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
         participant_id: trial.participant_id,
         is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
-        set_size: trial.set_size,
         processing_position: trial.trial_id_processing,
         rt: response.rt,
         accuracy: response.accuracy
@@ -226,6 +251,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
         var file_name_cum = "OS_processing_allinone_" + trial.participant_id + ".json";
         saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS")
       }
+      setTimeout(undefined, 250);
     };
 
     // hide image if timing is set

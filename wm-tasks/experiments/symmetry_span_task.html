@@ -184,11 +184,11 @@
   var instructions_before_test = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">Well done. The test procedure of the symmetry span is starting now.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">The test procedure of the symmetry span is starting now.<br><br></div>'
       return [pageOne]
     },
     allow_backward: false,
-    button_label_next: "Next",
+    button_label_next: "Start",
     show_clickable_nav: true
   }
 
@@ -327,6 +327,9 @@
       if (n > nPracticeTrials) {
         pageOne += "You made <font color='blue'>" + nSymmetryAcc + " out of " + nSquares + "</font> accurate symmetry judgement(s).<br><br></div>"
       }
+      if (n <= nPracticeTrials & is_practice == 0) {
+        pageOne += "You made <font color='blue'>" + nSymmetryAcc + " out of " + nSquares + "</font> accurate symmetry judgement(s).<br><br></div>"
+      }
       return [pageOne]
     },
     allow_backward: false,
@@ -361,13 +364,13 @@
     },
     choices: jsPsych.NO_KEYS,
     trial_duration: 5000,
-    on_finish: function () {
-      data_bonus = {
-        participant_id: participant_id,
-        prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
-      };
-      saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
-    }
+    /*     on_finish: function () {
+          data_bonus = {
+            participant_id: participant_id,
+            prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+          };
+          saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
+        } */
   }
 
   var p_details = {
@@ -425,7 +428,7 @@
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_ss_loop = {
     timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
-    //timeline: [fullDemo, comprehension_question_ss_allinone, comp_feedback_old],
+    //timeline: [instructions, comprehension_question_ss_allinone, comp_feedback_old],
     loop_function: function (data) {
       // reset counters
       n = 0;
@@ -444,6 +447,13 @@
         nSquares = setSizes_test[n]
         selection = selections_test[n]
         saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + participant_id + ".json", "SS");
+
+        data_bonus = {
+          participant_id: participant_id,
+          prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+        };
+        saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
+
         return false;
       } else {
         n_comprehension_attempts += 1;

@@ -170,9 +170,9 @@ var comprehension_question_os_allinone = {
         }, {
             prompt: '<div align=center><b>How do you respond to the operations?</b></div>',
             options: [
-                'Clicking on the true or false button on the screen.',
+                'Pressing the f key for correct and the j key for incorrect.',
                 'Using the microphone and saying yes or no.',
-                'Clicking c for correct and w for wrong.',
+                'Clicking c for correct and w for incorrect.',
                 'I can just ignore the operations and always press the same button asap.'
             ],
 
@@ -212,7 +212,7 @@ var comprehension_question_os_allinone = {
         var answer_Q4 = data.response.question4;
 
         if (answer_Q1 == 'Remember the letters and respond to the operations in between.' &&
-            answer_Q2 == 'Clicking on the true or false button on the screen.' &&
+            answer_Q2 == 'Pressing the f key for correct and the j key for incorrect.' &&
             answer_Q3 == 'Clicking on the letters in the correct order.' &&
             answer_Q4 == 'It is always a mixture between remembering characters and responding to operations.') {
             data.correct = true
@@ -296,7 +296,7 @@ var comprehension_question_ss_allinone = {
         }, {
             prompt: '<div align=center><b>How do you respond to the symmetry judgments?</b></div>',
             options: [
-                'Clicking on the symmetric or asymmetric button on the screen.',
+                'Pressing the f key for symmetric and the j key for asymmetric.',
                 'Using the microphone and saying yes or no.',
                 'Clicking s for symmetric and n for not symmetric.',
                 'I can just ignore the symmetry judgments and always press the same button asap.'
@@ -338,7 +338,7 @@ var comprehension_question_ss_allinone = {
         var answer_Q4 = data.response.question4;
 
         if (answer_Q1 == 'Remember the locations in the grid in serial order and respond to the symmetry judgments in between.' &&
-            answer_Q2 == 'Clicking on the symmetric or asymmetric button on the screen.' &&
+            answer_Q2 == 'Pressing the f key for symmetric and the j key for asymmetric.' &&
             answer_Q3 == 'Clicking on the locations in the correct order in the presented grid.' &&
             answer_Q4 == 'It is always a mixture between remembering spatial locations and judging the symmetry of the patterns.') {
             data.correct = true

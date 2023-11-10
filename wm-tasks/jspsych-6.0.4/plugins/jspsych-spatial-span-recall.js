@@ -249,6 +249,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
         saveData(JSON.stringify(data_recall_clean), file_name, "SS");
         saveSeveralDataOverwrite(data_cumulative, file_name_cum, "SS");
       }
+      setTimeout(undefined, 1000);
 
       // move on to the next trial
       jsPsych.finishTrial(trial_data);
