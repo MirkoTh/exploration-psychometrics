@@ -34,6 +34,8 @@
     // That is, Rapid serial visual presentation (RSVP) 
 
     const jsPsych = initJsPsych({
+        show_progress_bar: true,
+        auto_update_progress_bar: false,
         on_finish: function () {
             jsPsych.data.displayData();
         }
@@ -43,6 +45,7 @@
 
 
     session_id = getQueryVariable('session');
+    if (!session_id) { session_id = 0 }
     set_size = 4 // starting length of each trial (i.e., min number of letters in a trial)
     n_upd_steps = 7 // ending length of each trial (i.e., max number of letters in a trial)
     rep_set = 3 // number of times each set size should be repeated
@@ -137,6 +140,7 @@
     var initial_set = initial_set_updating[session_id];
     var immediate_set = immediate_set_updating[session_id];
     var trial_type = trial_type_updating[session_id];
+    console.log("trial_type = " + trial_type);
     var locations_update = locations_update_updating[session_id];
     var items_replace = items_replace_updating[session_id];
     var final_set = final_set_updating[session_id];
@@ -288,6 +292,9 @@
                 n_recalled_cumulative += n_recalled_correctly;
             }
             n += 1;
+            if (is_practice == 0) {
+                jsPsych.setProgressBar((n - nPracticeTrials) / (nTrials_update + nTrials_immediate));
+            }
             // move on to the next trial
             jsPsych.finishTrial(trial_data);
         }
@@ -433,7 +440,7 @@
 
     var instructions_go_on = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;"><br>Well done! Click on "Next" to continue with the decision games.<br></div>',
+        stimulus: '<div style="font-size:30px;"><br>Well done!<br>You have now carried out three out of six tasks. Take a break and rest a few minutes to take a deep breath and prepare for tasks four to six.<br>Click on "Next" to continue with the decision games.<br></div>',
         choices: ["Next"],
         on_finish: function () {
 

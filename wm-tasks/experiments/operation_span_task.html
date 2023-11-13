@@ -1,11 +1,5 @@
 <html>
 
-<!-- 
-// todos
-2. save data on our server
-3. test script on our server
- -->
-
 <head>
   <title>WM operation span task</title>
   <script src="../seedrandom.min.js"></script>
@@ -28,7 +22,9 @@
   </link>
 </head>
 
-<body></body>
+<body>
+</body>
+
 <script>
 
   /*
@@ -368,6 +364,7 @@
       } else if (is_practice == 0) {
         n_recalled_cumulative += nLettersRecalled;
         selection = letterLists[n];
+        jsPsych.setProgressBar(n / setSizes.length);
       }
       selection_id = 0;
       proc_position = 0;
@@ -548,8 +545,11 @@
   //timeline.push(dataLog);
   timeline.push(conclusion);
 
+
   jsPsych.init({
     timeline: timeline,
+    show_progress_bar: true,
+    auto_update_progress_bar: false,
     on_finish: function () {
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";

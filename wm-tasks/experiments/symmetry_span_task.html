@@ -307,7 +307,7 @@
         nSquares = setSizes_practice[n]
 
       } else if (is_practice == 0) {
-        nSquares = setSizes_test[n]
+        nSquares = setSizes_test[n];
       }
       n += 1
       if (is_practice == 1) {
@@ -315,6 +315,7 @@
       } else if (is_practice == 0) {
         n_recalled_cumulative += nSquaresRecalled;
         selection = selections_test[n]
+        jsPsych.setProgressBar(n / setSizes_test.length);
       }
       selection_id = -1
     }
@@ -483,6 +484,8 @@
 
   jsPsych.init({
     timeline: timeline,
+    show_progress_bar: true,
+    auto_update_progress_bar: false,
     on_finish: function () {
       //jsPsych.data.displayData();// // comment out if you do not want to display results at the end of task
       //window.location.href = "https://app.prolific.co/submissions/complete?cc=240D34C0";
