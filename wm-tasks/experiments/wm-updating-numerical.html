@@ -81,8 +81,8 @@
     var possibleNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
-    var nTrials_update = 1//20 // number of trials2 // 
-    var nTrials_immediate = 1//5 // 1 //
+    var nTrials_update = 20 // number of trials2 // 
+    var nTrials_immediate = 5 // 1 //
     var nPracticeTrials = 2
 
     // max possible number correct recalled items
@@ -156,27 +156,32 @@
     };
     var instructions1 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:40px;"><b>INSTRUCTIONS</b><br><br><br>This is the updating task. It has two parts: <br><br>(1) Memorization of the initially presented digits <br><br>(2) Individually updating selected digits <br><br><br><br>This task is going to be in full-screen mode.<br><br><b> Please do not leave the full-screen mode. Otherwise, the presented numbers may be illegible.<br><br></div>',
+        stimulus: '<div style="font-size:30px;"><b>INSTRUCTIONS</b><br><br><br>This is the updating task. It has two parts: <br><br>(1) Memorization of the initially presented digits <br><br>(2) Individually updating selected digits <br><br><br><br>This task is going to be in full-screen mode.<br><br><b> Please do not leave the full-screen mode. <br><br>Otherwise, the presented numbers may be illegible.<br><br></div>',
         choices: ["Next"]
     };
     var instructions2 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:32px;">In every trial, four digits colored in different colors are presented on the screen. Remember these four digits in the correct order.<br><br>There will be a series of seven updating steps.<br><br>At every updating step, one digit is replaced by a different digit.<br><br>Occasionally, it may be replaced by the same digit already presented previously at that location. <br><br> In the end of the trial, you are required to recall the last four digits at every location.<br><br> Please note that the ordering of the digits is important. A recalled digit is only going to be counted as correct if it is recalled in the correct location.<br><br></div>',
+        stimulus: '<div style="font-size:30px;">In every trial, four digits colored in different colors are presented on the screen.<br><br>Remember these four digits in the correct order.<br><br>There will be a series of seven updating steps.<br><br>At every updating step, one digit is replaced by a different digit.<br><br>Occasionally, it may be replaced by the same digit already<br><br>presented previously at that location.<br><br></div>',
+        choices: ["Next"]
+    };
+    var instructions2b = {
+        type: jsPsychHtmlButtonResponse,
+        stimulus: '<div style="font-size:30px;">In the end of the trial,<br><br>you are required to recall the last four digits at every location.<br><br> Please note that the ordering of the digits is important.<br><br>A recalled digit is only going to be counted as correct<br><br>if it is recalled in the correct location.<br><br></div>',
         choices: ["Next"]
     };
     var instructions3 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:40px;">Recall the digits using the number pad on your keyboard.<br><br>For example, if the last four digits were 9, 3, 6, 9, please respond "9369".<br><br><br>If you are unsure what has been presented most recently at one or several locations, please guess in these locations.<br><br></div>',
+        stimulus: '<div style="font-size:30px;">Recall the digits using the number pad on your keyboard.<br><br>For example, assume that the last four digits were 9, 3, 6, 9.<br><br>Please respond "9369".<br><br><br>If you are unsure what has been presented most recently<br><br> at one or several locations, please guess<br><br>in these locations.<br><br></div>',
         choices: ["Next"]
     };
     var instructions4 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:40px;">Occasionally, you have to recall the initial set of digits immediately. Again, please recall in the correct order.<br><br>You get two practice trials to get used to the two versions of the task (immediate recall and recall after the updating steps).<br><br></div>',
+        stimulus: '<div style="font-size:30px;">Occasionally, you have to recall the initial set of digits immediately. <br><br>Again, please recall in the correct order.<br><br>You get two practice trials to get used to the two versions<br><br>of the task.<br><br>(immediate recall and recall after the updating steps).<br><br></div>',
         choices: ["Start Practice"]
     };
     var instructions_test = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:40px;">These were the two practice trials.<br><br>The main part of the updating task is going to start now.<br>Good luck. </div>',
+        stimulus: '<div style="font-size:30px;">These were the two practice trials.<br><br>The main part of the updating task is going to start now.<br>Good luck. </div>',
         choices: ["Start Main Part"]
     };
 
@@ -393,7 +398,7 @@
     var comp_check_wmu_loop = {
         //timeline: [comprehension_question_wmu1, comprehension_question_wmu2, comprehension_question_wmu3, comprehension_question_wmu4, comp_feedback],
         //timeline: [instructions1, fullscreen_on, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
-        timeline: [instructions1, fullscreen_on, instructions2, instructions3, instructions4, instructionsGo, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
+        timeline: [instructions1, fullscreen_on, instructions2, instructions2b, instructions3, instructions4, instructionsGo, mixed_node_practice, comprehension_question_wmu_allinone, comp_feedback],
         loop_function: function (data) {
             len_data = data.values().length;
 
