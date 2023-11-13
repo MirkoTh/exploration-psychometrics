@@ -243,11 +243,14 @@ jsPsych.plugins["operation-span-recall"] = (function () {
 
       if (trial.is_local) {
       } else if (!trial.is_local) {
+        let dataSaved = false;
         var file_name = "OS_recall_" + trial.participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name, "OS");
+        checkDataSaving();
+        let dataSaved = false;
         var file_name_cum = "OS_recall_allinone_" + trial.participant_id + ".json";
         saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS");
-        setTimeout(undefined, 1000);
+        checkDataSaving();
       }
     }
   };

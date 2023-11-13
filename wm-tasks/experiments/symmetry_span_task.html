@@ -85,7 +85,7 @@
   const selections_practice = selections_symm[session_id].slice(0, 6);
   const selections_test = selections_symm[session_id].slice(6,);
 
-  var nTrials = setSizes_test.length //2 // 
+  var nTrials = 1//setSizes_test.length //2 // 
   var nPracticeTrials = squaregridDemoArray.length //number of practice trials for square memorization
   var nfullDemo = fullDemoArray.length;
 
@@ -210,6 +210,13 @@
     is_local: function () {
       return local
     },
+    set_size: function () {
+      if (is_practice == 1) {
+        return setSizes_practice[n];
+      } else if (is_practice == 0) {
+        return setSizes_test[n];
+      }
+    },
     is_practice: function () { return is_practice },
     proportion: function () {
       counter_symmetry += 1;
@@ -239,10 +246,19 @@
     is_local: function () {
       return local
     },
+    set_size: function () {
+      if (is_practice == 1) {
+        return setSizes_practice[n];
+      } else if (is_practice == 0) {
+        return setSizes_test[n];
+      }
+    },
     is_practice: function () { return is_practice },
     on_finish: function () {
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
-      n_processed_cumulative += acc;
+      if (is_practice == 0) {
+        n_processed_cumulative += acc;
+      }
       counter_symmetry += 1;
       if (acc == 1) {
         nSymmetryAcc += 1
@@ -373,8 +389,9 @@
         prop_recall_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100,
         prop_processing_correct: Math.round(100 * (n_processed_cumulative / n_max_correct)) / 100
       };
+      let dataSaved = false;
       saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
-      setTimeout(undefined, 5000);
+      checkDataSaving();
     }
   }
 
@@ -452,12 +469,13 @@
         nSquares = setSizes_test[n]
         selection = selections_test[n]
         saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + participant_id + ".json", "SS");
-
         data_bonus = {
           participant_id: participant_id,
           prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
         };
+        let dataSaved = false;
         saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
+        checkDataSaving();
 
         return false;
       } else {

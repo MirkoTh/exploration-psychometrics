@@ -105,6 +105,11 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
         type: jsPsych.plugins.parameterType.BOOL,
         default: undefined,
         description: 'printed locally or on the server?'
+      },
+      set_size: {
+        type: jsPsych.plugins.parameterType.INT,
+        default: undefined,
+        description: 'how many letters to remember on the current trial?'
       }
     }
   }
@@ -247,11 +252,15 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
       if (trial.is_local) {
       } else if (!trial.is_local) {
         var file_name = "OS_processing_" + trial.participant_id + ".json";
-        saveData(JSON.stringify(trial_data), file_name, "OS")
-        var file_name_cum = "OS_processing_allinone_" + trial.participant_id + ".json";
-        saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS")
+        saveData(JSON.stringify(trial_data), file_name, "OS");
+        if (trial.trial_id_processing + 1 == trial.set_size) {
+          let dataSaved = false;
+          var file_name_cum = "OS_processing_allinone_" + trial.participant_id + ".json";
+          saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS");
+          checkDataSaving();
+        }
+
       }
-      setTimeout(undefined, 250);
     };
 
     // hide image if timing is set

@@ -69,10 +69,24 @@ function make_rect(x_start, y_start, stepsize_x, stepsize_y, ending_time) {
 }
 
 
-function saveData(filedata, filename, task) {
+function saveData(filedata, filename, task, flag_save = true) {
     //var filename = "./data/" + task + "-participant-" + participant_id + ".json";
     var filename_folder = "../.././data/" + task + "/" + filename;
     $.post("save_data.php", { postresult: filedata + "\n", postfile: filename_folder })
+    if (flag_save) {
+        dataSaved = true;
+    }
+
+}
+
+function checkDataSaving() {
+    if (!dataSaved) {
+        // Data saving is not complete, wait for a few seconds and check again.
+        setTimeout(checkDataSaving, 2000); // Wait for 2 seconds and check again.
+    } else {
+        // Data saving is complete, you can proceed with the next steps.
+        console.log("Data has been saved successfully.");
+    }
 }
 
 async function saveSeveralData(filedata, filename, task) {
@@ -82,6 +96,7 @@ async function saveSeveralData(filedata, filename, task) {
     for (var i = 0; i < n_data; i++) {
         $.post("save_data.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
     }
+    dataSaved = true;
 }
 
 
@@ -96,6 +111,7 @@ async function saveSeveralDataOverwrite(filedata, filename, task) {
             $.post("save_data.php", { postresult: JSON.stringify(filedata[i]) + "\n", postfile: filename_folder })
         }
     }
+    dataSaved = true;
 }
 
 function updateQueryStringParameter(uri, key, value) {

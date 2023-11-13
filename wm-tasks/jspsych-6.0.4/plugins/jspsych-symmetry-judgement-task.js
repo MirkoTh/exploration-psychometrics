@@ -94,6 +94,11 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
         type: jsPsych.plugins.parameterType.BOOL,
         default: undefined,
         description: 'printed locally or on the server?'
+      },
+      set_size: {
+        type: jsPsych.plugins.parameterType.INT,
+        default: undefined,
+        description: 'how many locations to remember this trial?'
       }
     }
   }
@@ -334,9 +339,15 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
       if (trial.is_local) {
       } else if (!trial.is_local) {
         var file_name = "SS_processing_" + participant_id + ".json";
-        var file_name_cum = "SS_processing_allinone_" + participant_id + ".json";
         saveData(JSON.stringify(trial_data), file_name, "SS");
-        saveSeveralDataOverwrite(data_cumulative, file_name_cum, "SS");
+
+        if (trial.counter_symmetry + 1 == trial.set_size) {
+          var file_name_cum = "SS_processing_allinone_" + participant_id + ".json";
+          let dataSAved = false;
+          saveSeveralDataOverwrite(data_cumulative, file_name_cum, "SS");
+          checkDataSaving();
+        }
+
       }
       setTimeout(undefined, 250);
     };

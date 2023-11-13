@@ -91,7 +91,7 @@
   var n_recalled_cumulative = 0;
   var n_processed_cumulative = 0;
 
-  var nTrials = 1 // setSizes.length // number of trials
+  var nTrials = 1//setSizes.length; // number of trials
 
   var letterMemDemoArray = [4, 5]  // set sizes of initial demo trials
   var fullDemoArray = [4, 5]       // set sizes of full demo trials
@@ -255,13 +255,19 @@
     participant_id: function () {
       return participant_id
     },
+    set_size: function () {
+      if (is_practice == 1) {
+        return setSizes_practice[n];
+      } else if (is_practice == 0) {
+        return setSizes[n]
+      }
+    },
     on_finish: function () {
       proc_position = proc_position + 1;
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
       if (acc == 1) {
         nMathAcc += 1
       };
-      n_processed_cumulative += acc;
       id_current_demo += 1;
     }
   }
@@ -286,11 +292,20 @@
     participant_id: function () {
       return participant_id
     },
+    set_size: function () {
+      if (is_practice == 1) {
+        return setSizes_practice[n];
+      } else if (is_practice == 0) {
+        return setSizes[n]
+      }
+    },
     on_finish: function () {
       proc_position = proc_position + 1;
       id_current = (n) * maxSetSize + proc_position;
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
-
+      if (is_practice == 0) {
+        n_processed_cumulative += acc;
+      }
       if (acc == 1) {
         nMathAcc += 1
       };
@@ -420,8 +435,9 @@
         prop_recall_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100,
         prop_processing_correct: Math.round(100 * (n_processed_cumulative / n_max_correct)) / 100
       };
+      let dataSaved = false;
       saveData(JSON.stringify(data_bonus), "OS_bonus_" + participant_id + ".json", "OS");
-      setTimeout(undefined, 5000);
+      checkDataSaving();
     }
   }
 
@@ -515,7 +531,9 @@
           n_attempts: n_comprehension_attempts,
           t_comprehension: Date.now() - t_start
         };
+        let dataSaved = false;
         saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json", "OS");
+        checkDataSaving();
 
         selection = letterLists[n];
         nLetters = setSizes[n]

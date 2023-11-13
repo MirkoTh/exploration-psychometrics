@@ -81,8 +81,8 @@
     var possibleNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
-    var nTrials_update = 20 // number of trials2 // 
-    var nTrials_immediate = 5 // 1 //
+    var nTrials_update = 1//20 // number of trials2 // 
+    var nTrials_immediate = 1//5 // 1 //
     var nPracticeTrials = 2
 
     // max possible number correct recalled items
@@ -140,7 +140,6 @@
     var initial_set = initial_set_updating[session_id];
     var immediate_set = immediate_set_updating[session_id];
     var trial_type = trial_type_updating[session_id];
-    console.log("trial_type = " + trial_type);
     var locations_update = locations_update_updating[session_id];
     var items_replace = items_replace_updating[session_id];
     var final_set = final_set_updating[session_id];
@@ -275,10 +274,10 @@
             if (local) {
 
             } else if (!local) {
-                saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json", "WMU");
+                saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json", "WMU", flag_save = false);
+                let dataSaved = false;
                 saveSeveralDataOverwrite(data_cumulative, "WMU_allinone_" + participant_id + ".json", "WMU");
-                setTimeout(undefined, 1000);
-
+                checkDataSaving();
             }
 
             // update trial counters
@@ -407,13 +406,9 @@
                     n_attempts: n_comprehension_attempts,
                     t_comprehension: Date.now() - t_start
                 };
+                let dataSaved = false;
                 saveData(JSON.stringify(data_comprehension), "WMU_comprehension_check_" + participant_id + ".json", "WMU");
-
-                data_bonus = {
-                    participant_id: participant_id,
-                    prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
-                };
-                saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
+                checkDataSaving();
 
                 return false;
             } else {
@@ -443,8 +438,13 @@
         stimulus: '<div style="font-size:30px;"><br>Well done!<br>You have now carried out three out of six tasks. Take a break and rest a few minutes to take a deep breath and prepare for tasks four to six.<br>Click on "Next" to continue with the decision games.<br></div>',
         choices: ["Next"],
         on_finish: function () {
-
-
+            data_bonus = {
+                participant_id: participant_id,
+                prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
+            };
+            let dataSaved = false;
+            saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
+            checkDataSaving();
             window.location.href = progress_url + "&session=" + session_id;
 
         }
