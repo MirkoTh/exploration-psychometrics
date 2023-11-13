@@ -89,8 +89,9 @@
   const n_max_correct = setSizes.reduce(function (a, b) { return a + b; }, 0);
   // counter for actually correctly recalled items
   var n_recalled_cumulative = 0;
+  var n_processed_cumulative = 0;
 
-  var nTrials = setSizes.length // 2 // number of trials
+  var nTrials = 1 // setSizes.length // number of trials
 
   var letterMemDemoArray = [4, 5]  // set sizes of initial demo trials
   var fullDemoArray = [4, 5]       // set sizes of full demo trials
@@ -260,6 +261,7 @@
       if (acc == 1) {
         nMathAcc += 1
       };
+      n_processed_cumulative += acc;
       id_current_demo += 1;
     }
   }
@@ -288,6 +290,7 @@
       proc_position = proc_position + 1;
       id_current = (n) * maxSetSize + proc_position;
       var acc = jsPsych.data.get().last(1).values()[0].accuracy;
+
       if (acc == 1) {
         nMathAcc += 1
       };
@@ -411,13 +414,15 @@
     },
     choices: jsPsych.NO_KEYS,
     trial_duration: 5000,
-    /*     on_finish: function () {
-          data_bonus = {
-            participant_id: participant_id,
-            prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
-          };
-          saveData(JSON.stringify(data_bonus), "OS_bonus_" + participant_id + ".json", "OS");
-        } */
+    on_finish: function () {
+      data_bonus = {
+        participant_id: participant_id,
+        prop_recall_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100,
+        prop_processing_correct: Math.round(100 * (n_processed_cumulative / n_max_correct)) / 100
+      };
+      saveData(JSON.stringify(data_bonus), "OS_bonus_" + participant_id + ".json", "OS");
+      setTimeout(undefined, 5000);
+    }
   }
 
   var p_details = {
@@ -511,13 +516,6 @@
           t_comprehension: Date.now() - t_start
         };
         saveData(JSON.stringify(data_comprehension), "OS_comprehension_check_" + participant_id + ".json", "OS");
-
-        // save bonus payment information
-        data_bonus = {
-          participant_id: participant_id,
-          prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
-        };
-        saveData(JSON.stringify(data_bonus), "OS_bonus_" + participant_id + ".json", "OS");
 
         selection = letterLists[n];
         nLetters = setSizes[n]
