@@ -24,17 +24,23 @@ generate_restless_bandits <- function(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda
 
 
 generate_rl_bandits_as_required <- function(as_required, session_id) {
-  
+  #seed_counter <- 1
   while(as_required == FALSE) {
     
-    seed <- c(633250, 885722)[session_id]
+    #seeds <- round(runif(100, 0, 10000000), 0)
+    # 
+    seed <- c(2386688, 6719044)[session_id]
+    #seed <- seeds[seed_counter]
+    #cat(str_c(seed, "\n"))
     set.seed(seed)
-    
-    mu1 <- c(-60, -20, 20, 60)
+    #seed_counter <- seed_counter + 1
+
+    mu1 <- c(0, 0, 0, 0)
+    #mu1 <- c(-60, -20, 20, 60)
     nr_trials <- 200
-    sigma_xi_sq <- 16
+    sigma_xi_sq <- 36
     sigma_epsilon_sq <- 16
-    lambda <- .9836
+    lambda <- .925#.9836
     tbl_4a_rlb <- generate_restless_bandits(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials)
     
     # difference between largest and second-largest reward
@@ -80,16 +86,18 @@ generate_rl_bandits_as_required <- function(as_required, session_id) {
     
     thx_max <- .25
     thx_avg <- .05
-    thx_nr1 <- .50
+    thx_nr1 <- 25
     
     flag_max <- tbl_max_props$prop[tbl_max_props$min_diff_to_max_cut == "(20,1e+03]"] > thx_max
     flag_avg <- tbl_avg_props$prop[tbl_avg_props$avg_difference_cut == "(-0.1,10]"] > thx_avg
-    flag_nr1 <- sum(nr_ones$prop_1 > thx_nr1)
+    flag_nr1 <- sum(nr_ones$n < thx_nr1)
     
-    if (is_empty(flag_max)) {flag_max <- FALSE}
-    if (is_empty(flag_avg)) {flag_avg <- FALSE}
-    
-    if (flag_max + flag_avg + flag_nr1 == 0) {as_required <- TRUE}
+    # if (is_empty(flag_max)) {flag_max <- FALSE}
+    # if (is_empty(flag_avg)) {flag_avg <- FALSE}
+    # 
+    # if (flag_max + flag_avg + flag_nr1 == 0) {as_required <- TRUE}
+    if (flag_nr1 == 0) {as_required <- TRUE}
+    #as_required <- TRUE
     
   }
   return(tbl_4a_rlb)

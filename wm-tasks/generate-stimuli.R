@@ -235,7 +235,7 @@ source("wm-tasks/utils-gen-stim.R")
 
 
 as_required <- FALSE
-tbl_4a_rlb <- generate_rl_bandits_as_required(FALSE, session_id)
+tbl_4a_rlb <- generate_rl_bandits_as_required(FALSE, 2)
 
 ggplot(tbl_4a_rlb %>% pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)), aes(trial_id, value, group = name)) +
   geom_line(aes(color = name), size = .75) +
