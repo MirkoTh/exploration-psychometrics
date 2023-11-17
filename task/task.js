@@ -4,7 +4,7 @@
 
 // settings
 
-var quickrunthrough = 0 // if 1, we use placeholder rewards and only 2 blocks per task
+var quickrunthrough = 1 // if 1, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
 //var session = 1
@@ -35,6 +35,8 @@ var data = {}
 var bonusPayment
 var tic 
 var toc
+var clickable = 0
+var task
 data["horizon"] = {}
 data["sam"] = {}
 data["restless"] = {}
@@ -112,6 +114,59 @@ if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
     console.log(subjectID)
 }
 
+function keyDownHandler(e, task) {
+    if (clickable == 1) {
+        if (task != "restless") {
+        if (e.key === 's') {
+            clickMachine(0, task)
+        } else if (e.key == 'k') {
+            clickMachine(1, task)
+
+        }
+
+    } else {
+        if (e.key === 's') {
+            clickMachine(0, task)
+        } else if (e.key == 'd') {
+            clickMachine(1, task)
+        } else if (e.key == 'k') {
+            clickMachine(2, task)
+        } else if (e.key == 'l') {
+            clickMachine(3, task)
+        }
+
+    }
+}
+}
+
+async function handle_operation_keypress(e) {
+ 
+        if (clickable == 1) {
+            //document.removeEventListener("keydown", handle_operation_keypress, false);
+            if (task != "restless") {
+            if (e.key === 's') {
+                clickMachine(0, task)
+            } else if (e.key == 'k') {
+                clickMachine(1, task)
+    
+            }
+    
+        } else {
+            if (e.key === 's') {
+                clickMachine(0, task)
+            } else if (e.key == 'd') {
+                clickMachine(1, task)
+            } else if (e.key == 'k') {
+                clickMachine(2, task)
+            } else if (e.key == 'l') {
+                clickMachine(3, task)
+            }
+    
+        }
+    }
+
+    }
+
 var session = getQueryVariable('session');
 console.log("session: " + (session))
 // turn session into integer and add 1
@@ -160,31 +215,31 @@ var clickMachine = function(machine, task) {
     // display reward
     var reward = rewards[machine]
     if (machine == 0) {
-        machine1.append(reward + ' points');
+        document.getElementById("machine1").innerHTML = reward + " points";
         // remove score after 1 second
         setTimeout(function() {
-            machine1.lastChild.remove();
+            document.getElementById("machine1").innerHTML = "";
         }, 1000)
 
     } else if (machine == 1) { 
-        machine2.append(reward + ' points');
+        document.getElementById("machine2").innerHTML = reward + " points";
         // remove score after 1 second
         setTimeout(function() {
-            machine2.lastChild.remove();
+            document.getElementById("machine2").innerHTML = "";
         }, 1000)
    
     }else if (machine == 2) { 
-        machine3.append(reward + ' points');
+        document.getElementById("machine3").innerHTML = reward + " points";
         // remove score after 1 second
         setTimeout(function() {
-            machine3.lastChild.remove();
+            document.getElementById("machine3").innerHTML = "";
         }, 1000)
    
     } else if (machine == 3) { 
-        machine4.append(reward + ' points');
+        document.getElementById("machine4").innerHTML = reward + " points";
         // remove score after 1 second
         setTimeout(function() {
-            machine4.lastChild.remove();
+            document.getElementById("machine4").innerHTML = "";
         }, 1000)
    
     }
@@ -198,8 +253,7 @@ var clickMachine = function(machine, task) {
     data[task]["choice"][currentBlock][trial] = machine
     data[task]["reward"][currentBlock][trial] = reward
     data[task]["time"][currentBlock][trial] = toc - tic
-    data[task]["taskReward"] += reward
-
+    if (currentBlock > 0) {data[task]["taskReward"] += reward}
     if (task == "restless" & trial%5 == 0){saveTemp(JSON.stringify(data))}
 
 
@@ -208,7 +262,7 @@ var clickMachine = function(machine, task) {
     // increment trial
     trial += 1
 
-    if (trial < Ntrials) {tic = Number(new Date())} // timing for next click
+    if (trial < Ntrials) {tic = Number(new Date()); } // timing for next click
     
     console.log(trial)
     // fixed choice
@@ -229,12 +283,34 @@ var clickMachine = function(machine, task) {
             machine2.style.opacity = 1;
         }
     }, 800)
-     
+    
+    // if this is the Horizon task and the fixed choices just finished, take a little break and remind them how many free choices they get
+    if (trial == 4 & task == "horizon") {
+        clickable = 0
+        setTimeout(function() {
+        slot_machines.style.display = "none";}, 1000)
+        if (Ntrials == 5){
+            console.log("short round")
+            document.getElementById('machine_title').innerHTML = '<b>Short round.</b> You can now make <b>one</b> free choice. <br> Press S for the left machine and K for the right machine.'; 
+        } else {
+            document.getElementById('machine_title').innerHTML = '<b>Long round.</b> You can now make <b>5</b> free choices. <br> Press S for the left machine and K for the right machine.';
+        }
 
-    if (trial == 4 & task == "horizon" & Ntrials == 5) {document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the slot machine you would like to play!';}
-    else if (trial == 4 & task == "horizon" & Ntrials == 10){document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the slot machine you would like to play!';}
+        setTimeout(function() {
+            slot_machines.style.display = "flex";
+            clickable = 1
+
+            //document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1) +
+             //   '<br> Press S for the left machine and K for the right machine.';
+            
+        }, 3000)
+        
+    }
+
+    //if (trial == 4 & task == "horizon" & Ntrials == 5) {document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the slot machine you would like to play!<br>Press';}
+    //else if (trial == 4 & task == "horizon" & Ntrials == 10){document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the slot machine you would like to play!';}
     scoreThisBlock = scoreThisBlock + reward;
-    totalScore = totalScore + reward;
+    if (currentBlock > 0) {totalScore = totalScore + reward}
 
     // update score div
     document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
@@ -243,7 +319,10 @@ var clickMachine = function(machine, task) {
     // if no trials left -----------------------------------------
     if (trial == Ntrials) { 
         currentBlock += 1;
+        clickable = 0
 
+        // make it really not clickable anymore, otherwise have 2 event listeners later
+        document.removeEventListener("keydown", handle_operation_keypress, false);
 
         // save data
         saveTemp(JSON.stringify(data))
@@ -259,10 +338,10 @@ var clickMachine = function(machine, task) {
 
         } else if (currentBlock == Nblocks) { // game over
             scoreThisBlock = 0;
-
-
-
+            
+            //window.removeEventListener('keydown', keyDownHandler(e,task));
             if (task != "restless") {
+                
             document.getElementById('machine_title').innerHTML = "This Game is over. Click the button to proceed to the next game."
             setTimeout(function() {
                 slot_machines.style.display = 'none';
@@ -270,7 +349,7 @@ var clickMachine = function(machine, task) {
                 nextTaskButton.style.display = 'block';
             }, 1500)
             
-        } else { // study over
+            } else { // study over
             slot_machines.style.display = 'none';
             document.getElementById('machine_title').innerHTML = "The games are over. Click the button below to proceed to the final questionnaires."
             document.getElementById('score').innerHTML ='<br> Total score: ' + totalScore 
@@ -312,7 +391,9 @@ var clickMachine = function(machine, task) {
 
                 // update score
                 document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
-           
+                clickable = 1
+                document.addEventListener("keydown", handle_operation_keypress, false);
+
                 if (task == "horizon") { // for Horizon task, we are back to fixed choice
                     if (NtrialsCollect[currentBlock] == 5){document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the highlighted slot machine. Round '+ (currentBlock) +' of ' + (Nblocks-1);} 
                     else {document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the highlighted slot machine. Round '+ currentBlock +' of ' + (Nblocks-1);}
@@ -329,10 +410,11 @@ var clickMachine = function(machine, task) {
 
 
                 } else {
-                    document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1);
+                    document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1) +
+                    '<br> Press S for the left machine and K for the right machine.';
                 }
                 
-            }, 2000)
+            }, 4000)
 
             
             
@@ -355,6 +437,7 @@ var clickMachine = function(machine, task) {
 function horizonTask() {
     // set up variables
     tic = Number(new Date())
+    task = "horizon"
 
     // load rewards or quickly get some place holder rewards
     if (quickrunthrough == 1) { 
@@ -391,7 +474,9 @@ function horizonTask() {
 
     document.getElementById('instructions').style.display = 'block';
     document.getElementById('instructionText').innerHTML = "In this game, you will choose between two slot machines that give different average rewards. Before making your choice, you will have to make 4 choices that we pre-determined. You will see which machine is highlighted and have to choose the highlighted machine."+
-    " <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 5 free choices. You can see how many choices you can make under 'Trials left in this round' as well as above the slot machines where it says 'Short round' when you can only make one free choice and 'Long round' when you can make 5 free choices. You will play " + (Nblocks-1)+" rounds of this game. <br> <br> Click the button below to start a practice round.";
+    " <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 5 free choices. You can see how many choices you can make under 'Trials left in this round' as well as above the slot machines where it says 'Short round' when you can only make one free choice and 'Long round' when you can make 5 free choices. "+
+    "To select a slot machine, press the 's' key for the left machine and the 'k' key for the right machine, as indicated above the machines.<br> <br>"
+    "You will play " + (Nblocks-1)+" rounds of this game. <br> <br> Click the button below to start a practice round.";
     
 
     // start practice --------------------------
@@ -408,9 +493,9 @@ function horizonTask() {
         document.getElementById("mach_div4").style.display = 'none';
         // fixed choice
         if (Ntrials == 5) {
-            document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted.';
+            document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted. <br> Press S for the left machine and K for the right machine.';
         } else {
-            document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted.';
+            document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted. <br> Press S for the left machine and K for the right machine.';
         }
         
 
@@ -433,8 +518,23 @@ function horizonTask() {
         //machButton1.addEventListener('click', clickMachine(0, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
         //machButton2.addEventListener('click', clickMachine(1, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
 
-        machButton1.onclick =  function(){clickMachine(0, "horizon")};
-        machButton2.onclick = function(){clickMachine(1, "horizon")};
+        // make machines clickable with keyboard presses
+        document.addEventListener("keydown", handle_operation_keypress, false);
+
+        // window.addEventListener('keydown', function(event) {
+        //     if (clickable == 1) {
+        //     if (event.key === 's') {
+        //         clickMachine(0, "horizon")
+        //     } else if (event.key == 'k') {
+        //         clickMachine(1, "horizon")
+        //     }
+        // }
+        // });
+        
+        clickable = 1
+        // clicking machines with mouse keys
+        // machButton1.onclick =  function(){clickMachine(0, "horizon")};
+        // machButton2.onclick = function(){clickMachine(1, "horizon")};
 
 
 
@@ -448,6 +548,7 @@ function horizonTask() {
 // Sam's task
 
 function samTask() {
+    task = "sam"
     nextTaskButton.style.display = 'none';
     console.log("started sam task")
     tic = Number(new Date())
@@ -463,7 +564,7 @@ function samTask() {
     }
     //console.log("I got here 1")
     fixedChoicesCollect = Array(Nblocks).fill(0);
-    NtrialsCollect = Array(Nblocks).fill(rewardCollect[1].length); //TODO: here is where to change number of trials
+    NtrialsCollect = Array(Nblocks).fill(rewardCollect[1].length); 
     currentBlock = 0;
     trial = 0;
     Ntrials = NtrialsCollect[currentBlock]
@@ -481,7 +582,7 @@ function samTask() {
     //console.log("I got here 6")
     document.getElementById('instructions').style.display = 'block';
     document.getElementById('instructionText').innerHTML = "In this game you will choose between two slot machines that give different average rewards. Sometimes, the average rewards for one or both of the machines changes over time. You can choose either machine at any time. You will play "+ (Nblocks-1)+
-    " rounds of this game consisting of "+ Ntrials+" choices each. <br> <br> Click the button below to start a practice round.";
+    " rounds of this game consisting of "+ Ntrials+" choices each. <br>Again, you select the slot machines using the S and the K keys on your keyboard.<br> Click the button below to start a practice round.";
    // console.log("I got here 7")
 
     // start practice --------------------------------
@@ -501,7 +602,7 @@ function samTask() {
         document.getElementById("mach_div4").style.display = 'none';
         
         
-        document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!';
+        document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!<br> Press S for the left machine and K for the right machine.';
     
         fixedChoices = fixedChoicesCollect[currentBlock] // just bc we need this to make it fit with the horizon task
         document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
@@ -510,8 +611,13 @@ function samTask() {
         //machButton1.addEventListener('click', clickMachine(0, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
         //machButton2.addEventListener('click', clickMachine(1, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
 
-        machButton1.onclick =  function(){clickMachine(0, "sam")};
-        machButton2.onclick = function(){clickMachine(1, "sam")};
+        // make machines clickable with keyboard presses
+        document.addEventListener("keydown", handle_operation_keypress, false);
+        
+        clickable = 1
+
+        // machButton1.onclick =  function(){clickMachine(0, "sam")};
+        // machButton2.onclick = function(){clickMachine(1, "sam")};
 
         nextTaskButton.onclick = restlessTask;
 
@@ -525,9 +631,14 @@ function samTask() {
 // restless 4-armed bandit
 
 function restlessTask() {
+    task = "restless"
     nextTaskButton.style.display = 'none';
     console.log("started restless task")
     tic = Number(new Date())
+
+    document.getElementById("mach_div2").firstElementChild.innerHTML = "Machine D";
+    document.getElementById("mach_div3").firstElementChild.innerHTML = "Machine K";
+    document.getElementById("mach_div4").firstElementChild.innerHTML = "Machine L";
 
     // load rewards or quickly get some place holder rewards
     if (quickrunthrough == 1) { 
@@ -561,7 +672,7 @@ function restlessTask() {
     document.getElementById('instructions').style.display = 'block';
     document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time. In this game, you can also loose some rewards you collected before, if you choose a slot machine that gives a negative reward at that point in time."+
     " However, the rewards from all slot machines change over time so a slot machine that gives negative rewards can give positive rewards later on and vice-versa. You can choose any machine at any time. In this game, you will only play one round consisting of "+ 
-    NtrialsCollect[1] +" choices. <br> <br> Click the button below to start a practice round.";
+    NtrialsCollect[1] +" choices. <br> You can select the machines using the S, D, K and L keys, as indicated above the slot machines. <br> Click the button below to start a practice round.";
 
 
     // start practice --------------------------------
@@ -579,7 +690,7 @@ function restlessTask() {
         machine4.style.display = 'inline-block';
 
 
-        document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play!';
+        document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! <br> Press S for the left machine, D for the second machine, K for the third machine and L for the right machine.';
 
         fixedChoices = fixedChoicesCollect[currentBlock] // just bc we need this to make it fit with the horizon task
 
@@ -589,10 +700,14 @@ function restlessTask() {
         //machButton1.addEventListener('click', clickMachine(0, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
         //machButton2.addEventListener('click', clickMachine(1, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
 
-        machButton1.onclick =  function(){clickMachine(0, "restless")};
-        machButton2.onclick = function(){clickMachine(1, "restless")};
-        machButton3.onclick = function(){clickMachine(2, "restless")};
-        machButton4.onclick = function(){clickMachine(3, "restless")};
+        // make machines clickable with keyboard presses
+        // make machines clickable with keyboard presses
+        document.addEventListener("keydown", handle_operation_keypress, false);
+        clickable = 1
+        // machButton1.onclick =  function(){clickMachine(0, "restless")};
+        // machButton2.onclick = function(){clickMachine(1, "restless")};
+        // machButton3.onclick = function(){clickMachine(2, "restless")};
+        // machButton4.onclick = function(){clickMachine(3, "restless")};
 
     }
 
@@ -752,11 +867,16 @@ function checkComprehension(task){
         document.getElementById("questionnaire").style.display = 'none';
         document.getElementById('task').style.display = 'block';
 
+        clickable = 1
+        document.addEventListener("keydown", handle_operation_keypress, false);
+
         if (task == "horizon") {
             if (Ntrials == 5){
-                document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1);
+                document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1) +
+                '<br> Press S for the left machine and K for the right machine.';
             } else {
-                document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1);
+                document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1) +
+                '<br> Press S for the left machine and K for the right machine.';
             }
 
             fixedChoices = fixedChoicesCollect[currentBlock]
@@ -774,8 +894,12 @@ function checkComprehension(task){
 
             document.getElementById('score').innerHTML ='Score this round:' + scoreThisBlock+ '<br> Total score: ' + totalScore + "<br> Trials left in this round: " + (Ntrials - trial)
  
+        } else if (task == "sam") {
+            document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1) +
+            '<br> Press S for the left machine and K for the right machine.';
         } else {
-            document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1);
+            document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1) +
+            '<br> Press S for the left machine, D for the second machine, K for the third machine and L for the right machine.';
         }
 
         
@@ -839,7 +963,7 @@ function startComprehension(task){
           var q2Data = {
             qNumber: 1,
             prompt: "Do the points you get for each slot machine change over time?",
-            labels: ['No they stay the same on average.', 'Sometimes they change over time for one or both slot machines.', 'They change over time for both slot machines.']
+            labels: ['No they stay the same on average.', 'Sometimes they change over time for one or both slot machines.', 'They always change over time for both slot machines.']
           };
           
           var q3Data = {
@@ -863,7 +987,7 @@ function startComprehension(task){
           var q2Data = {
             qNumber: 1,
             prompt: "Do the points you get for each slot machine change over time?",
-            labels: ['No they stay the same on average.', 'Sometimes they change over time for one or several slot machines.', 'They change over time for all slot machines.']
+            labels: ['No they stay the same on average.', 'Sometimes they change over time for one or several slot machines.', 'They always change over time for all slot machines.']
           };
           
           var q3Data = {

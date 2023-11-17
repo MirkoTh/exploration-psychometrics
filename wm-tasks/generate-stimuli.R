@@ -7,7 +7,7 @@ session_id <- 1
 my_two_seeds <- c(39737632, 8567389)
 
 
-#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics/wm-tasks")
+setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics/wm-tasks")
 source("utils-gen-stim.R")
 
 set.seed(my_two_seeds[session_id])
@@ -259,6 +259,8 @@ tbl_4a_rlb_practice <- generate_rl_bandits_as_required(FALSE, abs(session_id - 3
 
 tbl_4a_rlb$block <- 2
 tbl_4a_rlb_practice$block <- 1
+tbl_4a_rlb_practice <- subset(tbl_4a_rlb_practice, trial_id >= 100)
+tbl_4a_rlb_practice$trial_id <- 1:nrow(tbl_4a_rlb_practice)
 
 rewards <- rbind(tbl_4a_rlb_practice, tbl_4a_rlb)
 
@@ -289,7 +291,7 @@ write(json, paste("task/rewards4ARB", session_id, ".json", sep = ""))
 # Sam's task -------------------------------------------------------------
 
 
-nBlocks = 32
+nBlocks = 31
 nTrials = 10
 # same for all subjects so nSubs = 1
 
@@ -330,11 +332,21 @@ rewards$reward2[rewards$trial == 1] <- ifelse(runif(nBlocks)>0.5, rewards$reward
 # make condition random
 library(permute)
 
-for (i in seq(1,nTrials*(nBlocks-1), 4*nTrials)){
-  conds <- c("FF", "SS", "FS", "SF")
-  inds <- rep(shuffle(4), each = nTrials)
-  rewards$cond[i:(i+4*nTrials-1)] <- conds[inds]
+for (i in seq(11,nTrials*(nBlocks-1), 3*nTrials)){
+  conds <- c("FF", "SS", "FS")
+  inds <- rep(shuffle(3), each = nTrials)
+  rewards$cond[i:(i+3*nTrials-1)] <- conds[inds]
 }
+
+# add condition for practice round
+
+rewards$cond[rewards$block == 1] <- "FS"
+
+SF <- sample(unique(rewards$block[rewards$cond == "FS"]), size = 5)
+
+rewards$cond[is.element(rewards$block, SF)] <- "SF"
+
+table(rewards$cond) # should be 100 FF, 100 SS, 60 FS (50 + practice), 50 SF
 
 ## create remaining trials
 
@@ -407,10 +419,10 @@ library(jsonlite)
 
 json = toJSON(ls)
 
-write(json, paste("task/rewardsSam", session_id, ".json" , sep = ""))
+write(json, paste("../task/rewardsSam", session_id, ".json" , sep = ""))
 
 ################ Horizon task -----------------------------------------------
-data <- read.csv("wm-tasks/ZallerEtAl.csv")
+data <- read.csv("ZallerEtAl.csv")
 
 nBlocks = 81 # 1 extra for practice
 nTrials = 10 # just always sample 10 trials even if it is a short horizon and the round is over after 5 trials bc simpler this way
@@ -435,8 +447,14 @@ ls = list()
 for (i in 1:nBlocks){
   block = list()
   for (j in 1:nTrials){
-    re <- c(round(rewards$reward1[rewards$block == i] + rnorm(1,0,sqrt(noise_var))), round(rewards$reward2[rewards$block == i]+ rnorm(1,0,sqrt(noise_var))))
-    block[[j]] <- re
+    found = 0
+    while (found == 0){
+      re <- c(round(rewards$reward1[rewards$block == i] + rnorm(1,0,sqrt(noise_var))), round(rewards$reward2[rewards$block == i]+ rnorm(1,0,sqrt(noise_var))))
+      if (mean(re >= 0 & re <= 100) == 1) {
+        block[[j]] <- re
+        found = 1
+      }
+    }
     
   }
   ls[[i]] <- block
@@ -446,7 +464,7 @@ library(jsonlite)
 
 json = toJSON(ls)
 
-write(json, paste("task/rewardsHorizon", session_id,".json", sep = ""))
+write(json, paste("../task/rewardsHorizon", session_id,".json", sep = ""))
 
 ## save fixed choices
 

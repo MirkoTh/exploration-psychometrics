@@ -71,13 +71,14 @@ h2 {
   font-family: 'Cabin', sans-serif;
   font-weight: 200;
   font-size: 23px;
-  padding: 0 30px 0 30px; 
+  padding: 0 10px 0 10px; 
 }
 
-#machine_header {
+.machine_header {
   font-family: 'Cabin', sans-serif;
   font-weight: 200;
-  font-size: 13px;
+  font-size: 20px;
+  padding: 10px 10px 10px 10px;
 }
 
 .center {
