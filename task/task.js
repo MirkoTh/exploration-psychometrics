@@ -147,10 +147,8 @@ async function handle_operation_keypress(e) {
             //document.removeEventListener("keydown", handle_operation_keypress, false);
             if (task != "restless") {
             if (e.key === 's') {
-                console.log("clicked s")
                 clickMachine(0, task)
             } else if (e.key == 'k') {
-                console.log("clicked k")
                 clickMachine(1, task)
     
             }
@@ -173,7 +171,7 @@ async function handle_operation_keypress(e) {
 
 // randomly select which order the tasks are in
 var order = Math.floor(Math.random() * 6) + 1;
-order = 5
+//order = 5
 var tasks
 if (order == 1) {
     tasks = [horizonTask, samTask, restlessTask]
@@ -228,13 +226,10 @@ var clickMachine = function(machine, task) {
     Ntrials = NtrialsCollect[currentBlock]
     fixedChoices = fixedChoicesCollect[currentBlock]
     if (quickrunthrough){console.log("clicked machine " + machine  + " in task " +task )}
-    console.log("clicked machine " + machine  + " in task " +task + " on trial " + trial)
-    console.log("fixed choice: "+ fixedChoices[trial])
-    console.log("trials left: " + (Ntrials - trial))
-    console.log(Ntrials)
+    
         // was this a machine they were allowed to chlick in the horizon task? Do we still have trials left this round?
     if (((trial > 3 | task != "horizon") | machine == fixedChoices[trial])& Ntrials - trial > 0) { // if (either not a fixed choice OR not Horizon task OR they clicked the right one) AND trials left
-        console.log("clicked machine " + machine  + " in task " +task + " on trial " + trial)
+
 
         // get rewards and display them-----------------------------
     // display reward
@@ -484,9 +479,6 @@ function horizonTask() {
 
 
     }
-    console.log(fixedChoicesCollect)
-    console.log(fixedChoicesCollect[currentBlock])
-    console.log(currentBlock)
 
     currentBlock = 0;
     trial = 0;
