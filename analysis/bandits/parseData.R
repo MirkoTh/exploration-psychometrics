@@ -65,6 +65,9 @@ for (i in 1:length(files)){
       horizon$reward[horizon$ID == i & horizon$block == block-1 & horizon$trial == trial] <- temp$horizon$reward[[block]][[trial]]
       horizon$rt[horizon$ID == i & horizon$block == block-1 & horizon$trial == trial] <- temp$horizon$time[[block]][[trial]]
     }
+    horizon$info[horizon$ID == i & horizon$block == block-1] <- length(horizon$chosen[horizon$ID == i & horizon$block == block-1&horizon$chosen == 0 & horizon$trial < 5]) -
+      length(horizon$chosen[horizon$ID == i & horizon$block == block-1 & horizon$chosen == 1& horizon$trial < 5])
+    
     
   }
   
@@ -89,6 +92,8 @@ for (i in 1:length(files)){
   
 }
 
+# info condition should be coded as -1 0 1 but is now coded as -2 0 2 so fix that
+horizon$info <- horizon$info/2
 
 ############### calculate bonus payment #########
 
@@ -102,9 +107,9 @@ Hrewards <- data.frame(block = rep(1:(nBlocksH+1), each = nTrialsH),
                        rew1 = NA,
                        rew2 = NA)
 
-horizon <-  fromJSON(paste("task/Horizon", session, ".json", sep = ""))
+Horizon <-  fromJSON(paste("task/Horizon", session, ".json", sep = ""))
 
-Hrewards$horizon <- rep(horizon, each = nTrialsH)
+Hrewards$horizon <- rep(Horizon, each = nTrialsH)
 
 for (block in 1:(nBlocksH+1)){# +1 bc there is the practice round too
   for (trial in 1:nTrialsH){

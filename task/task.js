@@ -4,7 +4,7 @@
 
 // settings
 
-var quickrunthrough = 1 // if 1, we use placeholder rewards and only 2 blocks per task
+var quickrunthrough = false // if true, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
 //var session = 1
@@ -27,7 +27,7 @@ var score = 0
 var comprehensionAttemptsH = 1
 var comprehensionAttemptsS = 1
 var comprehensionAttemptsR = 1
-var understood = false
+var understood = true
 var horizonRewards
 var samRewards
 var restlessRewards
@@ -89,7 +89,7 @@ function saveData(filedata) {
 }
 
 async function saveTemp(filedata) {
-    console.log("saving temp")
+    //console.log("saving temp")
     var filename = "bandits/" + subjectID + "_temp_data_task_session_"+ session + ".txt";
     var filename_folder = "../data/" + filename;
     $.post("save_data.php", { postresult: filedata + "\n", postfile: filename_folder })
@@ -111,7 +111,7 @@ if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
     var subjectID = getQueryVariable('PROLIFIC_PID');
 } else {
     var subjectID = "test-" + Math.random().toString(36).substring(7);
-    console.log(subjectID)
+    //console.log(subjectID)
 }
 
 function keyDownHandler(e, task) {
@@ -167,8 +167,28 @@ async function handle_operation_keypress(e) {
 
     }
 
+// randomly select which order the tasks are in
+var order = Math.floor(Math.random() * 6) + 1;
+//order = 1
+var tasks
+if (order == 1) {
+    tasks = [horizonTask, samTask, restlessTask]
+} else if (order == 2) {
+    tasks = [horizonTask, restlessTask, samTask]
+} else if (order == 3) {
+    tasks = [samTask, horizonTask, restlessTask]
+} else if (order == 4) {
+    tasks = [samTask, restlessTask, horizonTask]
+} else if (order == 5) {
+    tasks = [restlessTask, horizonTask, samTask]
+} else if (order == 6) {
+    tasks = [restlessTask, samTask, horizonTask]
+}
+
+var task_ind = 0
+data["taskOrder"] = order
+
 var session = getQueryVariable('session');
-console.log("session: " + (session))
 // turn session into integer and add 1
 var s = parseInt(session)+1
 
@@ -201,12 +221,10 @@ var clickMachine = function(machine, task) {
     
     // get variables ---------------
     rewards = rewardCollect[currentBlock][trial]
-    console.log(rewards)
     Ntrials = NtrialsCollect[currentBlock]
     fixedChoices = fixedChoicesCollect[currentBlock]
-
-    console.log("clicked machine " + machine  + " in task " +task )
-
+    if (quickrunthrough){console.log("clicked machine " + machine  + " in task " +task )}
+    
     // was this a machine they were allowed to chlick in the horizon task? Do we still have trials left this round?
     if (((trial > 3 | task != "horizon") | machine == fixedChoices[trial])& Ntrials - trial > 0) { // if (either not a fixed choice OR not Horizon task OR they clicked the right one) AND trials left
         
@@ -264,7 +282,6 @@ var clickMachine = function(machine, task) {
 
     if (trial < Ntrials) {tic = Number(new Date()); } // timing for next click
     
-    console.log(trial)
     // fixed choice
 
     setTimeout(function() {
@@ -290,7 +307,6 @@ var clickMachine = function(machine, task) {
         setTimeout(function() {
         slot_machines.style.display = "none";}, 1000)
         if (Ntrials == 5){
-            console.log("short round")
             document.getElementById('machine_title').innerHTML = '<b>Short round.</b> You can now make <b>one</b> free choice. <br> Press S for the left machine and K for the right machine.'; 
         } else {
             document.getElementById('machine_title').innerHTML = '<b>Long round.</b> You can now make <b>5</b> free choices. <br> Press S for the left machine and K for the right machine.';
@@ -340,7 +356,7 @@ var clickMachine = function(machine, task) {
             scoreThisBlock = 0;
             
             //window.removeEventListener('keydown', keyDownHandler(e,task));
-            if (task != "restless") {
+            if (task_ind < 3) { // if this is NOT the last task
                 
             document.getElementById('machine_title').innerHTML = "This Game is over. Click the button to proceed to the next game."
             setTimeout(function() {
@@ -439,8 +455,11 @@ function horizonTask() {
     tic = Number(new Date())
     task = "horizon"
 
+    // only increment task if people are NOT coming back here from the comprehension questions
+    if (understood) {task_ind += 1}
+
     // load rewards or quickly get some place holder rewards
-    if (quickrunthrough == 1) { 
+    if (quickrunthrough) { 
         Nblocks = 2; 
         rewardCollect = Array(Nblocks).fill([[20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30], [20, 30]] )
         fixedChoicesCollect = [[0,1,0,1], [0,0,0,1]] 
@@ -458,14 +477,14 @@ function horizonTask() {
     currentBlock = 0;
     trial = 0;
     Ntrials = NtrialsCollect[currentBlock]
-    nextTaskButton.onclick = samTask;
+    nextTaskButton.onclick = tasks[task_ind]
     nextTaskButton.style.display = 'none';
 
     // instructions first -----------------
 
     document.getElementById('task').style.display = 'none';
     
-    document.getElementById('instructions').firstElementChild.innerHTML = "Game 1 Instructions"
+    document.getElementById('instructions').firstElementChild.innerHTML = "Game "+task_ind+" Instructions"
 
     if (comprehensionAttemptsH > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
 
@@ -482,13 +501,16 @@ function horizonTask() {
     // start practice --------------------------
 
     startPracticeButton.onclick = function() {
-        console.log("started practice Horizon task")
+        if(quickrunthrough){console.log("started practice Horizon task")} 
         toc = Number(new Date())
         data["horizon"]["instructionTime"] = toc - tic
         tic = Number(new Date())
         // display slot machines
         document.getElementById('task').style.display = 'block';
+        document.getElementById('slot_machines').style.display = 'flex';
         startPracticeButton.style.display = 'none';
+        // make sure the naming of the machines is correct in case the restless bandit happened before
+        document.getElementById("mach_div2").firstElementChild.innerHTML = "Machine K";
         document.getElementById("mach_div3").style.display = 'none'; // we only have 2 arms here
         document.getElementById("mach_div4").style.display = 'none';
         // fixed choice
@@ -549,12 +571,14 @@ function horizonTask() {
 
 function samTask() {
     task = "sam"
+    // only increment task_ind if people are not coming back here from the comprehension questions
+    if (understood) {task_ind += 1}
     nextTaskButton.style.display = 'none';
-    console.log("started sam task")
+    if (quickrunthrough) {console.log("started sam task")}
     tic = Number(new Date())
     // rewards here are a list of lists of lists bc we need to allow for the drifting rewards
         // load rewards or quickly get some place holder rewards
-    if (quickrunthrough == 1) { 
+    if (quickrunthrough) { 
         Nblocks = 3; 
         rewardCollect = Array(Nblocks).fill([[20, 30], [20, 30], [20, 30], [20, 30], [20, 30]])
     }
@@ -562,35 +586,29 @@ function samTask() {
         rewardCollect = samRewards
         Nblocks = rewardCollect.length;
     }
-    //console.log("I got here 1")
     fixedChoicesCollect = Array(Nblocks).fill(0);
     NtrialsCollect = Array(Nblocks).fill(rewardCollect[1].length); 
     currentBlock = 0;
     trial = 0;
     Ntrials = NtrialsCollect[currentBlock]
 
+
     // instructions first -----------------
-    //console.log("I got here 2")
     document.getElementById('task').style.display = 'none';
-    //console.log("I got here 3")
-    document.getElementById('instructions').firstElementChild.innerHTML = "Game 2 Instructions"
-    //console.log("I got here 4")
+    document.getElementById('instructions').firstElementChild.innerHTML = "Game "+task_ind+" Instructions"
     if (comprehensionAttemptsS > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
-    //console.log("I got here 5")
     startPracticeButton.innerHTML = "Start Practice Round";
     startPracticeButton.style.display = 'block';
-    //console.log("I got here 6")
     document.getElementById('instructions').style.display = 'block';
     document.getElementById('instructionText').innerHTML = "In this game you will choose between two slot machines that give different average rewards. Sometimes, the average rewards for one or both of the machines changes over time. You can choose either machine at any time. You will play "+ (Nblocks-1)+
     " rounds of this game consisting of "+ Ntrials+" choices each. <br>Again, you select the slot machines using the S and the K keys on your keyboard.<br> Click the button below to start a practice round.";
-   // console.log("I got here 7")
 
     // start practice --------------------------------
 
     startPracticeButton.onclick = function() {
         toc = Number(new Date())
         data["sam"]["instructionTime"] = toc - tic
-        console.log("started practice round sam")
+        if(quickrunthrough){console.log("started practice sam task")}
         // display slot machines
         tic = Number(new Date())
         
@@ -598,6 +616,9 @@ function samTask() {
         slot_machines.style.display = 'flex';
         machine1.style.display = 'inline-block';
         machine2.style.display = 'inline-block';
+        // make sure the naming of the machines is correct in case the restless bandit happened before
+        document.getElementById("mach_div2").firstElementChild.innerHTML = "Machine K";
+
         document.getElementById("mach_div3").style.display = 'none'; // we only have 2 arms here
         document.getElementById("mach_div4").style.display = 'none';
         
@@ -619,7 +640,7 @@ function samTask() {
         // machButton1.onclick =  function(){clickMachine(0, "sam")};
         // machButton2.onclick = function(){clickMachine(1, "sam")};
 
-        nextTaskButton.onclick = restlessTask;
+        nextTaskButton.onclick = tasks[task_ind]
 
     }
 
@@ -632,8 +653,11 @@ function samTask() {
 
 function restlessTask() {
     task = "restless"
+    // only increment task_ind if people are not coming back here from the comprehension questions
+    if (understood) {task_ind += 1}
+    nextTaskButton.onclick = tasks[task_ind]
     nextTaskButton.style.display = 'none';
-    console.log("started restless task")
+    if (quickrunthrough) {console.log("started restless task")}
     tic = Number(new Date())
 
     document.getElementById("mach_div2").firstElementChild.innerHTML = "Machine D";
@@ -641,7 +665,7 @@ function restlessTask() {
     document.getElementById("mach_div4").firstElementChild.innerHTML = "Machine L";
 
     // load rewards or quickly get some place holder rewards
-    if (quickrunthrough == 1) { 
+    if (quickrunthrough) { 
         Nblocks = 2; 
         rewardCollect = Array(Nblocks).fill([[20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 30, 20, 30], [20, 3, 20, 300]] )
         NtrialsCollect = [10, 10]
@@ -663,7 +687,7 @@ function restlessTask() {
 
     document.getElementById('task').style.display = 'none';
 
-    document.getElementById('instructions').firstElementChild.innerHTML = "Game 3 Instructions"
+    document.getElementById('instructions').firstElementChild.innerHTML ="Game "+task_ind+" Instructions"
     if (comprehensionAttemptsR > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
 
     startPracticeButton.innerHTML = "Start Practice Round";
@@ -791,7 +815,7 @@ function createQuestion(questionnaireName, questionData) { // function from Toby
 
 
 function checkComprehension(task){
-    console.log("checking comprehension")
+    if (quickrunthrough) {console.log("checking comprehension")}
     toc = Number(new Date())
 
     data[task]["comprehensionTime"] = toc - tic
@@ -826,7 +850,7 @@ function checkComprehension(task){
         
       // This checks for any items that were missed and scrolls to them
       if (incomplete.length > 0) {// missing items
-            console.log("you missed sth")
+
           $('html, body').animate({ // go to first missed items
                   scrollTop: $(document.getElementById(incomplete[0])).offset().top - 100
                   }, 400);
@@ -919,6 +943,7 @@ function checkComprehension(task){
 }
 
 function startComprehension(task){
+    understood = false
 
     document.getElementById('instructions').style.display = 'none';
     document.getElementById('task').style.display = 'none';
@@ -1011,9 +1036,7 @@ function startComprehension(task){
     document.getElementById('questionnaires').appendChild(Q2);
     document.getElementById('questionnaires').appendChild(Q3);
     document.getElementById('questionnaires').appendChild(Q4);
-    console.log(Q1)
     tic = Number(new Date())
-    console.log(tic)
 
     startTaskButton.style.display = 'block';
     startTaskButton.onclick = function() {
@@ -1029,287 +1052,6 @@ function startComprehension(task){
 
 }
 
-
-
-
-
-/*
-
-
-
-// comprehension questions -----------------------------
-function createQuestion(questionnaireName, questionData) { // function from Toby's questionnaire code
-    // This function creates an individual item
-  
-    var f = document.createElement("form");
-    f.setAttribute('method',"post");
-    f.setAttribute('action',"submit.php");
-    f.setAttribute('id', questionnaireName.concat('_' + questionData.qNumber.toString()));
-    f.setAttribute("name", "form_");
-  
-    var fieldset = document.createElement("fieldset");
-    fieldset.setAttribute("class", "form__options");
-    fieldset.setAttribute('id', questionnaireName.concat('_' + questionData.qNumber.toString()));
-    fieldset.setAttribute("name", "fs_");
-  
-    var legend = document.createElement("legend");
-    legend.setAttribute("class", "form__question");
-    legend.setAttribute("name", "legend");
-    legend.append(questionData.prompt);
-  
-    fieldset.appendChild(legend);
-  
-    var labels = [];
-    var i
-    for (i = 0; i < questionData.labels.length; i++) {
-  
-        var p = document.createElement("p");
-        p.setAttribute('class', 'form__answer');
-        var c = document.createElement("input");
-        c.type = "radio";
-        c.id = questionnaireName.concat(questionData.qNumber.toString()).concat("answer".concat(i.toString()));
-        c.name = "question";
-        c.value = i;
-  
-        var l = document.createElement("label");
-        l.setAttribute('for', c.id);
-        l.append(questionData.labels[i]);
-  
-        p.appendChild(c);
-        p.appendChild(l);
-  
-        labels.push(p);
-  
-        fieldset.appendChild(p)
-  
-    }
-  
-    f.appendChild(fieldset);
-  
-  
-    return f;
-  
-}
-  
-var createComprehension = function(){
-  var q1Data = {
-    qNumber: 0,
-    prompt: "What is the aim of this game?",
-    labels: ['To find the kraken.', 'To click on every square at least once.', 'To catch as many fish as possible.']
-  };
-  var q2Data = {
-    qNumber: 1,
-    prompt: "What happens when you click the same square several times?",
-    labels: ['You will get approximately the same number of fish.', 'The number of fish you get will gradually decrease.', 'You will only get fish the first time, afterwards the fish in that square are gone.']
-  };
-  
-  var q3Data = {
-    qNumber: 2,
-    prompt: "How do you know how many fish to expect in one location?",
-    labels: ['There is no way to know.', 'The lower half of the ocean has more fish.', 'The number of fish in nearby squares is similar.']
-  };
-  
-  var q4Data = {
-    qNumber: 3,
-    prompt: "What happens when you find the kraken?",
-    labels: ['It is the end of the experiment.', 'The round is over and you lose all the fish you collected in that round.', 'You get extra points']
-  };
-  
-  var q5Data = {
-    qNumber: 4,
-    prompt: "When can you expect to find the kraken?",
-    labels: ['When you click a square more than once.', 'At any moment, you have no control over this.', 'When you click a square with less than 45 fish.']
-  };
-  
-  var q6Data = {
-    qNumber: 5,
-    prompt: "Does the number of fish in each square change from one block to the next?",
-    labels: ['No, each block is about the same ocean.', 'Yes, each block is a completely new ocean.', 'The oceans only change a little bit between blocks.']
-  };
-  
-  var q7Data = {
-    qNumber: 6,
-    prompt: "Where in the ocean is the square with the most fish?",
-    labels: ['In a second patch of fish, not the one I start at.', 'Close to my starting square.', 'At the center of the the ocean.']
-  };
-  
-  var q8Data = {
-    qNumber: 7,
-    prompt: "What is the highest number of fish a square can have in each ocean?",
-    labels: ['Around 60.', 'Around 120.', 'Around 200.']
-  };
-  
-  
-  var Q1 = createQuestion('Q1', q1Data);
-  var Q2 = createQuestion('Q2', q2Data);
-  var Q3 = createQuestion('Q3', q3Data);
-  var Q4 = createQuestion('Q4', q4Data);
-  var Q5 = createQuestion('Q5', q5Data);
-  var Q6 = createQuestion('Q6', q6Data);
-  var Q7 = createQuestion('Q7', q7Data);
-  var Q8 = createQuestion('Q8', q8Data);
-  document.getElementById('quiz').appendChild(Q1);
-  document.getElementById('quiz').appendChild(Q2);
-  document.getElementById('quiz').appendChild(Q3);
-  document.getElementById('quiz').appendChild(Q4);
-  document.getElementById('quiz').appendChild(Q5);
-  document.getElementById('quiz').appendChild(Q6);
-  document.getElementById('quiz').appendChild(Q7);
-  document.getElementById('quiz').appendChild(Q8);
-  
-    // create submit buton
-    var submit = document.getElementById("submitComp")
-    $(submit).show()
-    $(document.getElementById("submitContainer")).show()
-    submit.addEventListener("mouseup", checkComprehension)
-    // document.getElementById('quizContainer').appendChild(submit)
-  
-}
-  
-  
-  // when submitting comprehension questions
-  
-function checkComprehension(){
-  
-  
-    var inputs = document.getElementsByName("fs_");
-  
-      // Loop through the items nad get their values
-    var values = {};
-    var incomplete = [];
-    var i
-      for (i = 0; i < inputs.length; i++) {
-  
-          if (inputs[i].id.length > 0) {
-              var id
-              // Get responses to questionnaire items
-              id = inputs[i].id;
-              var legend = inputs[i].querySelectorAll('[name="legend"]')[0];
-  
-              var checked = inputs[i].querySelector('input[name="question"]:checked');
-  
-              if (checked != null) {
-                  legend.style.color = "#000000";
-                 var value = checked.value;
-                  values[id] = value;
-              }else {
-                  legend.style.color = "#ff0000";
-                  incomplete.push(id);
-              }
-          }
-            
-      }
-        
-      
-      // This checks for any items that were missed and scrolls to them
-      if (incomplete.length > 0) {
-  
-          $('html, body').animate({ // go to first missed items
-                  scrollTop: $(document.getElementById(incomplete[0])).offset().top - 100
-                  }, 400);
-         
-  
-          if(incomplete.length > 1){ // if you missed more than one item
-             
-              for (i = 0; i < incomplete.length -1; i++){ // loops through all missed questions and attaches an event listener to each of them
-              
-              $(document.getElementById(incomplete[i])).children().click(function (e) { 
-                  var target = e.target.parentElement.parentElement.parentElement.id // name of the given question
-                  var n = incomplete.indexOf(target)// I can't simply use i as the index as it is already done with the loop by the time one clicks
-                  var nextMiss = document.getElementById(incomplete[n+1])
-                  $('html, body').animate({ // go to next question
-                  scrollTop: $(nextMiss).offset().top - 100
-                  }, 400);
-              });
-  
-              }
-          }
-  
-          
-  
-          
-      } else if (values["Q1_0"] == "2" && values["Q2_1"] == "0" && values["Q3_2"] == "2" && values["Q4_3"] == "1" && values["Q5_4"] == "2" && values["Q6_5"] == "1" && values["Q7_6"] == "0" && values["Q8_7"] == "1") {
-        understood = true
-        // close instruction stuff
-        instructionContent.innerHTML = '';
-        instructionHeading.innerHTML = '';
-        instructionContainer.style.height = '15px';
-        instructionContainer.style.minHeight = '15px';
-        instructionsOpen = false
-        training_done = true
-  
-        // get everything ready to start the task
-        createOkButton()
-        //var okButton = document.getElementById("ok")
-       // okButton.setAttribute("class", "button");
-        $(document.getElementById("quizContainer")).hide()
-        $(document.getElementById("quiz")).hide()
-        $(document.getElementById("submitContainer")).hide()
-        $(document.getElementById("submitComp")).hide()
-  
-        askInfo()
-        // runTask(grids[envOrder[currentBlock - 1]], 50, blocks[currentBlock - 1]);
-        // $(document.getElementById("krakenPresent")).show()
-        window.scrollTo(0,0);
-        
-      } else {
-  
-        comprehensionAttempts +=1
-        // set everything to beginning
-        var ocean = document.getElementById("ocean")
-        $(ocean).remove() // int() creates a new one
-        document.getElementById("credit").remove()// same here
-        training_iteration = 0
-        currentBlock = 0
-        training_clickable = true;
-        training_done = false;
-        training_caught = false;
-        instructionsOpen = true;
-        training_clicks = 0;
-        
-        init()
-        
-        $(document.getElementById("quizContainer")).hide()
-        $(document.getElementById("quiz")).hide()
-        $(document.getElementById("submitContainer")).hide()
-        $(document.getElementById("submitComp")).hide()
-        window.scrollTo(0, 0);
-  
-        // create button again bc it was removed with the ocean
-        createOkButton()
-      }
-  
-}
-  
-  
-  
-function startComprehension(){
-    // hide stuff
-    $(document.getElementById("ocean")).hide()
-    $(document.getElementById("ok")).hide()
-    $(document.getElementById("credit")).hide()
-    removeChilds(instructions)
-    instructions.innerHTML = "<h2>Before you start the game, please answer some questions to see whether you understood everything correctly.</h2>";
-    $(document.getElementById("quizContainer")).show()
-    $(document.getElementById("quiz")).show()
-    if (comprehensionAttempts == 1){ // if this is the first attempt, create the questions
-      createComprehension()
-    } else { // if it isnt, no need to create them but do need to show the button that was previously hidden
-      $(document.getElementById("submitContainer")).show()
-      $(document.getElementById("submitComp")).show()
-    }
-   window.scrollTo(0, 0);
-  
-  //  var submit = document.createElement('button');
-  //  submit.setAttribute("class", "submit_button");
-  //  submit.setAttribute("type", "button");
-  //  submit.setAttribute("id", "submit");
-  
-     
-}
-
-
-*/
 // ----------------------------
 
 // Event listeners for buttons
@@ -1326,7 +1068,7 @@ startPracticeButton.onclick = function(){
     // Hide instructions and show practice trials
     
     startPracticeButton.style.display = 'none';
-    horizonTask();
+    tasks[task_ind]()
 
     // Call a function to display practice trials
 }

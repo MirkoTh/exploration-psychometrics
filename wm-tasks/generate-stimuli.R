@@ -235,7 +235,7 @@ source("wm-tasks/utils-gen-stim.R")
 
 
 as_required <- FALSE
-tbl_4a_rlb <- generate_rl_bandits_as_required(FALSE, 2)
+tbl_4a_rlb <- generate_rl_bandits_as_required(FALSE, session_id)
 
 ggplot(tbl_4a_rlb %>% pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)), aes(trial_id, value, group = name)) +
   geom_line(aes(color = name), size = .75) +
@@ -286,7 +286,7 @@ library(jsonlite)
 
 json = toJSON(ls)
 
-write(json, paste("task/rewards4ARB", session_id, ".json", sep = ""))
+write(json, paste("../task/rewards4ARB", session_id, ".json", sep = ""))
 
 # Sam's task -------------------------------------------------------------
 
@@ -420,6 +420,10 @@ library(jsonlite)
 json = toJSON(ls)
 
 write(json, paste("../task/rewardsSam", session_id, ".json" , sep = ""))
+
+# save the rewards df that also contains condition
+
+save(rewards, file =paste("../task/rewardsSam", session_id, ".Rda" , sep = ""))
 
 ################ Horizon task -----------------------------------------------
 data <- read.csv("ZallerEtAl.csv")

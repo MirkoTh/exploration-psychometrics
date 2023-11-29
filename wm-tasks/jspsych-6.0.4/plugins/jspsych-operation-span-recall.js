@@ -247,7 +247,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
         var file_name = "OS_recall_" + trial.participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name, "OS");
         checkDataSaving();
-        let dataSaved = false;
+        dataSaved = false;
         var file_name_cum = "OS_recall_allinone_" + trial.participant_id + ".json";
         saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS");
         checkDataSaving();

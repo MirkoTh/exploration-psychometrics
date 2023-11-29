@@ -39,7 +39,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
       prompt: {
         type: jsPsych.plugins.parameterType.STRING,
         pretty_name: 'Prompt',
-        default: null,
+        default: "Press &uarr; for true and &darr; for false.",
         description: 'Any content here will be displayed under the button.'
       },
       stimulus_duration: {
@@ -171,12 +171,12 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
     // this is weirdly coded
     // choice refers to accuracy
     async function handle_operation_keypress(e) {
-      if (e.keyCode == 70 || e.keyCode == 74) {
+      if (e.keyCode == 38 || e.keyCode == 40) {
         document.removeEventListener("keydown", handle_operation_keypress, false);
         var os_response;
-        if (e.keyCode == 70) {
+        if (e.keyCode == 38) {
           os_response = Boolean(true);
-        } else if (e.keyCode == 74) {
+        } else if (e.keyCode == 40) {
           os_response = Boolean(false);
         }
 

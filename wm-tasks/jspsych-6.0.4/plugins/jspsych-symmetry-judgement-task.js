@@ -204,6 +204,12 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
     paper_size = 4 * 2 * trial.size_cells;
 
     display_element.innerHTML = '<div id="jspsych-visual-search-circle-container" style= "position: relative; width:' + paper_size + 'px; height:' + paper_size + 'px"></div>';
+    
+    //show prompt if there is one
+    if (trial.prompt !== null) {
+      display_element.innerHTML += trial.prompt;
+    }
+    
     var paper = display_element.querySelector("#jspsych-visual-search-circle-container");
 
 
