@@ -48,8 +48,8 @@
     <!-- initialize a few variables -->
 
     <div class='midwindow'>
-
-        <div id="page0" style="display:block">
+<!-- version for main study -->
+        <!-- <div id="page0" style="display:block">
 
             <h1>Welcome to the study</h1>
 
@@ -102,7 +102,53 @@
 
             <button id="consent_button" type="button" name="button" id="buttonConsentForm" class="default_button"
                 onclick="clickStart('page0', 'page1')"> Progress to Informed Consent</button><br>
+        </div> -->
+
+        <!-- version for pilot -->
+        <div id="page0" style="display:block">
+
+            <h1>Welcome to the study</h1>
+
+            This study is part of a research project conducted
+            by the <a href="http://cpilab.org/" target="_blank">Computational Principles of Intelligence Group</a><br>
+            at the Max Planck Institute for Biological Cybernetics in Tuebingen, Germany.<br><br>
+
+            <span>
+                <img title="tuebingen" src="wm-tasks/img/tuebingen.jpg" height="300px" cache-control="public">
+                <img title="mpi" src="wm-tasks/img/mpi.jpg" height="300px" cache-control="public">
+                <figcaption style="font-size: 12px;">By Rabe! - Own work, CC BY-SA 3.0, <a
+                        href=" https://commons.wikimedia.org/w/index.php?curid=33554043" target="_blank"> Source </a>
+                </figcaption>
+            </span>
+
+            <br>
+            <b>Please</b>
+            <ul>
+                <li>
+                    Make sure you have a good internet connection from the beginning to the end of the study.
+                    Disconnections will cause problems in displaying visuals and we will not be able to use your data.
+                </li>
+                <li>
+                    Switch off your addblockers during the study. That will allow us to trace back any unexpected
+                    errors.
+                </li>
+                <li>
+                    Do not 'refresh' your browser during the study. You will have to start from the very beginning again
+                    and we will not be able to use your data.
+                </li>
+                <li>
+                    Some of the tasks are going to be in fullscreen mode. Please do not switch off fullscreen mode if
+                    switched on because presented objects will become illegible.
+                </li>
+
+            </ul>
+
+            <br><br>
+
+            <button id="consent_button" type="button" name="button" id="buttonConsentForm" class="default_button"
+                onclick="clickStart('page0', 'page1')"> Progress to Informed Consent</button><br>
         </div>
+
 
         <div id="page1" style="display:none;">
             <h1>Information on tasks and purpose of the study</h4>
@@ -117,8 +163,7 @@
                 For each task, you are going to be tested on comprehension questions after a practice phase. You can
                 only continue to the main part of a task if you have answered all comprehension questions correctly.<br>
                 Some items of the questionnaires are attention check items. <br>
-                If you answer any of those incorrectly, you are not going to be paid a bonus and you cannot partcipate
-                in the second session of this study.<br>
+                If you answer any of those incorrectly, you are not going to be paid a bonus.<br>
 
                 <br>
 
