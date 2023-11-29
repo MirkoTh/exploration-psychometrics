@@ -21,6 +21,8 @@ var currentBlock = 0
 var reward = 0;
 var fixedChoices
 var fixedChoicesCollect
+var fixedChoicesCollectH
+var NtrialsCollectH
 var rewardCollect
 var NtrialsCollect
 var score = 0
@@ -145,8 +147,10 @@ async function handle_operation_keypress(e) {
             //document.removeEventListener("keydown", handle_operation_keypress, false);
             if (task != "restless") {
             if (e.key === 's') {
+                console.log("clicked s")
                 clickMachine(0, task)
             } else if (e.key == 'k') {
+                console.log("clicked k")
                 clickMachine(1, task)
     
             }
@@ -169,7 +173,7 @@ async function handle_operation_keypress(e) {
 
 // randomly select which order the tasks are in
 var order = Math.floor(Math.random() * 6) + 1;
-//order = 1
+order = 5
 var tasks
 if (order == 1) {
     tasks = [horizonTask, samTask, restlessTask]
@@ -197,11 +201,11 @@ $.getJSON("rewardsHorizon"+ s+".json", function(data) {
     horizonRewards = data;
   })
 $.getJSON("fixedChoices"+ s+".json", function(data) {
-    fixedChoicesCollect = data;
+    fixedChoicesCollectH = data;
   })
 
 $.getJSON("Horizon"+ s+".json", function(data) {
-    NtrialsCollect = data;
+    NtrialsCollectH = data;
   })
 
 $.getJSON("rewardsSam"+ s+".json", function(data) {
@@ -224,10 +228,13 @@ var clickMachine = function(machine, task) {
     Ntrials = NtrialsCollect[currentBlock]
     fixedChoices = fixedChoicesCollect[currentBlock]
     if (quickrunthrough){console.log("clicked machine " + machine  + " in task " +task )}
-    
-    // was this a machine they were allowed to chlick in the horizon task? Do we still have trials left this round?
+    console.log("clicked machine " + machine  + " in task " +task + " on trial " + trial)
+    console.log("fixed choice: "+ fixedChoices[trial])
+    console.log("trials left: " + (Ntrials - trial))
+    console.log(Ntrials)
+        // was this a machine they were allowed to chlick in the horizon task? Do we still have trials left this round?
     if (((trial > 3 | task != "horizon") | machine == fixedChoices[trial])& Ntrials - trial > 0) { // if (either not a fixed choice OR not Horizon task OR they clicked the right one) AND trials left
-        
+        console.log("clicked machine " + machine  + " in task " +task + " on trial " + trial)
 
         // get rewards and display them-----------------------------
     // display reward
@@ -471,9 +478,16 @@ function horizonTask() {
         // number of blocks is length of the list of Ntrials    
         Nblocks = NtrialsCollect.length;
 
+        // had to do it like this so that the preloaded stuff does not get overwritten
+        fixedChoicesCollect = fixedChoicesCollectH
+        NtrialsCollect = NtrialsCollectH
+
 
     }
-    
+    console.log(fixedChoicesCollect)
+    console.log(fixedChoicesCollect[currentBlock])
+    console.log(currentBlock)
+
     currentBlock = 0;
     trial = 0;
     Ntrials = NtrialsCollect[currentBlock]
@@ -501,6 +515,11 @@ function horizonTask() {
     // start practice --------------------------
 
     startPracticeButton.onclick = function() {
+        // make machines clickable with keyboard presses
+        document.addEventListener("keydown", handle_operation_keypress, false);
+
+        clickable = 1
+
         if(quickrunthrough){console.log("started practice Horizon task")} 
         toc = Number(new Date())
         data["horizon"]["instructionTime"] = toc - tic
@@ -540,20 +559,7 @@ function horizonTask() {
         //machButton1.addEventListener('click', clickMachine(0, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
         //machButton2.addEventListener('click', clickMachine(1, trial, currentBlock, rewards, Nblocks, Ntrials, fixedChoices));
 
-        // make machines clickable with keyboard presses
-        document.addEventListener("keydown", handle_operation_keypress, false);
 
-        // window.addEventListener('keydown', function(event) {
-        //     if (clickable == 1) {
-        //     if (event.key === 's') {
-        //         clickMachine(0, "horizon")
-        //     } else if (event.key == 'k') {
-        //         clickMachine(1, "horizon")
-        //     }
-        // }
-        // });
-        
-        clickable = 1
         // clicking machines with mouse keys
         // machButton1.onclick =  function(){clickMachine(0, "horizon")};
         // machButton2.onclick = function(){clickMachine(1, "horizon")};
