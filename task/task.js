@@ -470,12 +470,13 @@ function horizonTask() {
     else {
         rewardCollect = horizonRewards
 
-        // number of blocks is length of the list of Ntrials    
+        // number of blocks is length of the list of Ntrials
+        NtrialsCollect = NtrialsCollectH    
         Nblocks = NtrialsCollect.length;
 
         // had to do it like this so that the preloaded stuff does not get overwritten
         fixedChoicesCollect = fixedChoicesCollectH
-        NtrialsCollect = NtrialsCollectH
+        
 
 
     }
