@@ -171,7 +171,7 @@ async function handle_operation_keypress(e) {
 
 // randomly select which order the tasks are in
 var order = Math.floor(Math.random() * 6) + 1;
-//order = 5
+//order = 1
 var tasks
 if (order == 1) {
     tasks = [horizonTask, samTask, restlessTask]
@@ -311,7 +311,7 @@ var clickMachine = function(machine, task) {
         if (Ntrials == 5){
             document.getElementById('machine_title').innerHTML = '<b>Short round.</b> You can now make <b>one</b> free choice. <br> Press S for the left machine and K for the right machine.'; 
         } else {
-            document.getElementById('machine_title').innerHTML = '<b>Long round.</b> You can now make <b>5</b> free choices. <br> Press S for the left machine and K for the right machine.';
+            document.getElementById('machine_title').innerHTML = '<b>Long round.</b> You can now make <b>6</b> free choices. <br> Press S for the left machine and K for the right machine.';
         }
 
         setTimeout(function() {
@@ -499,8 +499,8 @@ function horizonTask() {
     startPracticeButton.style.display = 'block';
 
     document.getElementById('instructions').style.display = 'block';
-    document.getElementById('instructionText').innerHTML = "In this game, you will choose between two slot machines that give different average rewards. Before making your choice, you will have to make 4 choices that we pre-determined. You will see which machine is highlighted and have to choose the highlighted machine."+
-    " <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 5 free choices. You can see how many choices you can make under 'Trials left in this round' as well as above the slot machines where it says 'Short round' when you can only make one free choice and 'Long round' when you can make 5 free choices. "+
+    document.getElementById('instructionText').innerHTML = "In this game, you will choose between two slot machines that give different average rewards. The average rewards for each machine stay the same within a round but there is some noise added. Before making your choice, you will have to make 4 choices that we pre-determined. You will see which machine is highlighted and have to choose the highlighted machine."+
+    " <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 6 free choices. You can see how many choices you can make under 'Trials left in this round' as well as above the slot machines where it says 'Short round' when you can only make one free choice and 'Long round' when you can make 6 free choices. "+
     "To select a slot machine, press the 's' key for the left machine and the 'k' key for the right machine, as indicated above the machines.<br> <br>"
     "You will play " + (Nblocks-1)+" rounds of this game. <br> <br> Click the button below to start a practice round.";
     
@@ -600,7 +600,7 @@ function samTask() {
     startPracticeButton.style.display = 'block';
     document.getElementById('instructions').style.display = 'block';
     document.getElementById('instructionText').innerHTML = "In this game you will choose between two slot machines that give different average rewards. Sometimes, the average rewards for one or both of the machines changes over time. You can choose either machine at any time. You will play "+ (Nblocks-1)+
-    " rounds of this game consisting of "+ Ntrials+" choices each. <br>Again, you select the slot machines using the S and the K keys on your keyboard.<br> Click the button below to start a practice round.";
+    " rounds of this game consisting of "+ Ntrials+" choices each. <br>You select the slot machines using the S and the K keys on your keyboard.<br> Click the button below to start a practice round.";
 
     // start practice --------------------------------
 
@@ -750,7 +750,7 @@ document.getElementById('instructionText').innerHTML= "Welcome to the experiment
 "Below, you can see what an example game looks like: <br><br><img src='task.png' height = 500>" 
 
 var horizonInstructions = "In this game, you will choose between two slot machines that give different average rewards. Before making your choice, you will have to make 4 choices that we pre-determined. You will see which machine is highlighted and have to choose the highlighted machine."+
-" <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 5 free choices. You can see how many choices you can make under 'Trials left in this round'. You will play"+ (Nblocks-1)+"  rounds of this game. <br> <br> Click the button below to start a practice round.";
+" <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 6 free choices. You can see how many choices you can make under 'Trials left in this round'. You will play"+ (Nblocks-1)+"  rounds of this game. <br> <br> Click the button below to start a practice round.";
 
 var samInstructions = "In this game you will choose between two slot machines that give different average rewards. Sometimes, the average rewards for one or both of the machines changes over time. You can choose either machine at any time. You will play "+ (Nblocks-1)+" rounds of this game consisting of "+ Ntrials+" choices each. <br> <br> Click the button below to start a practice round.";
 var restlessInstructions = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time. You can choose any machine at any time. In this game, you will only play one round consisting of "+ Ntrials+" choices. <br> <br> Click the button below to start a practice round.";

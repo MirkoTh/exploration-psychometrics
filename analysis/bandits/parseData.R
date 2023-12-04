@@ -14,14 +14,17 @@ session = 1
 nBlocksH = 80
 nTrialsH = 10
 
-nBlocksS = 31
+nBlocksS = 30
 nTrialsS = 10
 
 nBlocksR = 1
 nTrialsR = 200
 
-files = list.files(path = "data/bandits")
+files = list.files(path = "data/pilot/bandits")
 files <- files[!grepl("temp", files)]
+
+lookup <- data.frame(PID = rep(NA, length(files)),
+                     ID = 1:length(files))
 
 bonus <- data.frame(ID = rep(NA, length(files)),
                     TotalBonus = NA,
@@ -55,7 +58,10 @@ restless <- data.frame(ID = rep(1:length(files), each = nTrialsR),
                       session = session)
 
 for (i in 1:length(files)){
-  temp <- fromJSON(paste("data/bandits/",files[i], sep = ""))
+  temp <- fromJSON(paste("data/pilot/bandits/",files[i], sep = ""))
+  
+  # add PID into lookup
+  lookup$PID[i] <- temp$subjectID
   
   ### Horizon task
   for (block in 2:(nBlocksH+1)){# bc block 1 is practice
@@ -95,7 +101,13 @@ for (i in 1:length(files)){
 # info condition should be coded as -1 0 1 but is now coded as -2 0 2 so fix that
 horizon$info <- horizon$info/2
 
-############### calculate bonus payment #########
+
+### save lookup
+
+write.csv(lookup, file = "/Users/kwitte/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/BanditLookup.csv")
+
+
+############### calculate max rewards #########
 
 ############## Horizon task
 
@@ -126,20 +138,8 @@ Hrewards$max <- ifelse(Hrewards$rew1 > Hrewards$rew2, Hrewards$rew1, Hrewards$re
 maxHorizon <- sum(Hrewards$max, na.rm = T)
 
 ########### Sam's task
-
-rewardsS <- fromJSON(paste("task/rewardsSam", session, ".json", sep = ""))
-Srewards <- data.frame(block = rep(1:(nBlocksS+1), each = nTrialsS),
-                       trial = rep(1:nTrialsS, nBlocksS+1),
-                       rew1 = NA,
-                       rew2 = NA)
-
-
-for (block in 1:(nBlocksS+1)){# +1 bc there is the practice round too
-  for (trial in 1:nTrialsS){
-    Srewards$rew1[Srewards$block == block & Srewards$trial == trial]<-  rewardsS[block,trial,1]
-    Srewards$rew2[Srewards$block == block & Srewards$trial == trial]<-  rewardsS[block,trial,2]
-  }
-}
+load(paste("task/rewardsSam", session, ".Rda", sep = ""))
+Srewards <- rewards
 
 # calculate max reward
 
@@ -176,29 +176,15 @@ Rrewards$max <- apply(as.array(Rrewards$row), 1, function(x) max(Rrewards[x,3:6]
 
 maxRestless <- sum(Rrewards$max, na.rm = T)
 
-################ actually get out bonus payment for participants 
 
-for (i in 1:length(files)){
-  temp <- fromJSON(paste("data/bandits/",files[i], sep = ""))
-  bonus$ID[i] <- temp$subjectID
-  horizonPoints <- temp$horizon$taskReward/maxHorizon
-  bonus$Horizon[i] <- horizonPoints
-  samPoints <- temp$sam$taskReward/maxSam
-  bonus$Sam[i] <- samPoints
-  restlessPoints <- temp$restless$taskReward/maxRestless
-  bonus$Restless[i] <- restlessPoints
-  
-  bonus$TotalBonus[i] <- mean(c(horizonPoints, samPoints, restlessPoints))
-  
-}
-
+save(maxHorizon, maxSam, maxRestless, file = "task/maxRewards.Rda")
 
 
 ################# get ground truth variables ###############
 
 ####### Horizon
 
-rewardsH <- fromJSON(paste("task/rewardsHorizon", session, "_old.json", sep = ""))
+rewardsH <- fromJSON(paste("task/rewardsHorizon", session, ".json", sep = ""))
 Horizon <- fromJSON(paste("task/Horizon", session, ".json", sep = ""))
 
 horizon$reward1 <- NA
@@ -215,22 +201,23 @@ for (block in 2:(nBlocksH+1)){
 
 ######### Sam
 
-sam$reward1 <- NA
-sam$reward2 <- NA
-sam$cond <- NA
-rewardsS <- fromJSON(paste("task/rewardsSam", session, "_old.json", sep = ""))
+load(paste("task/rewardsSam", session, ".Rda", sep = ""))
+rewardsS <- rewards
 
+sam$reward1 <- rewardsS$reward1[rewardsS$block > 1]
+sam$reward2 <- rewardsS$reward2[rewardsS$block > 1]
+sam$cond <- rewardsS$cond[rewardsS$block > 1]
 
-for (block in 2:(nBlocksS+1)){
-  temp <- data.frame(rewardsS[block, ,])
-  sam$reward1[sam$block == block-1] <- temp$X1
-  sam$reward2[sam$block == block-1] <- temp$X2
-  
-  # have to infer cond bc I am dumb
-  cond1 <- ifelse(sd(temp$X1)>1.5, "F", "S")
-  cond2 <- ifelse(sd(temp$X2)>1.5, "F", "S")
-  sam$cond[sam$block == block-1] <- paste(cond1, cond2, sep = "")
-}
+# for (block in 2:(nBlocksS+1)){
+#   temp <- data.frame(rewardsS[block, ,])
+#   sam$reward1[sam$block == block-1] <- temp$X1
+#   sam$reward2[sam$block == block-1] <- temp$X2
+#   
+#   # have to infer cond bc I am dumb
+#   # cond1 <- ifelse(sd(temp$X1)>1.5, "F", "S")
+#   # cond2 <- ifelse(sd(temp$X2)>1.5, "F", "S")
+#   # sam$cond[sam$block == block-1] <- paste(cond1, cond2, sep = "")
+# }
 
 
 
@@ -249,7 +236,30 @@ rewardsR <- fromJSON(paste("task/rewards4ARB", session, ".json", sep = ""))
   restless$reward3 <- rep(temp$X3, length(unique(restless$ID)))
   restless$reward4 <- rep(temp$X4, length(unique(restless$ID)))
   
-save(horizon, sam, restless, file = "data/lab_pilot.Rda")
+save(horizon, sam, restless, file = "data/pilot/bandits.Rda")
 
+
+
+#################### questionnaires ###############
+
+files = list.files(path = "data/pilot/qs")
+
+for (i in files){
+  if (i == files[1]){# if this is the first one
+    qdat <- fromJSON(paste("data/pilot/qs/", i, sep =""))
+    pid <- substr(i, 1, gregexpr("_", i)[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
+    qdat$ID <- lookup$ID[lookup$PID == pid]
+  } else {
+    temp <- fromJSON(paste("data/pilot/qs/", i, sep =""))
+    pid <- substr(i, 1, gregexpr("_", i)[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
+    temp$ID <- lookup$ID[lookup$PID == pid]
+    qdat <- rbind(qdat, temp)
+  }
+}
+
+
+## save it
+
+save(qdat, file = "data/pilot/qs.Rda")
 
 

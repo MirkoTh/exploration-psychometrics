@@ -9,7 +9,7 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
 
-load("data/lab_pilot.Rda")
+load("data/pilot/bandits.Rda")
 
 se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
@@ -24,11 +24,11 @@ horizon$mean_R <- NA
 horizon$row <- 1:nrow(horizon)
 horizon$mean_L[horizon$trial == 5] <- apply(as.array(horizon$row[horizon$trial == 5]), 1, function(x) meann(horizon$reward[horizon$ID == horizon$ID[x]&
                                                                                                                horizon$block == horizon$block[x] &
-                                                                                                               horizon$chosen == 1 & 
+                                                                                                               horizon$chosen == 0 & 
                                                                                                                horizon$trial < 5]))
 horizon$mean_R[horizon$trial == 5] <- apply(as.array(horizon$row[horizon$trial == 5]), 1, function(x) meann(horizon$reward[horizon$ID == horizon$ID[x]&
                                                                                                                horizon$block == horizon$block[x] &
-                                                                                                               horizon$chosen == 0& 
+                                                                                                               horizon$chosen == 1& 
                                                                                                                horizon$trial < 5]))
 ## calculate deltas
 horizon$delta_mean <- horizon$mean_L - horizon$mean_R
@@ -38,11 +38,11 @@ horizon$delta_mean <- horizon$mean_L - horizon$mean_R
 bayIncrAtOnce <- function(x){
   left <- horizon$reward[horizon$ID == horizon$ID[x]&
                          horizon$block == horizon$block[x] &
-                         horizon$chosen == 1& 
+                         horizon$chosen == 0& 
                          horizon$trial < 5]
   right <- horizon$reward[horizon$ID == horizon$ID[x]&
                           horizon$block == horizon$block[x] &
-                          horizon$chosen == 0& 
+                          horizon$chosen == 1& 
                           horizon$trial < 5]
   
   # initialise prior
@@ -87,13 +87,13 @@ for (i in horizon$row[horizon$trial == 5]){
 
 data <- horizon
 
-baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID), family = "binomial", 
+baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID), family = "bernoulli", 
                 data = data[data$trial == 5, ],
                 chains = 2,
                 cores = 2,
                 iter = 10000)
 
-baymodelReduced <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID), family = "binomial",
+baymodelReduced <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID), family = "bernoulli",
                        data = data[data$trial == 5, ],
                        chains = 2,
                        cores = 2,
@@ -107,7 +107,7 @@ simdat <- subset(data, trial == 5, -chosen)
 simdat$chosen <- predict(baymodelReduced)[ ,1]
 simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
 
-recovModel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon+ delta_mean:Horizon| ID), family = "binomial", 
+recovModel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon+ delta_mean:Horizon| ID), family = "bernoulli", 
                   data = simdat,
                   chains = 2,
                   cores = 2,
@@ -141,7 +141,6 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$`colMean
 
 
 # plot them
-
 
 ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
   geom_text(aes(label = round(cor, digits = 2))) 
@@ -198,6 +197,157 @@ ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_f
   geom_text(aes(label = round(cor, digits = 2))) 
 
 cors$cor[cors$true == cors$recovered]
+
+
+
+##################  UCB with Horizon task ##################
+
+
+trueParams <- data.frame(ID = unique(data$Subject),
+                         V = rep(NA, length(unique(data$Subject))),
+                         RU = rep(NA, length(unique(data$Subject))),
+                         Horizon = rep(NA, length(unique(data$Subject))),
+                         VH = rep(NA, length(unique(data$Subject))),
+                         RUH =rep(NA, length(unique(data$Subject))),
+                         converged = rep(NA, length(unique(data$Subject))))
+
+simParams <- data.frame(ID = unique(data$Subject),
+                        V = rep(NA, length(unique(data$Subject))),
+                        RU = rep(NA, length(unique(data$Subject))),
+                        Horizon = rep(NA, length(unique(data$Subject))),
+                        VH = rep(NA, length(unique(data$Subject))),
+                        RUH =rep(NA, length(unique(data$Subject))),
+                        converged = rep(NA, length(unique(data$Subject))))
+
+
+
+
+
+for (i in unique(data$Subject)){
+  
+  trueModel5 <- glm(Choice ~ V*Horizon + RU*Horizon ,
+                    data = data[data$Trial ==5 & data$Subject == i, ],
+                    family = binomial(link = "probit"))
+  # save coefficients
+  trueParams$V[trueParams$ID == i] <- trueModel5$coefficients[2]
+  trueParams$RU[trueParams$ID == i] <- trueModel5$coefficients[4]
+  trueParams$Horizon[trueParams$ID == i] <- trueModel5$coefficients[3]
+  trueParams$VH[trueParams$ID == i] <- trueModel5$coefficients[5]
+  trueParams$RUH[trueParams$ID == i] <- trueModel5$coefficients[6]
+  trueParams$converged[trueParams$ID == i] <- trueModel5$converged
+  
+  # simulate data
+  simdat <- subset(data, Trial == 5 & Subject == i, -Choice)
+  simdat$Choice <- predict(trueModel5, type = "response")
+  simdat$Choice <- ifelse(simdat$Choice < runif(nrow(simdat)), 0, 1)
+  
+  simModel <- glm(Choice ~ V*Horizon + RU*Horizon ,
+                  data = simdat,
+                  family = binomial(link = "probit"))
+  
+  
+  simParams$V[simParams$ID == i] <- simModel$coefficients[2]
+  simParams$RU[simParams$ID == i] <- simModel$coefficients[4]
+  simParams$Horizon[simParams$ID == i] <- simModel$coefficients[3]
+  simParams$VH[simParams$ID == i] <- simModel$coefficients[5]
+  simParams$RUH[simParams$ID == i] <- simModel$coefficients[6]
+  simParams$converged[simParams$ID == i] <- simModel$converged
+  
+}
+
+
+# how many converged?
+table(simParams$converged)
+table(trueParams$converged)
+
+simParams$bothConverged <- ifelse(simParams$converged & trueParams$converged, T, F)
+table(simParams$bothConverged)
+
+trueParams$bothConverged <- simParams$bothConverged
+
+
+# get correlations
+cors <- data.frame(true = rep(c("RU", "V", "Horizon", "RUH", "VH"), 5),
+                   recovered =  rep(c("RU", "V", "Horizon", "RUH", "VH"), each = 5),
+                   cor = NA)
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams[trueParams$bothConverged,grep(cors$true[x], colnames(trueParams))[1]],# converged rows, cols with correct variable name (first instance)
+                                                             simParams[simParams$bothConverged, grep(cors$recovered[x], colnames(simParams))[1]]))
+
+
+# plot them
+
+library(ggplot2)
+
+ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) 
+
+cors$cor[cors$true == cors$recovered]
+
+##################### bayes + UCB but reduced bayesian model ######################
+
+load("bayRecoveryUCB.Rda")
+
+baymodelReducedUCB <- brm(Choice ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| Subject), family = "binomial",
+                          data = data[data$Trial == 5, ],
+                          chains = 2,
+                          cores = 2,
+                          iter = 10000)
+
+
+
+# simulate data
+simdat <- subset(data, Trial == 5, -Choice)
+simdat$Choice <- predict(baymodelReducedUCB)[ ,1]
+simdat$Choice <- ifelse(simdat$Choice < runif(nrow(simdat)), 0, 1)
+
+recovModelUCB <- brm(Choice ~ V*Horizon + RU*Horizon + (RU:Horizon+ V:Horizon| Subject), family = "binomial", 
+                     data = simdat,
+                     chains = 2,
+                     cores = 2,
+                     iter = 8000)
+
+
+#save(baymodelReducedUCB, recovModelUCB, file = "bayRecoveryUCB.Rda")
+
+
+# get posterior estimates from both models
+
+trueParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(baymodelReducedUCB))))
+trueParams$predictor <- NA
+trueParams$predictor[grepl("Intercept", rownames(trueParams))& grepl("r_Subject", rownames(trueParams))] <- "Intercept"
+trueParams$predictor[grepl("RU:Horizon", rownames(trueParams))& grepl("r_Subject", rownames(trueParams))] <- "RU*Horizon"
+trueParams$predictor[grepl("Horizon:V", rownames(trueParams))& grepl("r_Subject", rownames(trueParams))] <- "V*Horizon"
+trueParams <- subset(trueParams, !is.na(predictor)& !grepl("Subject__", rownames(trueParams)))
+
+
+recoveredParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(recovModelUCB))))
+recoveredParams$predictor <- NA
+recoveredParams$predictor[grepl("Intercept", rownames(recoveredParams))& grepl("r_Subject", rownames(recoveredParams))] <- "Intercept"
+recoveredParams$predictor[grepl("RU:Horizon", rownames(recoveredParams))& grepl("r_Subject", rownames(recoveredParams))] <- "RU*Horizon"
+recoveredParams$predictor[grepl("Horizon:V", rownames(recoveredParams))& grepl("r_Subject", rownames(recoveredParams))] <- "V*Horizon"
+recoveredParams <- subset(recoveredParams, !is.na(predictor)& !grepl("Subject__", rownames(recoveredParams)))
+
+# get correlations
+cors <- data.frame(true = rep(c("Intercept", "RU*Horizon", "V*Horizon"), 3),
+                   recovered =  rep(c("Intercept", "RU*Horizon", "V*Horizon"), each = 3),
+                   cor = NA)
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$`colMeans(as.data.frame(posterior_samples(baymodelReducedUCB)))`[trueParams$predictor == cors$true[x]],
+                                                             recoveredParams$`colMeans(as.data.frame(posterior_samples(recovModelUCB)))`[recoveredParams$predictor == cors$recovered[x]]))
+
+
+# plot them
+
+library(ggplot2)
+
+ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) 
+
+
+
+
+
 
 
 ################# Sam's task hybrid model ########

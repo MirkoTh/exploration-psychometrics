@@ -603,7 +603,7 @@ var startQuestionnaires = function() {
         }
     }
 
-        nextPage = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" // experiment done
+        nextPage = "https://app.prolific.com/submissions/complete?cc=COKN5JJF" // experiment done
 
 
 
@@ -614,9 +614,9 @@ var startQuestionnaires = function() {
         // A smarter way to do this would be to shuffle the keys of the questionnaire_data object
         // and then loop through them, rather than creating them all individually as I've done here
 
+        createQuestionnaire(questionnaire_data.PANAS);
         createQuestionnaire(questionnaire_data.STICSA);
         createQuestionnaire(questionnaire_data.BIG_5);
-        createQuestionnaire(questionnaire_data.PANAS);
         createQuestionnaire(questionnaire_data.PHQ_9);
         createQuestionnaire(questionnaire_data.CEI);
 
