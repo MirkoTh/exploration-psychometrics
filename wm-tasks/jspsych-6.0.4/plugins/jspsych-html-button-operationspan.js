@@ -273,6 +273,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
     // end trial if time limit is set
     if (trial.trial_duration !== null) {
       jsPsych.pluginAPI.setTimeout(function () {
+        document.removeEventListener("keydown", handle_operation_keypress, false);
         response.rt = trial.trial_duration // default to trial duration if no response within time window available
         response.accuracy = 0; // default if no response within time window available
         end_trial();
