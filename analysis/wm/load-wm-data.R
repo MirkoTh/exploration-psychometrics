@@ -99,7 +99,7 @@ tbl_recall_performance_participants <- tbl_os_participant_agg %>%
   ungroup()
 
 
-plot_pc_against_ss(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci, tbl_wmu_ss_agg_ci) +
+pl_ss_recall <- plot_pc_against_ss(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci, tbl_wmu_ss_agg_ci) +
   ggtitle("Recall")
 
 # recall rts
@@ -158,7 +158,7 @@ tbl_proc_performance_participants <- tbl_os_proc_participant_agg %>%
   left_join(tbl_ss_timeouts, by = "participant_id")
 
 
-plot_pc_against_ss(
+pl_ss_processing <- plot_pc_against_ss(
   tbl_os_proc_ss_agg_ci, tbl_ss_proc_ss_agg_ci, tbl_ss_proc_ss_agg_ci, 
   is_recall = FALSE
 ) +
@@ -181,5 +181,19 @@ cor(tbl_performance_all %>% select(-participant_id) %>%
       filter(
         !is.na(WMU))
 )
+
+grid::grid.draw(gridExtra::arrangeGrob(pl_ss_recall, pl_ss_processing, nrow = 1))
+
+tbl_performance_all %>% 
+  left_join(tbl_ids_lookup, join_by(participant_id == participant_id_randomized), suffix = c("_random", "_orig")) %>%
+  select(-participant_id) %>%
+  rename(participant_id = participant_id_orig) %>%
+  relocate(participant_id, .before = OS_recall)
+
+
+load("data/pilot/qs.Rda")
+load("data/pilot/bandits.Rda")
+
+
 
 
