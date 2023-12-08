@@ -74,7 +74,7 @@
     if (window.location.search.indexOf('STUDY_ID') > -1) {
         var studyID = getQueryVariable('STUDY_ID');
     }
-    progress_url = "https://app.prolific.com/submissions/complete?cc=C1B8OSD5";
+    progress_url = updateQueryStringParameter("../../task/main.html", "PROLIFIC_PID", participant_id);
 
 
     var possibleNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -441,7 +441,7 @@
 
     var instructions_go_on = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;"><br>Well done!<br>You have now finished the task.<br>Click on "Next" to be redirected to prolific.<br></div>',
+        stimulus: '<div style="font-size:30px;"><br>Well done!<br>You have now carried out three out of six tasks. Take a break and rest a few minutes to take a deep breath and prepare for tasks four to six.<br>Click on "Next" to continue with the decision games.<br></div>',
         choices: ["Next"],
         on_finish: function () {
             data_bonus = {
@@ -451,8 +451,7 @@
             let dataSaved = false;
             saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
             checkDataSaving();
-            window.location.href = progress_url;
-
+            window.location.href = progress_url + "&session=" + session_id;
         }
     };
     timeline_mixed.push(instructions_go_on);
