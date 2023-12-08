@@ -10,7 +10,6 @@
     <script src="../jspsych-dist/dist/plugin-survey-text.js"></script>
     <script src="../jspsych-dist/dist/plugin-survey-multi-choice.js"></script>
     <script src="../jspsych-dist/dist/plugin-fullscreen.js"></script>
-    <script src="../jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
     <script src="https://pixijs.download/release/pixi.js"></script>
     <script src="../jquery.min.js"></script>
     <script src="../js-helpers.js"></script>
@@ -46,7 +45,7 @@
 
     session_id = getQueryVariable('session');
     if (!session_id) { session_id = 0 }
-    set_size = 4 // starting length of each trial (i.e., min number of letters in a trial)
+    set_size = 5 // starting length of each trial (i.e., min number of letters in a trial)
     n_upd_steps = 7 // ending length of each trial (i.e., max number of letters in a trial)
     rep_set = 3 // number of times each set size should be repeated
     randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
@@ -81,8 +80,8 @@
     var possibleNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
-    var nTrials_update = 20 // number of trials2 // 
-    var nTrials_immediate = 5 // 1 //
+    var nTrials_update = 20 // number of trials2 // 1//
+    var nTrials_immediate = 5 // 1 //1//
     var nPracticeTrials = 2
 
     // max possible number correct recalled items
@@ -161,17 +160,17 @@
     };
     var instructions2 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;">In every trial, four digits colored in different colors are presented on the screen.<br><br>Remember these four digits in the correct order.<br><br>There will be a series of seven updating steps.<br><br>At every updating step, one digit is replaced by a different digit.<br><br>Occasionally, it may be replaced by the same digit already<br><br>presented previously at that location.<br><br></div>',
+        stimulus: '<div style="font-size:30px;">In every trial, five digits colored in different colors are presented on the screen.<br><br>Remember these five digits in the correct order.<br><br>There will be a series of seven updating steps.<br><br>At every updating step, one digit is replaced by a different digit.<br><br>Occasionally, it may be replaced by the same digit already<br><br>presented previously at that location.<br><br></div>',
         choices: ["Next"]
     };
     var instructions2b = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;">In the end of the trial,<br><br>you are required to recall the last four digits at every location.<br><br> Please note that the ordering of the digits is important.<br><br>A recalled digit is only going to be counted as correct<br><br>if it is recalled in the correct location.<br><br></div>',
+        stimulus: '<div style="font-size:30px;">In the end of the trial,<br><br>you are required to recall the last five digits at every location.<br><br> Please note that the ordering of the digits is important.<br><br>A recalled digit is only going to be counted as correct<br><br>if it is recalled in the correct location.<br><br></div>',
         choices: ["Next"]
     };
     var instructions3 = {
         type: jsPsychHtmlButtonResponse,
-        stimulus: '<div style="font-size:30px;">Recall the digits using the number pad on your keyboard.<br><br>For example, assume that the last four digits were 9, 3, 6, 9.<br><br>Please respond "9369".<br><br><br>If you are unsure what has been presented most recently<br><br> at one or several locations, please guess<br><br>in these locations.<br><br></div>',
+        stimulus: '<div style="font-size:30px;">Recall the digits using the number pad on your keyboard.<br><br>For example, assume that the last five digits were 9, 3, 6, 9, 2.<br><br>Please respond "93692".<br><br><br>If you are unsure what has been presented most recently<br><br> at one or several locations, please guess<br><br>in these locations.<br><br></div>',
         choices: ["Next"]
     };
     var instructions4 = {
@@ -187,20 +186,21 @@
 
 
 
-    const viewing_time_initial = 5250; // 5000
-    const viewing_time_updating = 1500; // ms
+    const viewing_time_initial = 5000; // 5000
+    const viewing_time_updating = 1250; // ms
     const isi = 250; // ms
 
     stepsize_x = screen.width / 10;
     stepsize_y = screen.height / 10;
 
     trial_time_updating = n_upd_steps * viewing_time_updating + viewing_time_initial;
-    rect_object_ll_u = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
-    rect_object_l_u = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
+    rect_object_ll_u = make_rect(-2.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
+    rect_object_l_u = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
+    rect_object_m_u = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
     rect_object_r_u = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
     rect_object_rr_u = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_updating);
 
-    const updating_object = [rect_object_ll_u, rect_object_l_u, rect_object_r_u, rect_object_rr_u];
+    const updating_object = [rect_object_ll_u, rect_object_l_u, rect_object_m_u, rect_object_r_u, rect_object_rr_u];
     for (let i = set_size; i < (n_upd_steps + 2 * set_size); i++) {
         const updating_temporal_object = {
             obj_type: 'text',
@@ -209,12 +209,13 @@
     }
 
     trial_time_immediate = viewing_time_initial;
-    rect_object_ll_i = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
-    rect_object_l_i = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
+    rect_object_ll_i = make_rect(-2.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
+    rect_object_l_i = make_rect(-1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
+    rect_object_m_i = make_rect(-.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
     rect_object_r_i = make_rect(.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
     rect_object_rr_i = make_rect(1.5 * stepsize_x, 0, stepsize_x, stepsize_y * 1.2, trial_time_immediate);
 
-    const immediate_object = [rect_object_ll_i, rect_object_l_i, rect_object_r_i, rect_object_rr_i];
+    const immediate_object = [rect_object_ll_i, rect_object_l_i, rect_object_m_i, rect_object_r_i, rect_object_rr_i];
     for (let i = set_size; i < 2 * set_size; i++) {
         const immediate_temporal_object = {
             obj_type: 'text',
@@ -229,7 +230,7 @@
         textarea: "width:40%;height:40%",
         questions: [
             {
-                prompt: `Please recall the four items from left to right;<br>
+                prompt: `Please recall the five items from left to right;<br>
                 Please guess when you are unsure about a position: `}
         ],
         on_finish: function (data) {
@@ -352,8 +353,8 @@
                     trial.stimuli[i].show_start_time = 0;
                     trial.stimuli[i].show_end_time = viewing_time_initial;
                     trial.stimuli[i].origin_center = true;
-                    trial.stimuli[i].startX = [-1.5 * stepsize_x, -.5 * stepsize_x, .5 * stepsize_x, 1.5 * stepsize_x][i - set_size];
-                    trial.stimuli[i].text_color = ["black", "green", "red", "blue"][i - set_size];
+                    trial.stimuli[i].startX = [-2.5 * stepsize_x, -1.5 * stepsize_x, -.5 * stepsize_x, .5 * stepsize_x, 1.5 * stepsize_x][i - set_size];
+                    trial.stimuli[i].text_color = ["red", "black", "green", "blue", "orange"][i - set_size];
                     trial.stimuli[i].font = '60px Arial';
                 }
                 for (let i = (2 * set_size); i < (n_upd_steps + 2 * set_size); i++) {
@@ -361,8 +362,8 @@
                     trial.stimuli[i].show_start_time = viewing_time_initial + viewing_time_updating * (i - 2 * set_size);
                     trial.stimuli[i].show_end_time = viewing_time_initial + viewing_time_updating * (i - 2 * set_size) + viewing_time_updating;
                     trial.stimuli[i].origin_center = true;
-                    trial.stimuli[i].startX = [-1.5 * stepsize_x, -.5 * stepsize_x, .5 * stepsize_x, 1.5 * stepsize_x][locations_update[n_update][i - 2 * set_size]];
-                    trial.stimuli[i].text_color = ["black", "green", "red", "blue"][locations_update[n_update][i - 2 * set_size]];
+                    trial.stimuli[i].startX = [-2.5 * stepsize_x, -1.5 * stepsize_x, -.5 * stepsize_x, .5 * stepsize_x, 1.5 * stepsize_x][locations_update[n_update][i - 2 * set_size]];
+                    trial.stimuli[i].text_color = ["red", "black", "green", "blue", "orange"][locations_update[n_update][i - 2 * set_size]];
                     trial.stimuli[i].font = '60px Arial';
                 }
             } else if (trial_type[n] == "immediate") {
@@ -371,8 +372,8 @@
                     trial.stimuli[i].show_start_time = 0;
                     trial.stimuli[i].origin_center = true;
                     trial.stimuli[i].show_end_time = viewing_time_initial;
-                    trial.stimuli[i].startX = [-1.5 * stepsize_x, -.5 * stepsize_x, .5 * stepsize_x, 1.5 * stepsize_x][i - set_size];
-                    trial.stimuli[i].text_color = ["black", "green", "red", "blue"][i - set_size];
+                    trial.stimuli[i].startX = [-2.5 * stepsize_x, -1.5 * stepsize_x, -.5 * stepsize_x, .5 * stepsize_x, 1.5 * stepsize_x][i - set_size];
+                    trial.stimuli[i].text_color = ["red", "black", "green", "blue", "orange"][i - set_size];
                     trial.stimuli[i].font = '60px Arial';
                 }
             }
@@ -451,7 +452,6 @@
             saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
             checkDataSaving();
             window.location.href = progress_url + "&session=" + session_id;
-
         }
     };
     timeline_mixed.push(instructions_go_on);

@@ -6,7 +6,7 @@ json_to_tibble <- function(path_file) {
   return(my_tbl)
 }
 # check for each participant which file has more data and select that one
-hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_period = NULL) {
+hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_period = NULL, is_considered = c("OS", "SS", "WMU")) {
   #' hash prolific ids and save data from wm tasks
   #' 
   #' @description loads data from json files and writes to csv with
@@ -76,8 +76,6 @@ hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_
     "WMU-recall", "WMU-bonus"
   )
   
-  
-  
   inner_map <- safely(function(x) map(x, json_to_tibble))
   l_tbl_WMU_recall_indiv <- map(map(l_paths$`WMU-recall`$indiv, inner_map), "result")
   l_tbl_WMU_recall_compound <- map(map(l_paths$`WMU-recall`$compound, inner_map), "result")
@@ -117,9 +115,6 @@ hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_
   tbl_WMU_recall <- map2_df(l_tbl_WMU_recall_compound, l_tbl_WMU_recall_indiv, select_more_rows)
   #tbl_WMU_bonus <- reduce(map(l_tbl_WMU_bonus, 1), rbind)
   
-  
-  
-  
   # add gender
   if (add_gender == TRUE) {
     fls_all <- list.files("experiments/2022-07-category-learning-II/data/")
@@ -134,6 +129,7 @@ hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_
   # create a lookup table mapping prolific ids to random ids
   tbl_ids_lookup <- tibble(participant_id = unique(tbl_WMU_recall$participant_id))
   tbl_ids_lookup <- tbl_ids_lookup %>%
+    filter(!(participant_id %in% participants_returned)) %>% 
     group_by(participant_id) %>%
     mutate(participant_id_randomized = random_id(1)) %>% ungroup()
   write_csv(tbl_ids_lookup, str_c(path_data, "participant-lookup.csv"))
@@ -145,38 +141,52 @@ hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_
       select(-participant_id) %>% rename(participant_id = participant_id_randomized)
   }
   
-  tbl_OS_recall <- replace_prolific_id(tbl_OS_recall)
-  tbl_OS_processing <- replace_prolific_id(tbl_OS_processing)
-  #tbl_OS_bonus <- replace_prolific_id(tbl_OS_bonus)
+  if ("OS" %in% is_considered) {
+    # exclude returned and rejected participants
+    tbl_OS_recall <- tbl_OS_recall %>% filter(!(participant_id %in% participants_returned))
+    tbl_OS_processing <- tbl_OS_processing %>% filter(!(participant_id %in% participants_returned))
+    
+    tbl_OS_recall <- replace_prolific_id(tbl_OS_recall)
+    tbl_OS_processing <- replace_prolific_id(tbl_OS_processing)
+    #tbl_OS_bonus <- replace_prolific_id(tbl_OS_bonus)
+    
+    
+    # save
+    write_csv(tbl_OS_recall, str_c(path_data, "tbl_OS_recall.csv"))
+    write_csv(tbl_OS_processing, str_c(path_data, "tbl_OS_processing.csv"))
+    saveRDS(tbl_OS_recall, str_c(path_data, "tbl_OS_recall.RDS"))
+    #write_csv(tbl_OS_bonus, str_c(path_data, "tbl_OS_bonus.csv"))
+  }
   
-  tbl_SS_recall <- replace_prolific_id(tbl_SS_recall)
-  tbl_SS_processing <- replace_prolific_id(tbl_SS_processing)
-  #tbl_SS_bonus <- replace_prolific_id(tbl_SS_bonus)
+  if ("SS" %in% is_considered) {
+    # exclude returned and rejected participants
+    tbl_SS_recall <- tbl_SS_recall %>% filter(!(participant_id %in% participants_returned))
+    tbl_SS_processing <- tbl_SS_processing %>% filter(!(participant_id %in% participants_returned))
+    
+    tbl_SS_recall <- replace_prolific_id(tbl_SS_recall)
+    tbl_SS_processing <- replace_prolific_id(tbl_SS_processing)
+    #tbl_SS_bonus <- replace_prolific_id(tbl_SS_bonus)
+    
+    
+    # save
+    write_csv(tbl_SS_recall, str_c(path_data, "tbl_SS_recall.csv"))
+    write_csv(tbl_SS_processing, str_c(path_data, "tbl_SS_processing.csv"))
+    saveRDS(tbl_SS_recall, str_c(path_data, "tbl_SS_recall.RDS"))
+    #write_csv(tbl_SS_bonus, str_c(path_data, "tbl_SS_bonus.csv"))
+  }
   
-  tbl_WMU_recall <- replace_prolific_id(tbl_WMU_recall)
-  #tbl_WMU_bonus <- replace_prolific_id(tbl_WMU_bonus)
-  
-  # exclude returned and rejected participants
-  tbl_OS_recall <- tbl_OS_recall %>% filter(!(participant_id %in% participants_returned))
-  tbl_OS_processing <- tbl_OS_processing %>% filter(!(participant_id %in% participants_returned))
-  tbl_SS_recall <- tbl_SS_recall %>% filter(!(participant_id %in% participants_returned))
-  tbl_SS_processing <- tbl_SS_processing %>% filter(!(participant_id %in% participants_returned))
-  tbl_WMU_recall <- tbl_WMU_recall %>% filter(!(participant_id %in% participants_returned))
-  
-  write_csv(tbl_OS_recall, str_c(path_data, "tbl_OS_recall.csv"))
-  write_csv(tbl_OS_processing, str_c(path_data, "tbl_OS_processing.csv"))
-  saveRDS(tbl_OS_recall, str_c(path_data, "tbl_OS_recall.RDS"))
-  #write_csv(tbl_OS_bonus, str_c(path_data, "tbl_OS_bonus.csv"))
-  
-  write_csv(tbl_SS_recall, str_c(path_data, "tbl_SS_recall.csv"))
-  write_csv(tbl_SS_processing, str_c(path_data, "tbl_SS_processing.csv"))
-  saveRDS(tbl_SS_recall, str_c(path_data, "tbl_SS_recall.RDS"))
-  #write_csv(tbl_SS_bonus, str_c(path_data, "tbl_SS_bonus.csv"))
-  
-  write_csv(tbl_WMU_recall, str_c(path_data, "tbl_WMU_recall.csv"))
-  saveRDS(tbl_WMU_recall, str_c(path_data, "tbl_WMU_recall.RDS"))
-  #write_csv(tbl_WMU_bonus, str_c(path_data, "tbl_WMU_bonus.csv"))
-  
+  if ("WMU" %in% is_considered) {
+    # exclude returned and rejected participants
+    tbl_WMU_recall <- tbl_WMU_recall %>% filter(!(participant_id %in% participants_returned))
+    
+    tbl_WMU_recall <- replace_prolific_id(tbl_WMU_recall)
+    #tbl_WMU_bonus <- replace_prolific_id(tbl_WMU_bonus)
+    
+    # save
+    write_csv(tbl_WMU_recall, str_c(path_data, "tbl_WMU_recall.csv"))
+    saveRDS(tbl_WMU_recall, str_c(path_data, "tbl_WMU_recall.RDS"))
+    #write_csv(tbl_WMU_bonus, str_c(path_data, "tbl_WMU_bonus.csv"))
+  }
 }
 
 
