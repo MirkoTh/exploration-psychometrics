@@ -3,12 +3,12 @@ library(tidyverse)
 
 # set session_id to 1 or 2
 # stimulus sets for all tasks are generated for that session
-session_id <- 1
+session_id <- 2
 my_two_seeds <- c(39737632, 8567389)
 
 
-setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics/wm-tasks")
-source("utils-gen-stim.R")
+#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics/wm-tasks")
+#source("utils-gen-stim.R")
 
 set.seed(my_two_seeds[session_id])
 
@@ -169,7 +169,7 @@ str_replace(l_matrix_pos, "(, )(\\])$", replacement=, "\\2")
 # WM Updating -------------------------------------------------------------
 
 
-set_size <- 4
+set_size <- 5
 n_upd_steps <- 7
 possibleNumbers <- c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 nTrials_update <- 20
