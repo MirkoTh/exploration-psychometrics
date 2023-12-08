@@ -392,9 +392,14 @@
   var feedback = {
     type: 'instructions',
     pages: function () {
-      pageOne = "<div style='font-size:20px;'><b>You recalled <font color='blue'>" + nLettersRecalled + " out of " + nLetters + "</font> letters in their correct order.</b><br><br>"
-      if (n > nPracticeTrials) {
+      if (is_practice == 0) {
+        pageOne = "<div style='font-size:20px;'><b>You recalled <font color='blue'>" + nLettersRecalled + " out of " + nLetters + "</font> letters in their correct order.</b><br><br>"
         pageOne += "You solved <font color='blue'>" + nMathAcc + " out of " + nLetters + "</font> math problems accurately.<br><br></div>"
+      } else if (is_practice == 1) {
+        pageOne = "<div style='font-size:20px;'><b>You recalled <font color='blue'>" + nLettersRecalled + " out of " + nLetters + "</font> letters in their correct order.</b><br><br>"
+        if (n > nPracticeTrials) {
+          pageOne += "You solved <font color='blue'>" + nMathAcc + " out of " + nLetters + "</font> math problems accurately.<br><br></div>"
+        }
       }
       return [pageOne]
     },
