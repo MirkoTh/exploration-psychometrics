@@ -12,8 +12,8 @@ participants_returned <- list()
 
 # select the time range for the data to be loaded
 time_period <- c(
-  make_datetime(2023, 11, 30, 13), 
-  make_datetime(2023, 12, 5)
+  make_datetime(2023, 12, 08, 15, tz = "CET"), 
+  make_datetime(2023, 12, 08, 17, tz = "CET")
 ) # 10 prolific pilot participant range
 hash_ids(path_data, participants_returned, time_period = time_period)
 
@@ -175,6 +175,9 @@ tbl_performance_all <- tbl_recall_performance_participants %>%
   ) %>%
   left_join(os_rts %>% select(participant_id, rt_os), by = "participant_id") %>%
   left_join(ss_rts %>% select(participant_id, rt_ss), by = "participant_id")
+
+ggplot(tbl_performance_all, aes(WMU)) +
+  geom_histogram()
 
 
 cor(tbl_performance_all %>% select(-participant_id) %>%
