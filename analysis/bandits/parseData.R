@@ -5,7 +5,13 @@ library(ggplot2)
 library(jsonlite)
 theme_set(theme_classic(base_size = 14))
 
-setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+
+
+# select required directory by setting data_idx index
+data_idx <- 2
+rel_dir_data_bandits <- c("data/pilot/bandits/", "data/2023-11-lab-pilot/bandits/")[data_idx]
+rel_dir_data_qs <- c("data/pilot/qs/", "data/2023-11-lab-pilot/qs/")[data_idx]
 
 ### load data ########
 
@@ -20,7 +26,7 @@ nTrialsS = 10
 nBlocksR = 1
 nTrialsR = 200
 
-files = list.files(path = "data/pilot/bandits")
+files = list.files(path = rel_dir_data_bandits)
 files <- files[!grepl("temp", files)]
 
 lookup <- data.frame(PID = rep(NA, length(files)),
@@ -42,23 +48,23 @@ horizon <- data.frame(ID = rep(1:length(files), each = nBlocksH*nTrialsH),
 
 
 sam <- data.frame(ID = rep(1:length(files), each = nBlocksS*nTrialsS),
-                      block = rep(rep(1:nBlocksS, each = nTrialsS), length(files)),
-                      trial = rep(1:nTrialsS, nBlocksS*length(files)),
-                      chosen = NA,
-                      reward = NA,
-                      rt = NA, 
-                      session = session)
+                  block = rep(rep(1:nBlocksS, each = nTrialsS), length(files)),
+                  trial = rep(1:nTrialsS, nBlocksS*length(files)),
+                  chosen = NA,
+                  reward = NA,
+                  rt = NA, 
+                  session = session)
 
 
 restless <- data.frame(ID = rep(1:length(files), each = nTrialsR),
-                      trial = 1:nTrialsR,
-                      chosen = NA,
-                      reward = NA,
-                      rt = NA, 
-                      session = session)
+                       trial = 1:nTrialsR,
+                       chosen = NA,
+                       reward = NA,
+                       rt = NA, 
+                       session = session)
 
 for (i in 1:length(files)){
-  temp <- fromJSON(paste("data/pilot/bandits/",files[i], sep = ""))
+  temp <- fromJSON(paste(rel_dir_data_bandits,files[i], sep = ""))
   
   # add PID into lookup
   lookup$PID[i] <- temp$subjectID
@@ -88,13 +94,13 @@ for (i in 1:length(files)){
   }
   
   ## restless
-    for (trial in 1:nTrialsR){
-      restless$chosen[restless$ID == i & restless$trial == trial] <- temp$restless$choice[[2]][[trial]]
-      restless$reward[restless$ID == i & restless$trial == trial] <- temp$restless$reward[[2]][[trial]]
-      restless$rt[restless$ID == i & restless$trial == trial] <- temp$restless$time[[2]][[trial]]
-    }
-    
-
+  for (trial in 1:nTrialsR){
+    restless$chosen[restless$ID == i & restless$trial == trial] <- temp$restless$choice[[2]][[trial]]
+    restless$reward[restless$ID == i & restless$trial == trial] <- temp$restless$reward[[2]][[trial]]
+    restless$rt[restless$ID == i & restless$trial == trial] <- temp$restless$time[[2]][[trial]]
+  }
+  
+  
   
 }
 
@@ -104,7 +110,8 @@ horizon$info <- horizon$info/2
 
 ### save lookup
 
-write.csv(lookup, file = "/Users/kwitte/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/BanditLookup.csv")
+#write.csv(lookup, file = "/Users/kwitte/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/BanditLookup.csv")
+write.csv(lookup, file = str_c(str_remove(rel_dir_data_bandits, "[a-z]*/$"),  "BanditLookup.csv"))
 
 
 ############### calculate max rewards #########
@@ -143,7 +150,8 @@ Srewards <- rewards
 
 # calculate max reward
 
-Srewards$max <- ifelse(Srewards$rew1 > Srewards$rew2, Srewards$rew1, Srewards$rew2)
+#Srewards$max <- ifelse(Srewards$rew1 > Srewards$rew2, Srewards$rew1, Srewards$rew2)
+Srewards$max <- ifelse(Srewards$reward1 > Srewards$reward2, Srewards$reward1, Srewards$reward2)
 
 maxSam <- sum(Srewards$max, na.rm = T)
 
@@ -230,27 +238,28 @@ rewardsR <- fromJSON(paste("task/rewards4ARB", session, ".json", sep = ""))
 
 
 
-  temp <- data.frame(rewardsR[[2]])
-  restless$reward1 <- rep(temp$X1, length(unique(restless$ID)))
-  restless$reward2 <- rep(temp$X2, length(unique(restless$ID)))
-  restless$reward3 <- rep(temp$X3, length(unique(restless$ID)))
-  restless$reward4 <- rep(temp$X4, length(unique(restless$ID)))
-  
-save(horizon, sam, restless, file = "data/pilot/bandits.Rda")
+temp <- data.frame(rewardsR[[2]])
+restless$reward1 <- rep(temp$X1, length(unique(restless$ID)))
+restless$reward2 <- rep(temp$X2, length(unique(restless$ID)))
+restless$reward3 <- rep(temp$X3, length(unique(restless$ID)))
+restless$reward4 <- rep(temp$X4, length(unique(restless$ID)))
 
+save(horizon, sam, restless, file = str_c(str_remove(rel_dir_data_bandits, "[a-z]*/$"),  "bandits.Rda"))
 
 
 #################### questionnaires ###############
 
-files = list.files(path = "data/pilot/qs")
+
+
+files = list.files(path = rel_dir_data_qs)
 
 for (i in files){
   if (i == files[1]){# if this is the first one
-    qdat <- fromJSON(paste("data/pilot/qs/", i, sep =""))
+    qdat <- fromJSON(paste(rel_dir_data_qs, i, sep =""))
     pid <- substr(i, 1, gregexpr("_", i)[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
     qdat$ID <- lookup$ID[lookup$PID == pid]
   } else {
-    temp <- fromJSON(paste("data/pilot/qs/", i, sep =""))
+    temp <- fromJSON(paste(rel_dir_data_qs, i, sep =""))
     pid <- substr(i, 1, gregexpr("_", i)[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
     temp$ID <- lookup$ID[lookup$PID == pid]
     qdat <- rbind(qdat, temp)
@@ -260,6 +269,6 @@ for (i in files){
 
 ## save it
 
-save(qdat, file = "data/pilot/qs.Rda")
+save(qdat, file = str_c(str_remove(rel_dir_data_qs, "[a-z]*/$"),  "qs.Rda"))
 
 
