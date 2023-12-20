@@ -11,8 +11,9 @@ dirs_homegrown <- c(
 )
 walk(dirs_homegrown, source)
 
-dir_data_rel <- c("data/pilot/", "data/2023-11-lab-pilot/", "data/open-data/speekenbrink-konstantinidis-2015-recovery.csv")[3]
-is_prolific_pilot <- FALSE
+idx_dir <- 2
+dir_data_rel <- c("data/pilot/", "data/2023-11-lab-pilot/", "data/open-data/speekenbrink-konstantinidis-2015-recovery.csv")[idx_dir]
+is_prolific_pilot <- idx_dir == 1
 
 if (str_detect(dir_data_rel, "speekenbrink")) {
   tbl_restless <- readRDS(dir_data_rel)
@@ -101,16 +102,12 @@ if (is_prolific_pilot) {
 
 x <- c(.2, 2)
 bds <- list(gamma = list(lo = 0, hi = 1), beta = list(lo = -5, hi = 5))
-params_init <- pmap_dbl(
-  list(x, map_dbl(bds, "lo"), map_dbl(bds, "hi")),
-  upper_and_lower_bounds
-)
+
 tbl_results <- tbl_restless
 nr_options <- 4
 sigma_xi_sq <- 16 # 36 in stimulus set of first prolific pilot; 16 in lab pilot
 sigma_epsilon_sq <- 16
 tbl_results1 <- filter(tbl_results, ID == 1)
-l_tbl_results <- split(tbl_results, tbl_results$ID)
 
 
 l_fits_ucb <- list()
@@ -147,7 +144,8 @@ for (i in 1:n_init_vals) {
     sigma_xi_sq = sigma_xi_sq, 
     sigma_epsilon_sq = sigma_epsilon_sq, 
     bds = bds, 
-    params_init = params_init
+    params_init = params_init,
+    .progress = TRUE
   )
   l_fit_sm <- furrr::future_map(
     l_tbl_results, fit_softmax_no_variance_wrapper, 
@@ -156,7 +154,8 @@ for (i in 1:n_init_vals) {
     sigma_xi_sq = sigma_xi_sq, 
     sigma_epsilon_sq = sigma_epsilon_sq, 
     bds = bds$gamma, 
-    params_init = params_init[1]
+    params_init = params_init[1],
+    .progress = TRUE
   )
   l_fits_ucb[[i]] <- l_fit_ucb
   l_fits_sm[[i]] <- l_fit_sm
@@ -169,7 +168,7 @@ round(t_end - t_start, 1)
 
 tbl_fits_ucb <- map2(
   l_fits_ucb, 1:length(l_fits_ucb), 
-  ~ reduce(.x, rbind) %>% as.data.frame() %>% mutate(it = .y, ID = 1:max(tbl_results$ID)) %>%
+  ~ reduce(.x, rbind) %>% as.data.frame() %>% mutate(it = .y, ID = 1:length(unique(tbl_results$ID))) %>%
     rename(sum_ll = V3, beta = V2, gamma = V1) %>%
     relocate(ID, .before = gamma)
 ) %>% reduce(rbind) %>%
@@ -181,7 +180,7 @@ tbl_fits_ucb <- map2(
 
 tbl_fits_sm <- map2(
   l_fits_sm, 1:length(l_fits_sm), 
-  ~ reduce(.x, rbind) %>% as.data.frame() %>% mutate(it = .y, ID = 1:max(tbl_results$ID)) %>%
+  ~ reduce(.x, rbind) %>% as.data.frame() %>% mutate(it = .y, ID = 1:length(unique(tbl_results$ID))) %>%
     rename(sum_ll = V2, gamma = V1) %>%
     relocate(ID, .before = gamma)
 ) %>% reduce(rbind) %>%
@@ -191,11 +190,30 @@ tbl_fits_sm <- map2(
   ungroup() %>%
   filter(rank == 1)
 
-tbl_fits_sm %>% left_join(tbl_fits_ucb, by = "ID", suffix = c("_sm", "_ucb")) %>%
+
+tbl_both <- 
+  tbl_fits_sm %>%
+  left_join(tbl_fits_ucb, by = "ID", suffix = c("_sm", "_ucb")) %>%
+  mutate(
+    bic_ucb = sum_ll_ucb + 2*log(nrow(l_tbl_results[[1]])), 
+    aic_ucb = sum_ll_ucb + 4,
+    bic_sm = sum_ll_sm + log(nrow(l_tbl_results[[1]])),
+    aic_sm = sum_ll_sm + 2,
+    ucb_wins_bic = bic_ucb < bic_sm,
+    ucb_wins_aic = aic_ucb < aic_sm
+  )
+
+tbl_both %>%
   summarize(cor(gamma_sm, gamma_ucb))
+
+tbl_both %>% count(ucb_wins_aic)
+tbl_both %>% count(ucb_wins_bic)
+
 ggplot(tbl_fits_sm %>% left_join(tbl_fits_ucb, by = "ID", suffix = c("_sm", "_ucb")), aes(gamma_sm, gamma_ucb)) +
   geom_abline() +
   geom_point()
+
+plot(tbl_both$gamma_ucb, tbl_both$beta)
 
 # fit_ucb_no_variance_wrapper(l_tbl_results[[1]], tbl_rewards = NULL, condition_on_observed_choices = TRUE,
 #                             sigma_xi_sq = 16, sigma_epsilon_sq = 16, bds = bds, params_init = c(.5, .1))
