@@ -1,4 +1,4 @@
-generate_restless_bandits <- function(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials) {
+generate_restless_bandits <- function(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials, center_decay = 0) {
   #' 
   #' @description generate random walk data on bandits with independent means
   #' @param sigma_xi_sq innovation variance
@@ -11,7 +11,7 @@ generate_restless_bandits <- function(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda
   mus <- matrix(nrow = nr_trials, ncol = nr_bandits)
   mus[1, ] <- mu1
   for (t in 2:nr_trials) {
-    mus[t, ] <- lambda * mus[t-1, ] + rnorm(nr_bandits, 0, sqrt(sigma_xi_sq))
+    mus[t, ] <- lambda * mus[t-1, ] + (1 - lambda) * center_decay + rnorm(nr_bandits, 0, sqrt(sigma_xi_sq))
   }
   noise <- matrix(
     rnorm(nr_trials * nr_bandits, 0, sqrt(sigma_epsilon_sq)),

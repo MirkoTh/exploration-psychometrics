@@ -226,16 +226,16 @@ str_c("[", str_replace_all(paste(final_set_str, collapse = ","), "(, )(])", repl
 
 
 
-# control for
-# distribution of average difference between four arms -> not too close
-# distribution of differences of second-best arm - best arm --> not too easy
-# proportion of one arm being the best arm across all trials
-
 source("wm-tasks/utils-gen-stim.R")
 
-
-as_required <- FALSE
-tbl_4a_rlb <- generate_rl_bandits_as_required(FALSE, session_id)
+# change seeds for 4arlb
+my_two_seeds <- c(997733, 49015499)
+set.seed(my_two_seeds[session_id])
+mu_init <- rnorm(4, 50, 3)
+tbl_4a_rlb <- generate_restless_bandits(
+  sigma_xi_sq = 7.84, sigma_epsilon_sq = 16, mu1 = mu_init, 
+  lambda = .9836, nr_trials = 200, center_decay = 50
+  )
 
 ggplot(tbl_4a_rlb %>% pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)), aes(trial_id, value, group = name)) +
   geom_line(aes(color = name), size = .75) +
@@ -245,17 +245,13 @@ ggplot(tbl_4a_rlb %>% pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)), aes(t
   theme_bw() +
   labs(x = "Trial ID", y = "Reward")
 
-plot(tbl_4a_rlb$min_diff_to_max)
-hist(tbl_4a_rlb$min_diff_to_max)
-
-plot(tbl_4a_rlb$avg_difference)
-hist(tbl_4a_rlb$avg_difference)
-
-cor(tbl_4a_rlb$min_diff_to_max, tbl_4a_rlb$avg_difference)
 
 ## make practice trials
 
-tbl_4a_rlb_practice <- generate_rl_bandits_as_required(FALSE, abs(session_id - 3)) # practice from other session
+tbl_4a_rlb_practice <- generate_restless_bandits(
+  sigma_xi_sq = 7.84, sigma_epsilon_sq = 16, mu1 = mu_init, 
+  lambda = .9836, nr_trials = 200, center_decay = 50
+)
 
 tbl_4a_rlb$block <- 2
 tbl_4a_rlb_practice$block <- 1
@@ -281,6 +277,21 @@ for (i in 1:nBlocks){
   }
   ls[[i]] <- block
 }
+
+# to check practice and test rewards via plotting
+# # ls[[1]] and 1:10
+# # ls[[2]] and 1:200
+# reduce(ls[[2]], rbind) %>% as.data.frame() %>% mutate(trial_id = 1:200) %>%
+#   rename("Arm 1" = "V1", "Arm 2" = "V2", "Arm 3" = "V3", "Arm 4" = "V4") %>%
+#   pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)) %>%
+#   ggplot(aes(trial_id, value, group = name)) +
+#   geom_line(aes(color = name), size = .75) +
+#   scale_color_viridis_d(name = "") +
+#   scale_x_continuous(expand = c(0, 0)) +
+#   scale_y_continuous(expand = c(0, 0)) +
+#   theme_bw() +
+#   labs(x = "Trial ID", y = "Reward")
+
 
 library(jsonlite)
 
