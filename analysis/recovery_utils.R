@@ -4,6 +4,7 @@ library(brms)
 library(docstring)
 library(ggplot2)
 theme_set(theme_classic(base_size = 14))
+set.seed(123)
 
 
 getV <- function(m1, m2){
@@ -101,6 +102,106 @@ bayIncrAtOnce <- function(x, horizon){
   return(c(muLeft,muRight,sqrt(1/tauLeft), sqrt(1/tauRight)))
 }
 
+sim_data_sam <- function(data, trueModel, i, bootstrapped = F) {
+  
+  #' simulate data for sam's task from whatever model
+  #' 
+  #' @description simulates choices for a particular subject in a trial-by-trial fashion
+  #' @param data original data from that entire task
+  #' @param trueModel Model fit to true choices of that subject
+  #' @param i index of subject to simulate data for
+  #' @param bootstrapped boolean, if T, trueModel is simply the parameter estimates to build an equation from
+  #' @return data.frame with simulated data for that subject
+  
+  id <- ifelse(bootstrapped, 1, i)
+  simdat <- subset(data, ID == id, -c(chosen, V, RU, KLM0, KLM1, KLV0, KLV1, reward, reward1, reward2))
+  
+  
+  blocks <- max(simdat$block)
+  trials <- max(simdat$trial)
+  
+  ## create rewards
+  simdat$reward1[simdat$trial == 1] <- sample(data$reward1, blocks, replace = T)
+  simdat$reward2[simdat$trial == 1] <- sample(data$reward2, blocks, replace = T)
+  
+  # cond: experiment condition. 1:Fluctuating/Stable; 2:SF; 3:FF; 4:SS
+  # stable condition:
+  # sample a value for each first trial and repeat it for the rest of the trials
+  simdat$reward1[simdat$cond == "SS" | simdat$cond == "SF"] <- rep(sample(data$reward1, nrow(simdat[(simdat$cond == "SS" | simdat$cond == "SF") & simdat$trial == 1, ]), replace = T), each = trials)
+  simdat$reward2[ simdat$cond == "SS" | simdat$cond == "FS"] <- rep(sample(data$reward2, nrow(simdat[(simdat$cond == "FS" | simdat$cond == "SS")& simdat$trial == 1, ]), replace = T), each = trials)
+  
+  # random walk
+  for (j in 2:trials){
+    simdat$reward1[simdat$trial == j & (simdat$cond == "FS" | simdat$cond == "FF")] <- rnorm(1,simdat$reward1[simdat$trial == j-1 & (simdat$cond == "FS" | simdat$cond == "FF")],4)
+    simdat$reward2[simdat$trial == j & (simdat$cond == "SF" | simdat$cond == "FF")] <- rnorm(1,simdat$reward2[simdat$trial == j-1 & (simdat$cond == "SF" | simdat$cond == "FF")],4)
+  }
+  # add noise
+  noise <- rnorm(trials*blocks, 0, 1)
+  simdat$reward1 <- simdat$reward1 + noise
+  noise <- rnorm(trials*blocks, 0, 1)
+  simdat$reward2 <- simdat$reward2 + noise
+  
+  
+  ## iteratively make choices
+  # learning part initialisations
+  m0 <- 0
+  v0 <- 100
+  no <- 2
+  sigma_epsilon_sq <- 1
+  # sigma xi sq depends on the condition 1:Fluctuating/Stable; 2:SF; 3:FF; 4:SS
+  sigma_xi_sq <- matrix(NA, ncol = 2, nrow = blocks)
+  sigma_xi_sq[ ,1] <- apply(as.array(simdat$cond[simdat$trial == 1]), 1, function(x) ifelse(x == "FS" | x == "FF", 4, 0))
+  sigma_xi_sq[ ,2] <- apply(as.array(simdat$cond[simdat$trial == 1]), 1, function(x) ifelse(x == "SF" | x == "FF", 4, 0))
+  
+  # get initial posterior mean and variance for each option
+  m <- matrix(0, ncol = no, nrow = nrow(simdat)) # to hold the posterior means
+  v <- matrix(100, ncol = no, nrow = nrow(simdat)) # to hold the posterior variances
+  # get initial V and RU
+  simdat$V[simdat$trial == 1] <- 0
+  simdat$RU[simdat$trial == 1] <- 0
+  simdat$VTU[simdat$trial == 1] <- 0
+  
+  for(t in 1:trials) {
+    # get choice
+    if (bootstrapped) {
+      C <- trueModel$V[i] * simdat$V[t] + trueModel$RU[i] * simdat$RU[t]
+    } else {
+      C <- predict(trueModel, newdata = simdat[simdat$trial == t, ] , type = "response")
+    }
+    
+    C <- ifelse(runif(length(C)) < C, 1, 0)
+    simdat$C[simdat$trial == t] <- C
+    # get reward
+    reward <- ifelse(C == 0, simdat$reward1[simdat$trial == t], simdat$reward2[simdat$trial == t])
+    
+    # set the Kalman gain for the chosen option
+    # sigma xi differs between options so need to index it
+    kt <- matrix(0, ncol = no, nrow = blocks)
+    # indexing doesn't really work if not consistently same column so the _chosen thing is my akward workaround
+    v_chosen <- ifelse(C == 0, v[simdat$trial == t, 1], v[simdat$trial == t, 2])
+    sigma_xi_chosen <-  ifelse(C == 0, sigma_xi_sq[ , 1], sigma_xi_sq[ ,2])
+    kt_chosen <- (v_chosen + sigma_xi_chosen)/(v_chosen + sigma_epsilon_sq + sigma_xi_chosen)
+    kt[ ,1] <- ifelse(C == 0, kt_chosen, 0)
+    kt[ ,2] <- ifelse(C == 1, kt_chosen, 0)
+    # compute the posterior means
+    m[simdat$trial == (t+1),] <- m[simdat$trial == t,] + kt*(reward - m[simdat$trial == t,])
+    # compute the posterior variances
+    v[simdat$trial == (t+1), ] <- (1-kt)*(v[simdat$trial == t,]) + sigma_xi_sq
+    
+    # compute V and RU
+    simdat$V[simdat$trial == (t+1)] <- getV(m[simdat$trial == (t+1),1], m[simdat$trial == (t+1),2])
+    simdat$RU[simdat$trial == (t+1)] <- getRU(v[simdat$trial == (t+1),1], v[simdat$trial == (t+1),2])
+    simdat$VTU[simdat$trial == (t+1)] <- simdat$V[simdat$trial == (t+1)]/(sqrt(v[simdat$trial == (t+1),1] + v[simdat$trial == (t+1),2]))
+    
+  }
+  
+  
+  simdat$C <- as.integer(simdat$C)
+  
+  return(simdat)
+}
+
+
 recovery_sam <- function(data, model){
   #' parameter recovery for data from Sam's task
   #' 
@@ -144,14 +245,7 @@ recovery_sam <- function(data, model){
       trueParams$VTU <- NA
     }
     
-    simParams <- data.frame(ID = unique(data$ID),
-                            V = rep(NA, length(unique(data$ID))),
-                            RU = rep(NA, length(unique(data$ID))),
-                            converged = rep(NA, length(unique(data$ID))))
-    
-    if (model == "hybrid"){
-      simParams$VTU <- NA
-    }
+    simParams <- trueParams
     
     
     blocks <- max(data$block)
@@ -187,81 +281,8 @@ recovery_sam <- function(data, model){
       # simulate data
       
       ##### create data
+      simdat <- sim_data_sam(data, trueModel, i)
       
-      simdat <- subset(data, ID == i, -c(chosen, V, RU, KLM0, KLM1, KLV0, KLV1, reward, reward1, reward2))
-      
-      ## create rewards
-      simdat$reward1[simdat$trial == 1] <- sample(data$reward1, blocks, replace = T)
-      simdat$reward2[simdat$trial == 1] <- sample(data$reward2, blocks, replace = T)
-      
-      # cond: experiment condition. 1:Fluctuating/Stable; 2:SF; 3:FF; 4:SS
-      # stable condition:
-      # sample a value for each first trial and repeat it for the rest of the trials
-      simdat$reward1[simdat$cond == "SS" | simdat$cond == "SF"] <- rep(sample(data$reward1, nrow(simdat[(simdat$cond == "SS" | simdat$cond == "SF") & simdat$trial == 1, ]), replace = T), each = trials)
-      simdat$reward2[ simdat$cond == "SS" | simdat$cond == "FS"] <- rep(sample(data$reward2, nrow(simdat[(simdat$cond == "FS" | simdat$cond == "SS")& simdat$trial == 1, ]), replace = T), each = trials)
-      
-      # random walk
-      for (j in 2:trials){
-        simdat$reward1[simdat$trial == j & (simdat$cond == "FS" | simdat$cond == "FF")] <- rnorm(1,simdat$reward1[simdat$trial == j-1 & (simdat$cond == "FS" | simdat$cond == "FF")],4)
-        simdat$reward2[simdat$trial == j & (simdat$cond == "SF" | simdat$cond == "FF")] <- rnorm(1,simdat$reward2[simdat$trial == j-1 & (simdat$cond == "SF" | simdat$cond == "FF")],4)
-      }
-      # add noise
-      noise <- rnorm(trials*blocks, 0, 1)
-      simdat$reward1 <- simdat$reward1 + noise
-      noise <- rnorm(trials*blocks, 0, 1)
-      simdat$reward2 <- simdat$reward2 + noise
-      
-      
-      ## iteratively make choices
-      # learning part initialisations
-      m0 <- 0
-      v0 <- 100
-      no <- 2
-      sigma_epsilon_sq <- 1
-      # sigma xi sq depends on the condition 1:Fluctuating/Stable; 2:SF; 3:FF; 4:SS
-      sigma_xi_sq <- matrix(NA, ncol = 2, nrow = nsubs*blocks)
-      sigma_xi_sq[ ,1] <- apply(as.array(simdat$cond[simdat$trial == 1]), 1, function(x) ifelse(x == "FS" | x == "FF", 4, 0))
-      sigma_xi_sq[ ,2] <- apply(as.array(simdat$cond[simdat$trial == 1]), 1, function(x) ifelse(x == "SF" | x == "FF", 4, 0))
-      
-      # get initial posterior mean and variance for each option
-      m <- matrix(0, ncol = no, nrow = nrow(simdat)) # to hold the posterior means
-      v <- matrix(100, ncol = no, nrow = nrow(simdat)) # to hold the posterior variances
-      # get initial V and RU
-      simdat$V[simdat$trial == 1] <- 0
-      simdat$RU[simdat$trial == 1] <- 0
-      simdat$VTU[simdat$trial == 1] <- 0
-      
-      for(t in 1:trials) {
-        # get choice
-        C <- predict(trueModel, newdata = simdat[simdat$trial == t, ] , type = "response")
-        C <- ifelse(runif(length(C)) < C, 1, 0)
-        simdat$C[simdat$trial == t] <- C
-        # get reward
-        reward <- ifelse(C == 0, simdat$reward1[simdat$trial == t], simdat$reward2[simdat$trial == t])
-        
-        # set the Kalman gain for the chosen option
-        # sigma xi differs between options so need to index it
-        kt <- matrix(0, ncol = no, nrow = nsubs*blocks)
-        # indexing doesn't really work if not consistently same column so the _chosen thing is my akward workaround
-        v_chosen <- ifelse(C == 0, v[simdat$trial == t, 1], v[simdat$trial == t, 2])
-        sigma_xi_chosen <-  ifelse(C == 0, sigma_xi_sq[ , 1], sigma_xi_sq[ ,2])
-        kt_chosen <- (v_chosen + sigma_xi_chosen)/(v_chosen + sigma_epsilon_sq + sigma_xi_chosen)
-        kt[ ,1] <- ifelse(C == 0, kt_chosen, 0)
-        kt[ ,2] <- ifelse(C == 1, kt_chosen, 0)
-        # compute the posterior means
-        m[simdat$trial == (t+1),] <- m[simdat$trial == t,] + kt*(reward - m[simdat$trial == t,])
-        # compute the posterior variances
-        v[simdat$trial == (t+1), ] <- (1-kt)*(v[simdat$trial == t,]) + sigma_xi_sq
-        
-        # compute V and RU
-        simdat$V[simdat$trial == (t+1)] <- getV(m[simdat$trial == (t+1),1], m[simdat$trial == (t+1),2])
-        simdat$RU[simdat$trial == (t+1)] <- getRU(v[simdat$trial == (t+1),1], v[simdat$trial == (t+1),2])
-        simdat$VTU[simdat$trial == (t+1)] <- simdat$V[simdat$trial == (t+1)]/(sqrt(v[simdat$trial == (t+1),1] + v[simdat$trial == (t+1),2]))
-        
-      }
-      
-      
-      simdat$C <- as.integer(simdat$C)
       if (model == "hybrid") {
         simModel <- glm(C ~ V+ RU + VTU,
                         data = simdat,
@@ -305,7 +326,7 @@ recovery_sam <- function(data, model){
     # plot them
     
     p <- ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-      geom_text(aes(label = round(cor, digits = 2)))
+      geom_text(aes(label = round(cor, digits = 2))) + ggtitle(paste("Recovery of Sam's task using ", model))
     
     
     return(list(trueParams, simParams, p))
@@ -340,7 +361,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
                                                                                                                   data$chosen == 1& 
                                                                                                                   data$trial < 5]))
     ## calculate deltas
-    data$delta_mean <- data$mean_L - data$mean_R
+    data$delta_mean <- scale(data$mean_L - data$mean_R)
     
     
     if (bayesian == T){
@@ -436,13 +457,14 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
     data$bayMeanR <- NA
     data$bayVarL <- NA
     data$bayVarR <- NA
+    data$row <- 1:nrow(data)
     
     for (i in data$row[data$trial == 5]){
       data[data$row == i, grep("bay", colnames(data))] <- bayIncrAtOnce(i, data)
     }
     
-    data$V <- getV(data$bayMeanL, data$bayMeanR)
-    data$RU <- getRU(data$bayVarL, data$bayVarR)
+    data$V <- scale(getV(data$bayMeanL, data$bayMeanR))
+    data$RU <- scale(getRU(data$bayVarL, data$bayVarR))
     
     ## GLM implementation
     if (bayesian == F){
@@ -512,6 +534,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
       
       
       recoveredParams <- simParams
+      
       
       
       ##### bayesian implementation
@@ -601,7 +624,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
   # plotting and packaging it all for the return
   
   p <-ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-    geom_text(aes(label = round(cor, digits = 2))) 
+    geom_text(aes(label = round(cor, digits = 2))) + ggtitle(paste("Recovery of Horizon task using ", model))
   
   
   
@@ -614,3 +637,166 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
   
 }
   
+
+recover_bootstrapped_estimates_glm <- function(N, trueParams, model, task, data){
+  
+  #' parameter recovery using bootstrapped estimates for any desired sample size
+  #' only works for the non-bayesian (subject-level) implementations of the models
+  #' 
+  #' @description create bootstrapped estimates, simulate data from them, re-fit that data
+  #' @usage res_list = recover_bootstrapped_estimates_glm(N, trueParams, model, task, data)
+  #' @param data data.frame containing all the task data
+  #' @param model UCB, Wilson, Sam
+  #' @param N number of subjects to generate data for
+  #' @param trueParams parameter estimates to bootstrap from
+  #' @return a list containing a data.frame with bootstrapped subject-level estimates fitted to the observed data, a data.frame with the recovered estimates, a ggplot element plotting the recovery
+  
+  
+  # take out outliers
+  if (task == "Horizon"){
+    trueParams <- subset(trueParams, V > mean(V)-1*sd(V) &  V < mean(V)+1*sd(V))
+  }
+  
+  # List of column names
+  column_names <- colnames(trueParams)
+  column_names <- column_names[!grepl("onverged", column_names)]
+  
+  # Create an empty data frame with specific column names
+  bootstrappedParams <- data.frame(matrix(nrow = N, ncol = length(column_names)))
+  colnames(bootstrappedParams) <- column_names
+  
+  bootstrappedParams$ID <- 1:N
+  
+  simParams <- bootstrappedParams
+  
+  for (i in 2:length(column_names)){
+    bootstrappedParams[ ,i] <- rnorm(N, mean = mean(trueParams[ ,colnames(trueParams)== column_names[i]]), sd = sd(trueParams[ ,colnames(trueParams)== column_names[i]]) )
+    
+    
+  }
+  
+  if (model == "UCB"){
+    
+    if (task == "Horizon") {
+      data$bayMeanL <- NA
+      data$bayMeanR <- NA
+      data$bayVarL <- NA
+      data$bayVarR <- NA
+      data$row <- 1:nrow(data)
+      
+      for (i in data$row[data$trial == 5]){
+        data[data$row == i, grep("bay", colnames(data))] <- bayIncrAtOnce(i, data)
+      }
+      
+      data$V <- scale(getV(data$bayMeanL, data$bayMeanR))
+      data$RU <- scale(getRU(data$bayVarL, data$bayVarR))
+      
+    } else if (task == "Sam"){
+      ## add mean and variance from the Kalman Filter to the data frame
+      data$KLM0 <- NA
+      data$KLM1 <- NA
+      data$KLV0 <- NA
+      data$KLV1 <- NA
+      
+      
+      for (i in unique(paste(data$ID, data$block))){ 
+        
+        dat <- subset(data, paste(data$ID, data$block) == i)
+        
+        # stable or fluctuating arms? -> get innovation variance based on this
+        
+        if (dat$cond[1] == "FS") {xi <- c(4,0)
+        } else if (dat$cond[1] == "SF") {xi <- c(0,4)
+        } else if (dat$cond[1] == "FF") {xi <- c(4,4)
+        } else if (dat$cond[1] == "SS") {xi <- c(0,0)}
+        
+        posterior <- kalman_learning(dat, 2, xi, 1)
+        
+        data$KLM0[paste(data$ID, data$block) == i] <- posterior$m_1[1:10]
+        data$KLM1[paste(data$ID, data$block) == i] <- posterior$m_2[1:10]
+        data$KLV0[paste(data$ID, data$block) == i] <- posterior$v_1[1:10]
+        data$KLV1[paste(data$ID, data$block) == i] <- posterior$v_2[1:10]
+        
+      }
+      
+      data$V <- data$KLM0 - data$KLM1
+      data$RU <- getRU(data$KLV0, data$KLV1)
+    }
+
+    for (i in bootstrappedParams$ID){
+      
+      # simulate data
+      if(task == "Horizon"){
+        simdat <- subset(data, trial == 5 & ID == 1, -chosen) # ID does not matter here, everyone observed the same fixed choices anyway
+        simdat$chosen <- bootstrappedParams$V[i] * simdat$V + bootstrappedParams$RU[i] * simdat$RU + bootstrappedParams$Horizon[i] * simdat$Horizon +
+          bootstrappedParams$VH[i] * (simdat$V * simdat$Horizon) + bootstrappedParams$RUH[i] * (simdat$RU * simdat$Horizon) # setting intercept to 0 bc used scaled params so should approximately be ok
+        simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
+        
+        simModel <- glm(chosen ~ V*Horizon + RU*Horizon ,
+                        data = simdat,
+                        family = binomial(link = "probit"))
+        
+        
+        simParams$V[simParams$ID == i] <- simModel$coefficients[2]
+        simParams$RU[simParams$ID == i] <- simModel$coefficients[4]
+        simParams$Horizon[simParams$ID == i] <- simModel$coefficients[3]
+        simParams$VH[simParams$ID == i] <- simModel$coefficients[5]
+        simParams$RUH[simParams$ID == i] <- simModel$coefficients[6]
+        simParams$converged[simParams$ID == i] <- simModel$converged
+      } else if (task == "Sam") {
+        
+        simdat <- sim_data_sam(data, bootstrappedParams, i, bootstrapped = T)
+        
+        simModel <- glm(C ~ V + RU,
+                        data = simdat,
+                        family = binomial(link = "probit"))
+        
+        
+        simParams$V[simParams$ID == i] <- simModel$coefficients[2]
+        simParams$RU[simParams$ID == i] <- simModel$coefficients[3]
+        simParams$converged[simParams$ID == i] <- simModel$converged
+      }
+    
+
+      
+    }
+    
+    
+    # get correlations
+    cors <- data.frame(true = rep(column_names[-c(1)], length(column_names)-1),
+                       recovered =  rep(column_names[-c(1)], each = length(column_names)-1),
+                       cor = NA)
+    
+    
+    
+    cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(bootstrappedParams[simParams$converged,grep(cors$true[x], colnames(bootstrappedParams))[1]],# converged rows, cols with correct variable name (first instance)
+                                                                 simParams[simParams$converged, grep(cors$recovered[x], colnames(simParams))[1]]))
+    
+    
+    recoveredParams <- simParams
+  } else if (task == "sam"){
+    
+    
+    
+    
+    
+  } else {warning("this model is not implemented yet.")}
+  
+  # plotting and packaging it all for the return
+  
+  p <- ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+    geom_text(aes(label = round(cor, digits = 2))) 
+  
+  
+  
+  return(list(bootstrappedParams, recoveredParams, p))
+  
+  
+}
+
+
+
+
+
+
+

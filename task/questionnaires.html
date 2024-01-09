@@ -388,34 +388,34 @@ function createDemographics() {
 
             // feedback
 
-            var ageForm = document.createElement("form");
-            ageForm.setAttribute('method',"post");
-            ageForm.setAttribute('id', "feedback");
-            ageForm.setAttribute("name", "form_");
+            var feedForm = document.createElement("form");
+            feedForm.setAttribute('method',"post");
+            feedForm.setAttribute('id', "feedback");
+            feedForm.setAttribute("name", "form_");
 
-            var ageFieldSet = document.createElement("fieldset");
-            ageFieldSet.setAttribute("class", "form__options");
-            ageFieldSet.setAttribute('id', "feedback");
-            ageFieldSet.setAttribute("name", "fs_");
+            var feedFieldSet = document.createElement("fieldset");
+            feedFieldSet.setAttribute("class", "form__options");
+            feedFieldSet.setAttribute('id', "feedback");
+            feedFieldSet.setAttribute("name", "fs_");
 
-            var legendAge = document.createElement("legend");
-            legendAge.setAttribute("class", "questionDemo");
-            legendAge.append("Do you have any feedback to us about this study? (If not, please type 'no')");
-            legendAge.setAttribute("name", "legend");
-            legendAge.name = 'question';
+            var legendBack = document.createElement("legend");
+            legendBack.setAttribute("class", "questionDemo");
+            legendBack.append("Do you have any feedback to us about this study? (If not, please type 'no')");
+            legendBack.setAttribute("name", "legend");
+            legendBack.name = 'question';
 
-            ageFieldSet.appendChild(legendAge);
+            feedFieldSet.appendChild(legendBack);
 
-            var box = document.createElement("input");
-            box.setAttribute("class", "textEntry");
-            box.setAttribute("type", "text");
-            box.setAttribute("id", "feedback");
-            box.name = 'question';
+            var feedbox = document.createElement("input");
+            feedbox.setAttribute("class", "textEntry");
+            feedbox.setAttribute("type", "text");
+            feedbox.setAttribute("id", "feedback");
+            feedbox.name = 'question';
 
-            ageFieldSet.appendChild(box);
+            feedFieldSet.appendChild(feedbox);
 
-            ageForm.appendChild(ageFieldSet);
-            document.getElementById('questionnaires').appendChild(ageForm);
+            feedForm.appendChild(feedFieldSet);
+            document.getElementById('questionnaires').appendChild(feedForm);
         }
 
 function getValues() {
@@ -531,6 +531,7 @@ function getValues() {
 
         }
         values["attention1"] = attention;
+        console.log(values)
 
         // save data
         saveData(JSON.stringify(values));
