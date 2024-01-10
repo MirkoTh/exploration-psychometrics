@@ -11,6 +11,8 @@ setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
 
 load("data/pilot/bandits.Rda")
 
+sam <- get_KL_into_df(sam)
+
 source("analysis/recovery_utils.R")
 
 se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
@@ -91,7 +93,7 @@ ggplot(pars, aes(estimate, fill = source)) + geom_histogram(alpha = 0.5, positio
 ################# Sam's task ########
 
 ## hybrid model
-res_list <- recovery_sam(sam, "hybrid")
+res_list <- recovery_sam(sam, "hybrid", hierarchical = T)
 # get parameters fitted to actual data
 trueParams <- res_list[[1]]
 # get parameters fitted to simulated data
@@ -99,6 +101,16 @@ simParams <- res_list[[2]]
 
 # view recovery plot
 res_list[[3]]
+
+# hierarchical
+
+pars <- rbind(trueParams, simParams)
+pars$estimate <- pars$`colMeans(as.data.frame(posterior_samples(trueModel)))`
+pars$source <- rep(c("observed", "recovered"), each = nrow(pars)/2)
+ggplot(pars, aes(estimate, fill = source)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
+
+
+# subject-level
 
 pars <- pivot_longer(trueParams, cols = 2:3, names_to = "parameter", values_to = "estimate")
 pars <- rbind(pars, pivot_longer(simParams, cols = 2:3, names_to = "parameter", values_to = "estimate"))

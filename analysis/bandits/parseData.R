@@ -9,8 +9,8 @@ theme_set(theme_classic(base_size = 14))
 
 
 # select required directory by setting data_idx index
-data_idx <- 2
-rel_dir_data_bandits <- c("data/pilot/bandits/", "data/2023-11-lab-pilot/bandits/")[data_idx]
+data_idx <- 3
+rel_dir_data_bandits <- c("data/pilot/bandits/", "data/2023-11-lab-pilot/bandits/", "data/pilot4arb/")[data_idx]
 rel_dir_data_qs <- c("data/pilot/qs/", "data/2023-11-lab-pilot/qs/")[data_idx]
 
 ### load data ########
@@ -68,7 +68,7 @@ for (i in 1:length(files)){
   
   # add PID into lookup
   lookup$PID[i] <- temp$subjectID
-  
+
   ### Horizon task
   for (block in 2:(nBlocksH+1)){# bc block 1 is practice
     for (trial in 1:nTrialsH){
@@ -79,10 +79,10 @@ for (i in 1:length(files)){
     }
     horizon$info[horizon$ID == i & horizon$block == block-1] <- length(horizon$chosen[horizon$ID == i & horizon$block == block-1&horizon$chosen == 0 & horizon$trial < 5]) -
       length(horizon$chosen[horizon$ID == i & horizon$block == block-1 & horizon$chosen == 1& horizon$trial < 5])
-    
-    
+
+
   }
-  
+
   ### Sam's task
   for (block in 2:(nBlocksS+1)){# bc block 1 is practice
     for (trial in 1:nTrialsS){
@@ -90,9 +90,9 @@ for (i in 1:length(files)){
       sam$reward[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$reward[[block]][[trial]]
       sam$rt[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$time[[block]][[trial]]
     }
-    
+
   }
-  
+
   ## restless
   for (trial in 1:nTrialsR){
     restless$chosen[restless$ID == i & restless$trial == trial] <- temp$restless$choice[[2]][[trial]]

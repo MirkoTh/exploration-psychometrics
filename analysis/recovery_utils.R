@@ -102,7 +102,7 @@ bayIncrAtOnce <- function(x, horizon){
   return(c(muLeft,muRight,sqrt(1/tauLeft), sqrt(1/tauRight)))
 }
 
-sim_data_sam <- function(data, trueModel, i, bootstrapped = F) {
+sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F) {
   
   #' simulate data for sam's task from whatever model
   #' 
@@ -166,7 +166,13 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F) {
     if (bootstrapped) {
       C <- trueModel$V[i] * simdat$V[t] + trueModel$RU[i] * simdat$RU[t]
     } else {
-      C <- predict(trueModel, newdata = simdat[simdat$trial == t, ] , type = "response")
+      if (hierarchical){
+        library(brms)
+        C <- predict(trueModel, newdata = simdat[simdat$trial == t, ])[ ,1]
+      } else{
+        C <- predict(trueModel, newdata = simdat[simdat$trial == t, ] , type = "response")
+      }
+      
     }
     
     C <- ifelse(runif(length(C)) < C, 1, 0)
@@ -193,6 +199,8 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F) {
     simdat$RU[simdat$trial == (t+1)] <- getRU(v[simdat$trial == (t+1),1], v[simdat$trial == (t+1),2])
     simdat$VTU[simdat$trial == (t+1)] <- simdat$V[simdat$trial == (t+1)]/(sqrt(v[simdat$trial == (t+1),1] + v[simdat$trial == (t+1),2]))
     
+    simdat$chosen <- simdat$C
+    
   }
   
   
@@ -201,42 +209,126 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F) {
   return(simdat)
 }
 
+fit_model_sam <- function(data, model, hierarchical){
+  #' fit model to data from Sam's task
+  #' 
+  #' @description fits the type of model described by input to function to the data given to function
+  #' @param data data.frame containing all the task data
+  #' @param model string: UCB vs hybrid
+  #' @param hierarchical boolean; bayesian fitting or subject-level glm
+  #' @return list containing model object and if hierarchical == F also a data.frame with coefficients
+  
+  if (hierarchical){
+    if (model == "hybrid"){
+      
+      trueModel <- brm(chosen ~ V+ RU + VTU + (V+ RU + VTU| ID), 
+                      family = "bernoulli", 
+                      data = data,
+                      chains = 2,
+                      cores = 2,
+                      iter = 10000)
+      
+    } else if (model == "UCB") {
+      
+      trueModel <- brm(chosen ~ V+ RU + (V+ RU | ID), 
+                       family = "bernoulli", # has to be bernoulli, crashes otherwise
+                       data = data,
+                       chains = 2,
+                       cores = 2,
+                       iter = 10000)
+    }
+    
+    ## get posterior estimates of subject-level parameters
+    
+    trueParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(trueModel))))
+    trueParams$predictor <- NA
+    trueParams$predictor[grepl("RU", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "RU"
+    trueParams$predictor[grepl("V", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "V"
+    if (model == "hybrid"){
+      trueParams$predictor[grepl("VTU", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "VTU"
+    }
+    trueParams <- subset(trueParams, !is.na(predictor)& !grepl("ID__", rownames(trueParams)))
+    
+  } else {
+    if (model == "hybrid"){
+      trueModel <- glm(chosen ~ V+ RU + VTU,
+                       data = data,
+                       family = binomial(link = "probit"))
+      
+    } else if (model == "UCB") {
+      trueModel <- glm(chosen ~ V+ RU,
+                       data = data,
+                       family = binomial(link = "probit"))
+    }
+    
+    # save coefficients themselves if it is the subject-level model
+    trueParams <- data.frame(ID = unique(data$ID),
+                             V = trueModel$coefficients[2],
+                             RU = trueModel$coefficients[3],
+                             converged = trueModel$converged)
+    
+    if (model == "hybrid"){
+      trueParams$VTU[trueParams$ID == i] <- trueModel$coefficients[4]
+    
+  }
+    
 
-recovery_sam <- function(data, model){
+  
+  }
+  output <- list(trueModel, trueParams)
+  return(output)
+  
+}
+
+get_KL_into_df <- function(data){
+  ## add mean and variance from the Kalman Filter to the data frame
+  data$KLM0 <- NA
+  data$KLM1 <- NA
+  data$KLV0 <- NA
+  data$KLV1 <- NA
+  
+  ## get output of Kalman Filter into dataframe
+  for (i in unique(paste(data$ID, data$block))){ 
+    dat <- subset(data, paste(data$ID, data$block) == i)
+    
+    # stable or fluctuating arms? -> get innovation variance based on this
+    
+    if (dat$cond[1] == "FS") {xi <- c(4,0)
+    } else if (dat$cond[1] == "SF") {xi <- c(0,4)
+    } else if (dat$cond[1] == "FF") {xi <- c(4,4)
+    } else if (dat$cond[1] == "SS") {xi <- c(0,0)}
+    
+    posterior <- kalman_learning(dat, 2, xi, 1)
+    
+    data$KLM0[paste(data$ID, data$block) == i] <- posterior$m_1[1:10]
+    data$KLM1[paste(data$ID, data$block) == i] <- posterior$m_2[1:10]
+    data$KLV0[paste(data$ID, data$block) == i] <- posterior$v_1[1:10]
+    data$KLV1[paste(data$ID, data$block) == i] <- posterior$v_2[1:10]
+    
+  }
+  
+  data$V <- data$KLM0 - data$KLM1
+  data$RU <- getRU(data$KLV0, data$KLV1)
+  data$VTU <- data$V/(sqrt(data$KLV0 + data$KLV1))
+  
+  return(data)
+  
+}
+
+
+recovery_sam <- function(data, model, hierarchical){
   #' parameter recovery for data from Sam's task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
   #' @param data data.frame containing all the task data
   #' @param model UCB, hybrid
+  #' @param hierarchical boolean; whether data are fit using brms or subject-level glms
   #' @return a list containing a data.frame with subject-level estimates fitted to the observed data, a data.frame with the recovered estimates, a ggplot element plotting the recovery
   
   
-    ## add mean and variance from the Kalman Filter to the data frame
-    data$KLM0 <- NA
-    data$KLM1 <- NA
-    data$KLV0 <- NA
-    data$KLV1 <- NA
+   
     
-    
-    for (i in unique(paste(data$ID, data$block))){ 
-      dat <- subset(data, paste(data$ID, data$block) == i)
-      
-      # stable or fluctuating arms? -> get innovation variance based on this
-      
-      if (dat$cond[1] == "FS") {xi <- c(4,0)
-      } else if (dat$cond[1] == "SF") {xi <- c(0,4)
-      } else if (dat$cond[1] == "FF") {xi <- c(4,4)
-      } else if (dat$cond[1] == "SS") {xi <- c(0,0)}
-      
-      posterior <- kalman_learning(dat, 2, xi, 1)
-      
-      data$KLM0[paste(data$ID, data$block) == i] <- posterior$m_1[1:10]
-      data$KLM1[paste(data$ID, data$block) == i] <- posterior$m_2[1:10]
-      data$KLV0[paste(data$ID, data$block) == i] <- posterior$v_1[1:10]
-      data$KLV1[paste(data$ID, data$block) == i] <- posterior$v_2[1:10]
-      
-    }
-    
+    # prep dataframe
     trueParams <- data.frame(ID = unique(data$ID),
                              V = rep(NA, length(unique(data$ID))),
                              RU = rep(NA, length(unique(data$ID))),
@@ -252,75 +344,75 @@ recovery_sam <- function(data, model){
     trials <- max(data$trial)
     nsubs <- 1 # bc we do 1 subject at a time
     
-    data$V <- data$KLM0 - data$KLM1
-    data$RU <- getRU(data$KLV0, data$KLV1)
-    data$VTU <- data$V/(sqrt(data$KLV0 + data$KLV1))
     
+    ### fit model
+    if (hierarchical){
+      out <- fit_model_sam(data, model, T)
+      trueModel <- out[[1]]
+      trueParams <- out[[2]]
+    }
+    
+    simdatCollect <- data.frame()# for hierarchical model bc that one needs the simdat of all subjects at once
+    
+    ## iterate through subjects to simulate for each subject
     for (i in unique(data$ID)){
       if (i %% 10 == 0) {print(paste("subject", i, "of", max(data$ID)))}
       
-      if (model == "hybrid"){
-        trueModel <- glm(chosen ~ V+ RU + VTU,
-                         data = data[data$ID == i, ],
-                         family = binomial(link = "probit"))
+      ### fit model
+      if (!hierarchical){
+        out <- fit_model_sam(data[data$ID == i, ], model, F)
         
-      } else if (model == "UCB") {
-        trueModel <- glm(chosen ~ V+ RU,
-                         data = data[data$ID == i, ],
-                         family = binomial(link = "probit"))
-      }
-      
-      # save coefficients
-      trueParams$V[trueParams$ID == i] <- trueModel$coefficients[2]
-      trueParams$RU[trueParams$ID == i] <- trueModel$coefficients[3]
-      trueParams$converged[trueParams$ID == i] <- trueModel$converged
-      if (model == "hybrid"){
-        trueParams$VTU[trueParams$ID == i] <- trueModel$coefficients[4]
-      }
-      
-      # simulate data
-      
-      ##### create data
-      simdat <- sim_data_sam(data, trueModel, i)
-      
-      if (model == "hybrid") {
-        simModel <- glm(C ~ V+ RU + VTU,
-                        data = simdat,
-                        family = binomial(link = "probit"))
-      } else if (model == "UCB") {
-        simModel <- glm(C ~ V+ RU,
-                        data = simdat,
-                        family = binomial(link = "probit"))
+        trueParams[trueParams$ID == i, ] <- out[[2]]
+        trueModel <- out[[1]]
       }
       
       
-      simParams$V[simParams$ID == i] <- simModel$coefficients[2]
-      simParams$RU[simParams$ID == i] <- simModel$coefficients[3]
-      simParams$converged[simParams$ID == i] <- simModel$converged
+      ### simulate data
       
-      if (model == "hybrid") {
-        simParams$VTU[simParams$ID == i] <- simModel$coefficients[4]
-      }
+      # create data
+      simdat <- sim_data_sam(data, trueModel, i, hierarchical= hierarchical)
       
+      if (!hierarchical) { # if it's not hierarchical then we do this for every subject separately, otherwise only in end
+        simParams[simParams$ID == i, ] <- fit_model_sam(simdat, model, F)[[2]]
+      } else {simdatCollect <- rbind(simdatCollect, simdat)} # collect simdat for later for hierarchical model
+      
+
     }
     
-    
-    simParams$bothConverged <- ifelse(simParams$converged & trueParams$converged, T, F)
-    
-    trueParams$bothConverged <- simParams$bothConverged
-    
-    
-    # get correlations
     params <- c("RU", "V")
     if (model == "hybrid"){
       params[3] <- "VTU"
     }
-    cors <- data.frame(true = rep(params, length(params)),
-                       recovered =  rep(params, each = length(params)),
-                       cor = NA)
     
-    cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams[trueParams$bothConverged,grep(cors$true[x], colnames(trueParams))[1]],# converged rows, cols with correct variable name (first instance)
-                                                                 simParams[simParams$bothConverged, grep(cors$recovered[x], colnames(simParams))[1]]))
+    ## extract parameters for hierarchical
+    if (hierarchical){
+      simParams <- fit_model_sam(simdatCollect, model, T)[[2]]
+      
+      ### get correlations for hierarchical
+      
+      
+      cors <- data.frame(true = rep(params, length(params)),
+                         recovered =  rep(params, each = length(params)),
+                         cor = NA)
+      
+      cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$`colMeans(as.data.frame(posterior_samples(trueModel)))`[trueParams$predictor == cors$true[x]],
+                                                                   simParams$`colMeans(as.data.frame(posterior_samples(trueModel)))`[simParams$predictor == cors$recovered[x]]))
+      
+    } else {
+      
+      ## get correlations for subject-level
+      simParams$bothConverged <- ifelse(simParams$converged & trueParams$converged, T, F)
+      
+      trueParams$bothConverged <- simParams$bothConverged
+      
+      cors <- data.frame(true = rep(params, length(params)),
+                         recovered =  rep(params, each = length(params)),
+                         cor = NA)
+      
+      cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams[trueParams$bothConverged,grep(cors$true[x], colnames(trueParams))[1]],# converged rows, cols with correct variable name (first instance)
+                                                                   simParams[simParams$bothConverged, grep(cors$recovered[x], colnames(simParams))[1]]))
+        
+    }
     
     
     # plot them
