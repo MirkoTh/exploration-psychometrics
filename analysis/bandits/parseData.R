@@ -5,7 +5,7 @@ library(ggplot2)
 library(jsonlite)
 theme_set(theme_classic(base_size = 14))
 
-#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
 
 
 # select required directory by setting data_idx index
@@ -23,7 +23,7 @@ nTrialsH = 10
 nBlocksS = 30
 nTrialsS = 10
 
-nBlocksR = 1
+nBlocksR = 2
 nTrialsR = 200
 
 files = list.files(path = rel_dir_data_bandits)
@@ -32,19 +32,11 @@ files <- files[!grepl("temp", files)]
 lookup <- data.frame(PID = rep(NA, length(files)),
                      ID = 1:length(files))
 
-bonus <- data.frame(ID = rep(NA, length(files)),
+bonus <- data.frame(ID = 1:length(files),
                     TotalBonus = NA,
                     Horizon = NA,
                     Sam = NA,
                     Restless = NA)
-
-horizon <- data.frame(ID = rep(1:length(files), each = nBlocksH*nTrialsH),
-                      block = rep(rep(1:nBlocksH, each = nTrialsH), length(files)),
-                      trial = rep(1:nTrialsH, nBlocksH*length(files)),
-                      chosen = NA,
-                      reward = NA,
-                      rt = NA, 
-                      session = session)
 
 
 sam <- data.frame(ID = rep(1:length(files), each = nBlocksS*nTrialsS),
@@ -57,6 +49,7 @@ sam <- data.frame(ID = rep(1:length(files), each = nBlocksS*nTrialsS),
 
 
 restless <- data.frame(ID = rep(1:length(files), each = nTrialsR),
+                       block = rep(rep(1:nBlocksR, each = nTrialsR), length(files)),
                        trial = 1:nTrialsR,
                        chosen = NA,
                        reward = NA,
@@ -69,43 +62,18 @@ for (i in 1:length(files)){
   # add PID into lookup
   lookup$PID[i] <- temp$subjectID
 
-  ### Horizon task
-  for (block in 2:(nBlocksH+1)){# bc block 1 is practice
-    for (trial in 1:nTrialsH){
-      if (length(temp$horizon$choice[[block]]) < trial){next}
-      horizon$chosen[horizon$ID == i & horizon$block == block-1 & horizon$trial == trial] <- temp$horizon$choice[[block]][[trial]]
-      horizon$reward[horizon$ID == i & horizon$block == block-1 & horizon$trial == trial] <- temp$horizon$reward[[block]][[trial]]
-      horizon$rt[horizon$ID == i & horizon$block == block-1 & horizon$trial == trial] <- temp$horizon$time[[block]][[trial]]
-    }
-    horizon$info[horizon$ID == i & horizon$block == block-1] <- length(horizon$chosen[horizon$ID == i & horizon$block == block-1&horizon$chosen == 0 & horizon$trial < 5]) -
-      length(horizon$chosen[horizon$ID == i & horizon$block == block-1 & horizon$chosen == 1& horizon$trial < 5])
-
-
-  }
-
-  ### Sam's task
-  for (block in 2:(nBlocksS+1)){# bc block 1 is practice
-    for (trial in 1:nTrialsS){
-      sam$chosen[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$choice[[block]][[trial]]
-      sam$reward[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$reward[[block]][[trial]]
-      sam$rt[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$time[[block]][[trial]]
-    }
-
-  }
-
   ## restless
-  for (trial in 1:nTrialsR){
-    restless$chosen[restless$ID == i & restless$trial == trial] <- temp$restless$choice[[2]][[trial]]
-    restless$reward[restless$ID == i & restless$trial == trial] <- temp$restless$reward[[2]][[trial]]
-    restless$rt[restless$ID == i & restless$trial == trial] <- temp$restless$time[[2]][[trial]]
+  for (block in 1:nBlocksR){
+    for (trial in 1:nTrialsR){
+      restless$chosen[restless$ID == i & restless$trial == trial] <- temp$restless$choice[[2]][[trial]]
+      restless$reward[restless$ID == i & restless$trial == trial] <- temp$restless$reward[[2]][[trial]]
+      restless$rt[restless$ID == i & restless$trial == trial] <- temp$restless$time[[2]][[trial]]
+    }
   }
   
-  
-  
-}
+  bonus$Restless[bonus$ID == i] <- sum(restless$reward[restless$ID == i])
 
-# info condition should be coded as -1 0 1 but is now coded as -2 0 2 so fix that
-horizon$info <- horizon$info/2
+}
 
 
 ### save lookup
@@ -116,50 +84,11 @@ write.csv(lookup, file = str_c(str_remove(rel_dir_data_bandits, "[a-z]*/$"),  "B
 
 ############### calculate max rewards #########
 
-############## Horizon task
-
-## load the rewards
-
-rewardsH <- fromJSON(paste("task/rewardsHorizon", session, ".json", sep = ""))
-Hrewards <- data.frame(block = rep(1:(nBlocksH+1), each = nTrialsH),
-                       trial = rep(1:nTrialsH, nBlocksH+1),
-                       rew1 = NA,
-                       rew2 = NA)
-
-Horizon <-  fromJSON(paste("task/Horizon", session, ".json", sep = ""))
-
-Hrewards$horizon <- rep(Horizon, each = nTrialsH)
-
-for (block in 1:(nBlocksH+1)){# +1 bc there is the practice round too
-  for (trial in 1:nTrialsH){
-    if (trial > Hrewards$horizon[Hrewards$block == block & Hrewards$trial == trial]){next}
-    Hrewards$rew1[Hrewards$block == block & Hrewards$trial == trial]<-  rewardsH[block,trial,1]
-    Hrewards$rew2[Hrewards$block == block & Hrewards$trial == trial]<-  rewardsH[block,trial,2]
-  }
-}
-
-# calculate max reward
-
-Hrewards$max <- ifelse(Hrewards$rew1 > Hrewards$rew2, Hrewards$rew1, Hrewards$rew2)
-
-maxHorizon <- sum(Hrewards$max, na.rm = T)
-
-########### Sam's task
-load(paste("task/rewardsSam", session, ".Rda", sep = ""))
-Srewards <- rewards
-
-# calculate max reward
-
-#Srewards$max <- ifelse(Srewards$rew1 > Srewards$rew2, Srewards$rew1, Srewards$rew2)
-Srewards$max <- ifelse(Srewards$reward1 > Srewards$reward2, Srewards$reward1, Srewards$reward2)
-
-maxSam <- sum(Srewards$max, na.rm = T)
-
 
 ####### Restless
 
 
-rewardsR <- fromJSON(paste("task/rewards4ARB", session, ".json", sep = ""))
+rewardsR <- fromJSON(paste("pilot4arb/rewards4ARB", session, ".json", sep = ""))
 Rrewards <- data.frame(block = rep(1:(nBlocksR+1), each = nTrialsR),
                        trial = rep(1:nTrialsR, nBlocksR+1),
                        rew1 = NA,
@@ -184,8 +113,11 @@ Rrewards$max <- apply(as.array(Rrewards$row), 1, function(x) max(Rrewards[x,3:6]
 
 maxRestless <- sum(Rrewards$max, na.rm = T)
 
+bonus$Restless <- bonus$Restless /maxRestless
 
-save(maxHorizon, maxSam, maxRestless, file = "task/maxRewards.Rda")
+bonus$TotalBonus <- bonus$Restless * 2
+
+save(maxRestless, file = "pilot4arb/maxRewards.Rda")
 
 
 ################# get ground truth variables ###############
