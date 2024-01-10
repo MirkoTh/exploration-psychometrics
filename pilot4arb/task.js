@@ -458,7 +458,7 @@ function horizonTask() {
 
     document.getElementById('task').style.display = 'none';
     
-    document.getElementById('instructions').firstElementChild.innerHTML = "Game "+task_ind+" Instructions"
+    document.getElementById('instructions').firstElementChild.innerHTML = "Instructions"
 
     if (comprehensionAttemptsH > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
 
@@ -653,15 +653,15 @@ function restlessTask() {
 
     document.getElementById('task').style.display = 'none';
 
-    document.getElementById('instructions').firstElementChild.innerHTML ="Game "+task_ind+" Instructions"
+    document.getElementById('instructions').firstElementChild.innerHTML ="Instructions"
     if (comprehensionAttemptsR > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
 
     startPracticeButton.innerHTML = "Start Practice Round";
     startPracticeButton.style.display = 'block';
 
     document.getElementById('instructions').style.display = 'block';
-    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time."+
-    " The rewards from all slot machines change over time so a slot machine that gives low rewards at first can give high rewards later on and vice-versa. You can choose any machine at any time. In this game, you will only play two rounds consisting of "+ 
+    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time"+
+    " so a slot machine that gives low rewards at first can give high rewards later on and vice-versa. You will play two rounds consisting of "+ 
     NtrialsCollect[1] +" choices. <br> You can select the machines using the S, D, K and L keys, as indicated above the slot machines. <br> Click the button below to start a practice round.";
 
 
@@ -1044,7 +1044,7 @@ endTaskButton.addEventListener('click', () => {
     // Hide task trials and display completion message
 
     setTimeout(function () { 
-          window.location.href = "cpilab.org";  
+          window.location.href = "https://app.prolific.com/submissions/complete?cc=CPJHHTH5";  
           }, 500)
     
 });
