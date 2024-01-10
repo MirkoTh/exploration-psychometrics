@@ -312,6 +312,37 @@ function createDemographics() {
         
             sexQuestion = createQuestion('Sex', qDataSex);
             document.getElementById('questionnaires').appendChild(sexQuestion);
+
+            // feedback
+
+            var feedForm = document.createElement("form");
+            feedForm.setAttribute('method',"post");
+            feedForm.setAttribute('id', "feedback");
+            feedForm.setAttribute("name", "form_");
+
+            var feedFieldSet = document.createElement("fieldset");
+            feedFieldSet.setAttribute("class", "form__options");
+            feedFieldSet.setAttribute('id', "feedback");
+            feedFieldSet.setAttribute("name", "fs_");
+
+            var legendBack = document.createElement("legend");
+            legendBack.setAttribute("class", "questionDemo");
+            legendBack.append("Do you have any feedback to us about this study? (If not, please type 'no')");
+            legendBack.setAttribute("name", "legend");
+            legendBack.name = 'question';
+
+            feedFieldSet.appendChild(legendBack);
+
+            var feedbox = document.createElement("input");
+            feedbox.setAttribute("class", "textEntry");
+            feedbox.setAttribute("type", "text");
+            feedbox.setAttribute("id", "feedback");
+            feedbox.name = 'question';
+
+            feedFieldSet.appendChild(feedbox);
+
+            feedForm.appendChild(feedFieldSet);
+            document.getElementById('questionnaires').appendChild(feedForm);
         
         
             // Age
@@ -386,36 +417,6 @@ function createDemographics() {
             incomeQuestion = createQuestion('income', qDataIncome);
             document.getElementById('questionnaires').appendChild(incomeQuestion);
 
-            // feedback
-
-            var feedForm = document.createElement("form");
-            feedForm.setAttribute('method',"post");
-            feedForm.setAttribute('id', "feedback");
-            feedForm.setAttribute("name", "form_");
-
-            var feedFieldSet = document.createElement("fieldset");
-            feedFieldSet.setAttribute("class", "form__options");
-            feedFieldSet.setAttribute('id', "feedback");
-            feedFieldSet.setAttribute("name", "fs_");
-
-            var legendBack = document.createElement("legend");
-            legendBack.setAttribute("class", "questionDemo");
-            legendBack.append("Do you have any feedback to us about this study? (If not, please type 'no')");
-            legendBack.setAttribute("name", "legend");
-            legendBack.name = 'question';
-
-            feedFieldSet.appendChild(legendBack);
-
-            var feedbox = document.createElement("input");
-            feedbox.setAttribute("class", "textEntry");
-            feedbox.setAttribute("type", "text");
-            feedbox.setAttribute("id", "feedback");
-            feedbox.name = 'question';
-
-            feedFieldSet.appendChild(feedbox);
-
-            feedForm.appendChild(feedFieldSet);
-            document.getElementById('questionnaires').appendChild(feedForm);
         }
 
 function getValues() {
@@ -476,7 +477,7 @@ function getValues() {
                 incomplete.push(id);
             }
 
-            values[id] = parseInt(values[id]);
+            values[id] = values[id];
         }
 
     }
