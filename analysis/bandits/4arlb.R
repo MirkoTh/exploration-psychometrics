@@ -11,7 +11,9 @@ dirs_homegrown <- c(
 )
 walk(dirs_homegrown, source)
 
-idx_dir <- 2
+idx_dir <- 1
+stim_set_id <- 2 # intial prolific pilot with difficult stim [1] set or second pilot where we tested 2 stim sets [2]
+file_name_prolific <- c("bandits.Rda", "pilot4bandits.Rda")[stim_set_id]
 dir_data_rel <- c("data/pilot/", "data/2023-11-lab-pilot/", "data/open-data/speekenbrink-konstantinidis-2015-recovery.csv")[idx_dir]
 is_prolific_pilot <- idx_dir == 1
 
@@ -19,10 +21,13 @@ if (str_detect(dir_data_rel, "speekenbrink")) {
   tbl_restless <- readRDS(dir_data_rel)
   tbl_restless$ID <- tbl_restless$id2
 } else {
-  load(file = str_c(dir_data_rel, "bandits.Rda"))
+  load(file = str_c(dir_data_rel, file_name_prolific))
   tbl_restless <- as_tibble(restless)
+  if (stim_set_id == 1) {
+    tbl_restless$block <- 1
+  }
   tbl_restless <- tbl_restless %>%
-    group_by(ID, trial) %>%
+    group_by(ID, trial, block) %>%
     mutate(
       max_reward_trial = pmax(reward1, reward2, reward3, reward4),
       is_max = reward == max_reward_trial,
@@ -38,7 +43,7 @@ if (str_detect(dir_data_rel, "speekenbrink")) {
 
 
 if (is_prolific_pilot) {
-  tbl_4arlb_performance <- grouped_agg(tbl_restless, c(ID, session), is_max) %>% 
+  tbl_4arlb_performance <- grouped_agg(tbl_restless, c(ID, block, session), is_max) %>% 
     ungroup() %>%
     rename(prop_correct_4arlb = mean_is_max)
   
@@ -116,7 +121,7 @@ l_inits <- list()
 n_init_vals <- 2
 
 
-l_tbl_results <- split(tbl_results, tbl_results$ID)
+l_tbl_results <- split(tbl_results, interaction(tbl_results$ID, tbl_results$block, sep = "_"))
 tbl_learned <- kalman_learning(l_tbl_results[[1]], nr_options, sigma_xi_sq, sigma_epsilon_sq)
 
 tbl_learned %>% 
@@ -132,11 +137,15 @@ tbl_learned %>%
   ggplot(aes(name, trial_id)) +
   geom_tile(aes(fill = is_max))
 
+# fit_ucb_no_variance_wrapper(tbl_results = l_tbl_results[[1]], tbl_rewards = NULL, condition_on_observed_choices = TRUE,
+#                             sigma_xi_sq = sigma_xi_sq, sigma_epsilon_sq = sigma_epsilon_sq,
+#                             bds = bds, params_init = params_init)
 t_start <- Sys.time()
 future::plan(future::multisession, workers = future::availableCores() - 2)
 
+
 for (i in 1:n_init_vals) {
-  params_init <- c(runif(1, bds$gamma$lo, bds$gamma$hi), runif(1, bds$beta$lo, bds$beta$hi))
+  params_init <- c(runif(1, bds$gamma$lo, bds$gamma$hi), runif(1, bds$beta$lo/2, bds$beta$hi/2))
   l_fit_ucb <- furrr::future_map(
     l_tbl_results, fit_ucb_no_variance_wrapper, 
     tbl_rewards = NULL, 
@@ -166,26 +175,29 @@ beepr::beep()
 t_end <- Sys.time()
 round(t_end - t_start, 1)
 
+n_blocks <- max(tbl_restless$block)
 tbl_fits_ucb <- map2(
   l_fits_ucb, 1:length(l_fits_ucb), 
-  ~ reduce(.x, rbind) %>% as.data.frame() %>% mutate(it = .y, ID = 1:length(unique(tbl_results$ID))) %>%
+  ~ reduce(.x, rbind) %>% as.data.frame() %>% 
+    mutate(it = .y, ID = rep(1:length(unique(tbl_results$ID)), n_blocks), block = rep(1:n_blocks, each = length(unique(tbl_results$ID)))) %>%
     rename(sum_ll = V3, beta = V2, gamma = V1) %>%
     relocate(ID, .before = gamma)
 ) %>% reduce(rbind) %>%
   arrange(ID) %>%
-  group_by(ID) %>%
+  group_by(ID, block) %>%
   mutate(rank = row_number(sum_ll)) %>%
   ungroup() %>%
   filter(rank == 1)
 
 tbl_fits_sm <- map2(
   l_fits_sm, 1:length(l_fits_sm), 
-  ~ reduce(.x, rbind) %>% as.data.frame() %>% mutate(it = .y, ID = 1:length(unique(tbl_results$ID))) %>%
+  ~ reduce(.x, rbind) %>% as.data.frame() %>% 
+    mutate(it = .y, ID = rep(1:length(unique(tbl_results$ID)), n_blocks), block = rep(1:n_blocks, each = length(unique(tbl_results$ID)))) %>%
     rename(sum_ll = V2, gamma = V1) %>%
     relocate(ID, .before = gamma)
 ) %>% reduce(rbind) %>%
   arrange(ID) %>%
-  group_by(ID) %>%
+  group_by(ID, block) %>%
   mutate(rank = row_number(sum_ll)) %>%
   ungroup() %>%
   filter(rank == 1)
@@ -193,7 +205,7 @@ tbl_fits_sm <- map2(
 
 tbl_both <- 
   tbl_fits_sm %>%
-  left_join(tbl_fits_ucb, by = "ID", suffix = c("_sm", "_ucb")) %>%
+  left_join(tbl_fits_ucb, by = c("ID", "block"), suffix = c("_sm", "_ucb")) %>%
   mutate(
     bic_ucb = sum_ll_ucb + 2*log(nrow(l_tbl_results[[1]])), 
     aic_ucb = sum_ll_ucb + 4,
@@ -209,7 +221,7 @@ tbl_both %>%
 tbl_both %>% count(ucb_wins_aic)
 tbl_both %>% count(ucb_wins_bic)
 
-ggplot(tbl_fits_sm %>% left_join(tbl_fits_ucb, by = "ID", suffix = c("_sm", "_ucb")), aes(gamma_sm, gamma_ucb)) +
+ggplot(tbl_fits_sm %>% left_join(tbl_fits_ucb, by = c("ID", "block"), suffix = c("_sm", "_ucb")), aes(gamma_sm, gamma_ucb)) +
   geom_abline() +
   geom_point()
 
@@ -244,7 +256,8 @@ for (tau in tbl_fits_ucb$gamma) {
   tbl_softmax <- rbind(
     tbl_softmax, 
     tibble(
-      ID = id_count,
+      ID = tbl_fits_ucb$ID[id_count],
+      block = tbl_fits_ucb$block[id_count],
       m = m1,
       p = prob1 / (prob1 + prob2)
     )
@@ -252,11 +265,33 @@ for (tau in tbl_fits_ucb$gamma) {
   id_count <- id_count + 1
 }
 
-ggplot(tbl_softmax, aes(m, p, group = as.factor(ID))) + 
-  geom_line(aes(alpha = as.factor(ID))) + 
+ggplot(tbl_softmax, aes(m, p, group = interaction(ID, block, sep = "_block="))) + 
+  geom_line(aes(alpha = interaction(ID, block, sep = "_block="))) + 
   scale_x_continuous(breaks = seq(0, 100, by = 5)) +
+  guides(alpha = "none") +
   coord_cartesian(ylim = c(0, 1))
 
 ggplot(tbl_fits_ucb, aes(gamma, beta)) +
-  geom_point()
+  geom_hline(yintercept = 0, linetype = "dotdash", alpha = .3, linewidth = 1) +
+  ggrepel::geom_text_repel(aes(label = interaction(ID, block, sep = "_"))) +
+  coord_cartesian(ylim = c(-5, 5)) +
+  theme_bw() +
+  labs(x = "Gamma", y = "Beta") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  )
+
 cor(tbl_fits_ucb$gamma, tbl_fits_ucb$beta)
+
+
+tbl_both %>% left_join(tbl_4arlb_performance, by = c("ID", "block")) %>%
+  pivot_longer(c(gamma_ucb, beta)) %>%
+  ggplot(aes(prop_correct_4arlb, value, group = interaction(ID, block))) +
+  geom_vline(xintercept = .25, linetype = "dotdash", alpha = .3, linewidth = 1) +
+  geom_text(aes(label = interaction(ID, block, sep = "_"))) +
+  facet_wrap(~ name, scales = "free_y") +
+  theme_bw() +
+  labs(x = "Prop. Correct", y = "Parameter Value") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  )
