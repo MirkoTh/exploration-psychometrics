@@ -299,6 +299,85 @@ json = toJSON(ls)
 
 write(json, paste("../task/rewards4ARB", session_id, ".json", sep = ""))
 
+
+######### gen rewards for testing the "random" walks
+
+my_two_seeds <- c(997733, 49015499)
+set.seed(my_two_seeds[1])
+mu_init <- rnorm(4, 50, 3)
+tbl_4a_rlb1 <- generate_restless_bandits(
+  sigma_xi_sq = 7.84, sigma_epsilon_sq = 16, mu1 = mu_init, 
+  lambda = .9836, nr_trials = 200, center_decay = 50
+)
+
+ggplot(tbl_4a_rlb1 %>% pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)), aes(trial_id, value, group = name)) +
+  geom_line(aes(color = name), size = .75) +
+  scale_color_viridis_d(name = "") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  labs(x = "Trial ID", y = "Reward")
+
+
+# second random walk
+
+set.seed(my_two_seeds[2])
+mu_init <- rnorm(4, 50, 3)
+tbl_4a_rlb2 <- generate_restless_bandits(
+  sigma_xi_sq = 7.84, sigma_epsilon_sq = 16, mu1 = mu_init, 
+  lambda = .9836, nr_trials = 200, center_decay = 50
+)
+
+ggplot(tbl_4a_rlb2 %>% pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)), aes(trial_id, value, group = name)) +
+  geom_line(aes(color = name), size = .75) +
+  scale_color_viridis_d(name = "") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  labs(x = "Trial ID", y = "Reward")
+
+
+## make practice trials
+
+tbl_4a_rlb_practice <- generate_restless_bandits(
+  sigma_xi_sq = 7.84, sigma_epsilon_sq = 16, mu1 = mu_init, 
+  lambda = .9836, nr_trials = 200, center_decay = 50
+)
+
+tbl_4a_rlb1$block <- 2
+tbl_4a_rlb2$block <- 3
+tbl_4a_rlb_practice$block <- 1
+tbl_4a_rlb_practice <- subset(tbl_4a_rlb_practice, trial_id >= 100)
+tbl_4a_rlb_practice$trial_id <- 1:nrow(tbl_4a_rlb_practice)
+
+rewards <- rbind(tbl_4a_rlb_practice, tbl_4a_rlb1, tbl_4a_rlb2)
+
+## save as json
+nBlocks <- 3 # 1 for practice, 2 walks we are testing
+nTrials <- c(10,200, 200)# first is practice
+
+ls = list()
+for (i in 1:nBlocks){
+  block = list()
+  for (j in 1:nTrials[i]){
+    re <- c(round(rewards$`Arm 1`[rewards$block == i & rewards$trial_id == j]), 
+            round(rewards$`Arm 2`[rewards$block == i & rewards$trial_id == j]),
+            round(rewards$`Arm 3`[rewards$block == i & rewards$trial_id == j]),
+            round(rewards$`Arm 4`[rewards$block == i & rewards$trial_id == j]))
+    block[[j]] <- re
+    
+  }
+  ls[[i]] <- block
+}
+
+
+library(jsonlite)
+
+json = toJSON(ls)
+
+write(json, paste("../pilot4arb/rewards4ARB", session_id, ".json", sep = ""))
+
+
 # Sam's task -------------------------------------------------------------
 
 

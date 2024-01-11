@@ -1,0 +1,750 @@
+.column {
+    float: left;
+    width: 50%;
+  }
+  
+  /* Clear floats after the columns */
+  .row:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+
+.button-container {
+    display: flex; /* Use flexbox to arrange buttons horizontally */
+    gap: 10px; /* Add some space between buttons */
+    padding: 30px; /* Add some space around buttons */
+    font-family: 'Cabin', sans-serif;
+
+}
+
+
+
+
+/* copied from Toby Wise -----------------------------------------------------------------------*/
+
+
+@import url('https://fonts.googleapis.com/css?family=Merriweather:700|Roboto');
+@import url("https://fonts.googleapis.com/css?family=Nunito+Sans");
+@import url("https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,900");
+@import url("https://fonts.googleapis.com/css?family=Calistoga&display=swap0");
+@import url("https://fonts.googleapis.com/css?family=Cabin&display=swap");
+@import url("https://fonts.googleapis.com/css?family=Merriweather&display=swap");
+@import url("https://fonts.googleapis.com/css?family=Roboto+Condensed&display=swap");
+
+/* div {
+	/* color: rgb(26, 26, 26);
+	font-family: sans-serif;
+	font-size: 14px;
+	line-height: 1.5;
+	width: 100%;
+	height: 100%;
+	margin: auto;
+	position: absolute; 
+	height: 100%;
+	position: absolute;
+} */
+
+#mainSection {
+	position: relative
+}
+
+
+#instructions {
+  position: relative;
+  width: 70%;
+  /* height: 40vh; */
+  margin: 40px auto 40px auto;
+  font-size: 18px;
+  font-family: 'Cabin', sans-serif;
+  font-weight: 50;
+}
+
+h1 {
+  font-family: 'Roboto Condensed', sans-serif;
+  font-weight: 1000;
+  font-size: 50px;
+  padding: 0 30px 0 30px ;
+}
+
+h2 {
+  font-family: 'Cabin', sans-serif;
+  font-weight: 200;
+  font-size: 23px;
+  padding: 0 10px 0 10px; 
+}
+
+.machine_header {
+  font-family: 'Cabin', sans-serif;
+  font-weight: 200;
+  font-size: 20px;
+  padding: 10px 10px 10px 10px;
+}
+
+.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  /* width: 50%; */
+}
+
+#instructionContainer {
+  display: flex;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 20vh;
+  align-items: center;
+  /* justify-content: center; */
+  transition: min-height 1s ease-in-out;
+  background-color: #f3f3f39b;
+  flex-direction: column;
+  /* box-shadow: 10px 10px 5px rgb(212, 212, 212); */
+}
+
+#instructionContent {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+#instructionHeading {
+  height: 2vh;
+  margin-left: 20px;
+  margin-top: 20px;
+  align-self: flex-start;
+  font-family: 'Roboto Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 25px;
+  color: rgb(0, 94, 218)
+}
+
+#instructionText {
+  flex: 70%;
+  margin: 20px;
+  /* width: 70%; */
+}
+
+
+
+.button:hover {
+    background-color: rgb(161, 205, 255);
+}
+
+.button:active {
+    background-color: rgb(192, 220, 252);
+}
+
+.score {
+  position: relative;
+  width: 400px;
+  height: 25px;
+  margin-bottom: 250px;
+  font-family: 'Cabin', sans-serif;
+}
+
+
+#textcontainer {
+  width: 60%;
+  height: 60%;
+  margin: auto;
+  position: relative;
+  font-family: 'Cabin', sans-serif;
+  resize: vertical;
+}
+
+/* Custon bits */
+hr.style {
+	border-top: 1px dotted #8c8b8b;
+  }
+  
+  .row {
+	display: flex;
+	flex-wrap:  nowrap;
+	padding: 4px 4px;
+	width: 35%;
+	flex-direction: row;
+	margin: auto;
+	margin-bottom: 2%;
+	justify-content: center;
+  }
+  
+  .column {
+	flex: 20%;
+	padding: 0 4px;
+	/* width: 50px; */
+	position: relative;
+	min-width: 120px;
+  }
+  
+  .column img {
+	margin-top: 8px;
+	vertical-align: middle;
+	max-width: 100%;
+  }
+  
+  .imageNumber {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-family: 'Nunito Sans', 'Arial', sans-serif;
+	color: black;
+	font-size: 5vw;
+	font-weight: 900;
+	-webkit-text-fill-color: white; /* Will override color (regardless of order) */
+	-webkit-text-stroke-width: 0.2vw;
+	-webkit-text-stroke-color: black;
+  }
+  
+  .outcome_text {
+	font-family: 'Nunito Sans', 'Arial', sans-serif;
+	font-size: 2vw;
+  }
+  
+  .form__header {
+	font-family: 'Nunito Sans', 'Arial', sans-serif;
+	margin-bottom: 25px;
+	border-bottom: 1px dashed rgba(48, 48, 48, 0.15);
+  height: auto;
+  width: 50%;
+  margin: auto;
+  }
+  
+  .mainInstructions {
+	font-family: 'Nunito Sans', 'Arial', sans-serif;
+	width: 50%;
+	margin: 20px auto;
+	/* background-color: #efefef; */
+	/*margin-top: 100px;*/
+	text-align: center;
+	font-size: 18px;
+	color: #303030;
+  }
+  
+  /* Form Styles */
+  .form {
+	  max-width: 800px;
+	  margin: 60px auto;
+	  padding-bottom: 500px;
+  }
+  
+  .submit_form {
+	  max-width: 610px;
+	  margin: 0 0 120px 0;
+  }
+
+
+input[type="radio"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+input[type="radio"]:active ~ label {
+    opacity: 1;
+}
+
+input[type="radio"]:checked ~ label {
+    opacity: 1;
+    border: 1px solid #303030;
+}
+  
+  /* Customize the label (the container) */
+  .container2 {
+	display: block;
+	position: relative;
+	padding-left: 35px;
+	margin-bottom: 12px;
+	cursor: pointer;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	color: #303030;
+  }
+  
+  /* Hide the browser's default checkbox */
+  .container2 input {
+	position: absolute;
+	opacity: 0;
+	cursor: pointer;
+  }
+  
+  /* Create a custom checkbox */
+  .checkmark {
+	position: absolute;
+	top: 40%;
+	left: 0;
+	height: 25px;
+	width: 25px;
+	background-color: #eee;
+  }
+  
+  /* On mouse-over, add a grey background color */
+  .container2:hover input ~ .checkmark {
+	background-color: #ccc;
+  }
+  
+  /* When the checkbox is checked, add a blue background */
+  .container2 input:checked ~ .checkmark {
+	background-color: #2196F3;
+  }
+  
+  /* Create the checkmark/indicator (hidden when not checked) */
+  .checkmark:after {
+	content: "";
+	position: absolute;
+	display: none;
+  }
+  
+  /* Show the checkmark when checked */
+  .container2 input:checked ~ .checkmark:after {
+	display: block;
+  }
+  
+  /* Style the checkmark/indicator */
+  .container2 .checkmark:after {
+	left: 9px;
+	top: 5px;
+	width: 5px;
+	height: 10px;
+	border: solid white;
+	border-width: 0 3px 3px 0;
+	-webkit-transform: rotate(45deg);
+	-ms-transform: rotate(45deg);
+	transform: rotate(45deg);
+  }
+  
+  /* Container holding jsPsych content */
+  
+   .jspsych-display-element {
+	 display: flex;
+	 flex-direction: column;
+	 overflow-y: auto;
+   }
+  
+   .jspsych-display-element:focus {
+	 outline: none;
+   }
+  
+   .jspsych-content-wrapper {
+	 display: flex;
+	 margin: 50px auto;
+	 flex: 1 1 100%;
+	 width: 60%;
+   }
+  
+   .jspsych-content {
+	 max-width: 95%; /* this is mainly an IE 10-11 fix */
+	 width: 95%;
+	 text-align: center;
+	 margin: auto; /* this is for overflowing content */
+   }
+  
+   .jspsych-top {
+	 align-items: flex-start;
+   }
+  
+   .jspsych-middle {
+	 align-items: center;
+   }
+  
+  
+   .form__title {
+	font-size: 35px;
+	margin: 2px 0;
+  }
+  
+  .form__instruction {
+	font-size: 22px;
+  }
+  
+  .preamble {
+	font-size: 18px;
+  }
+  
+  .form__options {
+	border: none;
+	padding: 0 0 50px 0;
+  position: relative;
+  width: 100%;
+  margin: 40px auto 40px auto;
+  font-size: 18px;
+  font-family: 'Cabin', sans-serif;
+  font-weight: 50;
+  }
+  
+  .form__question {
+	font-size: 25px;
+  position: relative;
+  width: 100%;
+  margin: 40px auto 40px auto;
+  font-size: 18px;
+  font-family: 'Cabin', sans-serif;
+  font-weight: 50;
+  }
+  
+  
+  .form__answer {
+    display: block;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    /* height: 50px; */
+    vertical-align: middle;
+    font-size: 22px;
+    text-align: center;
+    color: #0092ff;
+    padding: 10px 10px 10px 10px
+}
+  
+  .submitContainer {
+	margin: 0 0 150px 0;
+  }
+  
+  .submit_button {
+	display: block;
+	height: 60px;
+	width: 200px;
+	border: none;
+	background-color: #005da9;
+	color: #f5f5f5;
+	/* text-transform: uppercase; */
+	font-family: 'Nunito Sans', sans-serif;
+	padding: 0 20px;
+	border-radius: 20px;
+	/* font-weight: 900; */
+	cursor: pointer;
+	margin: auto;
+	-webkit-transition: all .25s ease-in-out;
+	transition: all .25s ease-in-out;
+	font-size: 22px;
+	outline: none;
+  }
+  .submit_button:hover, .submit:focus {
+	background-color: #008aff;
+	text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.25);
+	outline: none;
+  }
+  
+  .bold_text {
+	font-weight: bold;
+  }
+  
+  .small_text {
+	font-size: 15px;
+  }
+  
+  
+  textarea {
+	font-size: 20px;
+	font-family: 'Source Sans Pro', sans-serif;
+	text-align: center;
+	vertical-align: middle;
+  }
+  
+  label {
+	border: 1px solid rgba(48, 48, 48, 0.15);
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+	display: block;
+	height: 100%;
+	width: 100%;
+	/* padding: 30px 10px 30px 10px; */
+  padding: 10px;
+	cursor: pointer;
+	vertical-align: middle;
+	/*opacity: .5;*/
+	-webkit-transition: all .5s ease;
+	transition: all .5s ease;
+	background-color: #f5f5f5;
+  }
+  label:hover, label:focus, label:active {
+	border: 1px solid rgba(48, 48, 48, 0.5);
+  }
+  
+  
+  /* fonts and type */
+  
+  .jspsych-display-element {
+	font-family: 'Nunito Sans', 'Arial', sans-serif;
+	font-size: 18px;
+	line-height: 1.6em;
+  }
+  
+  /* Form elements like input fields and buttons */
+  
+  .jspsych-display-element input[type="text"] {
+	font-family: 'Nunito Sans', 'Arial', sans-serif;
+	font-size: 14px;
+  }
+  
+  /* borrowing Bootstrap style for btn elements, but combining styles a bit */
+  .jspsych-btn {
+	display: inline-block;
+	padding: 6px 12px;
+	margin: 0px;
+	font-size: 14px;
+	font-weight: 400;
+	font-family: 'Nunito Sans', 'Arial', sans-serif;
+	cursor: pointer;
+	line-height: 1.4;
+	text-align: center;
+	white-space: nowrap;
+	vertical-align: middle;
+	background-image: none;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	color: #333;
+	background-color: #fff;
+	border-color: #ccc;
+  }
+  
+  .jspsych-btn:hover {
+	background-color: #ddd;
+	border-color: #aaa;
+  }
+  
+  .jspsych-btn:disabled {
+	background-color: #eee;
+	color: #aaa;
+	border-color: #ccc;
+	cursor: not-allowed;
+  }
+  
+  /* jsPsych progress bar */
+  
+  #jspsych-progressbar-container {
+	color: #555;
+	border-bottom: 1px solid #dedede;
+	background-color: #f9f9f9;
+	margin-bottom: 1em;
+	text-align: center;
+	padding: 8px 0px;
+	width: 100%;
+	line-height: 1em;
+  }
+  #jspsych-progressbar-container span {
+	font-size: 14px;
+	padding-right: 14px;
+  }
+  #jspsych-progressbar-outer {
+	background-color: #eee;
+	width: 50%;
+	margin: auto;
+	height: 14px;
+	display: inline-block;
+	vertical-align: middle;
+	box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+  }
+  #jspsych-progressbar-inner {
+	background-color: #aaa;
+	width: 0%;
+	height: 100%;
+  }
+  
+  /* Control appearance of jsPsych.data.displayData() */
+  #jspsych-data-display {
+	text-align: left;
+  }
+  
+   /* SLIDERS */
+   input[type=range] {
+    -webkit-appearance: none;
+    margin: 18px 0;
+    width: 100%;
+  }
+  input[type=range]:focus {
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8.4px;
+    cursor: pointer;
+    animate: 0.2s;
+    box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+    background: #3071a9;
+    border-radius: 1.3px;
+    border: 0.2px solid #010101;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+    border: 1px solid #000000;
+    height: 36px;
+    width: 36px;
+    border-radius: 3px;
+    background: #ffffff;
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -14px;
+  }
+  input[type=range]:focus::-webkit-slider-runnable-track {
+    background: #367ebd;
+  }
+  input[type=range]::-moz-range-track {
+    width: 100%;
+    height: 8.4px;
+    cursor: pointer;
+    animate: 0.2s;
+    box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+    background: #3071a9;
+    border-radius: 1.3px;
+    border: 0.2px solid #010101;
+  }
+  input[type=range]::-moz-range-thumb {
+    box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+    border: 1px solid #000000;
+    height: 36px;
+    width: 36px;
+    border-radius: 3px;
+    background: #ffffff;
+    cursor: pointer;
+  }
+  input[type=range]::-ms-track {
+    width: 100%;
+    height: 8.4px;
+    cursor: pointer;
+    animate: 0.2s;
+    background: transparent;
+    border-color: transparent;
+    border-width: 16px 0;
+    color: transparent;
+  }
+  input[type=range]::-ms-fill-lower {
+    background: #2a6495;
+    border: 0.2px solid #010101;
+    border-radius: 2.6px;
+    box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  }
+  input[type=range]::-ms-fill-upper {
+    background: #3071a9;
+    border: 0.2px solid #010101;
+    border-radius: 2.6px;
+    box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  }
+  input[type=range]::-ms-thumb {
+    box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+    border: 1px solid #000000;
+    height: 36px;
+    width: 36px;
+    border-radius: 3px;
+    background: #ffffff;
+    cursor: pointer;
+  }
+  input[type=range]:focus::-ms-fill-lower {
+    background: #3071a9;
+  }
+  input[type=range]:focus::-ms-fill-upper {
+    background: #367ebd;
+  }
+
+
+  #quizContainer {
+    width: 100%;
+    margin: auto;
+    position: relative;
+  }
+
+  #quiz {
+    position: relative;
+    padding-bottom: 0;
+  }
+
+  #submitContainer {
+    display: flex;
+    height: 0;
+    position: relative;
+    padding-bottom: 500px;
+  }
+
+  #submitComp {
+    margin: auto;
+    width: 40%;
+  }
+
+
+  .slidecontainer {
+    display: flex;
+    height: 150px;
+    width: 100%; /* Width of the outside container */
+    margin: 40px 0 0 0;
+    box-shadow: none;
+}
+
+.sliderLabel {
+    /*display:inline-block;*/
+    flex-grow: 0.5;
+    height: 20px;
+    width: auto;
+    font-size:20px;
+    margin: 0;
+    text-align: center;
+    line-height: 30px;
+    border: none;
+    box-shadow: none;
+}
+
+/* The slider itself */
+.slider {
+    /*display:inline-block;*/
+    flex-grow: 1;
+    -webkit-appearance: none;  /* Override default CSS styles */
+    width: 50%; /* Full-width */
+    height: 50px; /* Specified height */
+    background: #efefef; /* Grey background */
+    outline: none; /* Remove outline */
+    opacity: 0.7; /* Set transparency (for mouse-over effects on hover) */
+    -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+    transition: opacity .2s;
+    /*margin: 30px 0 0 0 ;*/
+    margin: 0;
+    box-shadow: none;
+}
+
+/* Mouse-over effects */
+.slider:hover {
+    opacity: 1; /* Fully shown on mouse-over */
+    box-shadow: none;
+}
+
+.slider::-webkit-slider-thumb {
+    box-shadow: none;
+    border: none;
+    height: 36px;
+    width: 5px;
+    border-radius: 0px;
+    background: #0063b9;
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -14px;
+}
+
+.slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8.4px;
+    cursor: pointer;
+    background: #cbcbcb;
+    border-radius: 1.3px;
+    border: none;
+    margin: auto;
+    box-shadow: none;
+}
+
+.slider::-moz-range-thumb {
+    width: 25px; /* Set a specific slider handle width */
+    height: 50px; /* Slider handle height */
+    background: #0063b9; /* Green background */
+    cursor: pointer; /* Cursor on hover */
+}
+
+.slider::-moz-range-track {
+    width: 100%;
+    height: 8.4px;
+    cursor: pointer;
+    box-shadow: none;
+    background: #3071a9;
+    border-radius: 1.3px;
+    border: none;
+}
