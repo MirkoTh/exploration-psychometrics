@@ -248,10 +248,7 @@ ggplot(tbl_4a_rlb %>% pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)), aes(t
 
 ## make practice trials
 
-tbl_4a_rlb_practice <- generate_restless_bandits(
-  sigma_xi_sq = 7.84, sigma_epsilon_sq = 16, mu1 = mu_init, 
-  lambda = .9836, nr_trials = 200, center_decay = 50
-)
+tbl_4a_rlb_practice <- tbl_4a_rlb
 
 tbl_4a_rlb$block <- 2
 tbl_4a_rlb_practice$block <- 1
