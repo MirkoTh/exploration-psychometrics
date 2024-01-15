@@ -693,8 +693,8 @@ function restlessTask() {
     startPracticeButton.style.display = 'block';
 
     document.getElementById('instructions').style.display = 'block';
-    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time. In this game, you can also loose some rewards you collected before, if you choose a slot machine that gives a negative reward at that point in time."+
-    " However, the rewards from all slot machines change over time so a slot machine that gives negative rewards can give positive rewards later on and vice-versa. You can choose any machine at any time. In this game, you will only play one round consisting of "+ 
+    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time "+
+    "so a slot machine that gives low rewards can give high rewards later on and vice-versa. You can choose any machine at any time. In this game, you will only play one round consisting of "+ 
     NtrialsCollect[1] +" choices. <br> You can select the machines using the S, D, K and L keys, as indicated above the slot machines. <br> Click the button below to start a practice round.";
 
 
