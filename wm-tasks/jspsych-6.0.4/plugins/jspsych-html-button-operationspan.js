@@ -235,6 +235,7 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
       // gather the data to store for the trial
       var trial_data = {
         participant_id: trial.participant_id,
+        session_id: session_id,
         is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         processing_position: trial.trial_id_processing,
@@ -251,11 +252,11 @@ jsPsych.plugins["html-button-operationspan"] = (function () {
 
       if (trial.is_local) {
       } else if (!trial.is_local) {
-        var file_name = "OS_processing_" + trial.participant_id + ".json";
+        var file_name = "OS_processing_" + session_id + "_" + trial.participant_id + ".json";
         saveData(JSON.stringify(trial_data), file_name, "OS");
         if (trial.trial_id_processing + 1 == trial.set_size) {
           let dataSaved = false;
-          var file_name_cum = "OS_processing_allinone_" + trial.participant_id + ".json";
+          var file_name_cum = "OS_processing_allinone_" + session_id + "_" + trial.participant_id + ".json";
           saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS");
           checkDataSaving();
         }

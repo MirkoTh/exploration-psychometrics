@@ -260,6 +260,7 @@
             }
             data_recall = {
                 participant_id: participant_id,
+                session_id: session_id,
                 is_practice: is_practice,
                 trial_type: trial_type[n],
                 trial_id: n_type,
@@ -280,9 +281,9 @@
             if (local) {
 
             } else if (!local) {
-                saveData(JSON.stringify(data_recall), "WMU_" + participant_id + ".json", "WMU", flag_save = false);
+                saveData(JSON.stringify(data_recall), "WMU_" + session_id + "_" + participant_id + ".json", "WMU", flag_save = false);
                 let dataSaved = false;
-                saveSeveralDataOverwrite(data_cumulative, "WMU_allinone_" + participant_id + ".json", "WMU");
+                saveSeveralDataOverwrite(data_cumulative, "WMU_allinone_" + session_id + "_" + participant_id + ".json", "WMU");
                 checkDataSaving();
             }
 
@@ -449,7 +450,7 @@
                 prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
             };
             let dataSaved = false;
-            saveData(JSON.stringify(data_bonus), "WMU_bonus_" + participant_id + ".json", "WMU");
+            saveData(JSON.stringify(data_bonus), "WMU_bonus_" + session_id + "_" + participant_id + ".json", "WMU");
             checkDataSaving();
             window.location.href = progress_url + "&session=" + session_id;
         }

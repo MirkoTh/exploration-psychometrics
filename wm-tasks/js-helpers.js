@@ -306,15 +306,24 @@ function direct_to_os() {
     if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
         var participant_id = getQueryVariable('PROLIFIC_PID');
     }
+
     // If no ID is present, generate one using random numbers - this is useful for testing
     else {
         var participant_id = Math.floor(Math.random() * 1000);
-
     }
 
-    progress_url = updateQueryStringParameter("wm-tasks/experiments/operation_span_task.html", "PROLIFIC_PID", participant_id);
+    if (window.location.search.indexOf('session') > -1) {
+        var session = getQueryVariable('session');
+    }
+    else {
+        var session = 0;
+    }
 
-    window.location.href = progress_url;
+
+    progress_url = updateQueryStringParameter("wm-tasks/experiments/operation_span_task.html", "PROLIFIC_PID", participant_id);
+    progress_url_session = updateQueryStringParameter(progress_url, "session", session);
+
+    window.location.href = progress_url_session;
 }
 
 function direct_to_wmu() {

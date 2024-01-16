@@ -232,6 +232,7 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
       if (response.button == trial["data"]["set_size"]) { accuracy = 1 } else { accuracy = 0 };
       var data_recall_clean = {
         participant_id: participant_id,
+        session_id: session_id,
         is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         set_size: trial["data"]["set_size"],
@@ -244,8 +245,8 @@ jsPsych.plugins["spatial-span-recall"] = (function () {
       data_cumulative.push(data_recall_clean);
       if (trial.is_local) {
       } else if (!trial.is_local) {
-        var file_name = "SS_recall_" + participant_id + ".json";
-        var file_name_cum = "SS_recall_allinone_" + participant_id + ".json";
+        var file_name = "SS_recall_" + session_id + "_" + participant_id + ".json";
+        var file_name_cum = "SS_recall_allinone_" + session_id + "_" + participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name, "SS");
 
         let dataSaved = false;

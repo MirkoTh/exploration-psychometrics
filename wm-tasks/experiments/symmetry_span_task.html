@@ -392,7 +392,7 @@
         prop_processing_correct: Math.round(100 * (n_processed_cumulative / n_max_correct)) / 100
       };
       let dataSaved = false;
-      saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
+      saveData(JSON.stringify(data_bonus), "SS_bonus_" + session_id + "_" + participant_id + ".json", "SS");
       checkDataSaving();
     }
   }
@@ -476,7 +476,7 @@
           prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
         };
         let dataSaved = false;
-        saveData(JSON.stringify(data_bonus), "SS_bonus_" + participant_id + ".json", "SS");
+        saveData(JSON.stringify(data_bonus), "SS_bonus_" + session_id + "_" + participant_id + ".json", "SS");
         checkDataSaving();
 
         return false;

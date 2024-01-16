@@ -332,6 +332,7 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
       // gather the data to store for the trial
       var trial_data = {
         participant_id: trial.participant_id,
+        session_id: session_id,
         is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         processing_position: trial.counter_symmetry,
@@ -345,12 +346,12 @@ jsPsych.plugins["symmetry-judgement-task"] = (function () {
 
       if (trial.is_local) {
       } else if (!trial.is_local) {
-        var file_name = "SS_processing_" + participant_id + ".json";
+        var file_name = "SS_processing_" + session_id + "_" + participant_id + ".json";
         saveData(JSON.stringify(trial_data), file_name, "SS");
 
         if (trial.counter_symmetry + 1 == trial.set_size) {
-          var file_name_cum = "SS_processing_allinone_" + participant_id + ".json";
-          let dataSAved = false;
+          var file_name_cum = "SS_processing_allinone_" + session_id + "_" + participant_id + ".json";
+          var dataSaved = false;
           saveSeveralDataOverwrite(data_cumulative, file_name_cum, "SS");
           checkDataSaving();
         }

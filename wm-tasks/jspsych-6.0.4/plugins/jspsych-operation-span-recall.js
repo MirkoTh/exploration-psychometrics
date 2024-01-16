@@ -218,6 +218,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
       // gather the data to store for the trial
       var trial_data = {
         participant_id: trial.participant_id,
+        session_id: session_id,
         is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         rt: response.rt,
@@ -231,6 +232,7 @@ jsPsych.plugins["operation-span-recall"] = (function () {
       // save for our purposes
       var data_recall_clean = {
         participant_id: participant_id,
+        session_id: session_id,
         is_practice: trial.is_practice,
         trial_id_recall: trial.trial_id_recall,
         set_size: trial["data"]["set_size"],
@@ -244,11 +246,11 @@ jsPsych.plugins["operation-span-recall"] = (function () {
       if (trial.is_local) {
       } else if (!trial.is_local) {
         let dataSaved = false;
-        var file_name = "OS_recall_" + trial.participant_id + ".json";
+        var file_name = "OS_recall_" + session_id + "_" + trial.participant_id + ".json";
         saveData(JSON.stringify(data_recall_clean), file_name, "OS");
         checkDataSaving();
         dataSaved = false;
-        var file_name_cum = "OS_recall_allinone_" + trial.participant_id + ".json";
+        var file_name_cum = "OS_recall_allinone_" + session_id + "_" + trial.participant_id + ".json";
         saveSeveralDataOverwrite(data_cumulative, file_name_cum, "OS");
         checkDataSaving();
       }
