@@ -312,13 +312,7 @@ function direct_to_os() {
         var participant_id = Math.floor(Math.random() * 1000);
     }
 
-    if (window.location.search.indexOf('session') > -1) {
-        var session = getQueryVariable('session');
-    }
-    else {
-        var session = 0;
-    }
-
+    var session = 0;
 
     progress_url = updateQueryStringParameter("wm-tasks/experiments/operation_span_task.html", "PROLIFIC_PID", participant_id);
     progress_url_session = updateQueryStringParameter(progress_url, "session", session);
