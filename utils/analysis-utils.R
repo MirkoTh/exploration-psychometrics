@@ -112,6 +112,13 @@ hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_
   tbl_SS_processing <- map2_df(l_tbl_SS_processing_compound, l_tbl_SS_processing_indiv, select_more_rows)
   #tbl_SS_bonus <- reduce(map(l_tbl_SS_bonus, 1), rbind)
   
+  session_id_as_num <- function(x) {
+    x[[1]]$session_id <- as.numeric(x[[1]]$session_id)
+    return(x)
+  }
+  l_tbl_WMU_recall_indiv <- map(l_tbl_WMU_recall_indiv, session_id_as_num)
+  l_tbl_WMU_recall_compound <- map(l_tbl_WMU_recall_compound, session_id_as_num)
+  
   tbl_WMU_recall <- map2_df(l_tbl_WMU_recall_compound, l_tbl_WMU_recall_indiv, select_more_rows)
   #tbl_WMU_bonus <- reduce(map(l_tbl_WMU_bonus, 1), rbind)
   
