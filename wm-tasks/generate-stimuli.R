@@ -378,6 +378,9 @@ write(json, paste("../pilot4arb/rewards4ARB", session_id, ".json", sep = ""))
 # Sam's task -------------------------------------------------------------
 
 
+my_two_seeds <- c(39737632, 8567389)
+
+set.seed(my_two_seeds[session_id])
 nBlocks = 31
 nTrials = 10
 # same for all subjects so nSubs = 1
@@ -513,6 +516,11 @@ write(json, paste("../task/rewardsSam", session_id, ".json" , sep = ""))
 save(rewards, file =paste("../task/rewardsSam", session_id, ".Rda" , sep = ""))
 
 ################ Horizon task -----------------------------------------------
+
+
+my_two_seeds <- c(39737632, 8567389)
+
+set.seed(my_two_seeds[session_id])
 data <- read.csv("ZallerEtAl.csv")
 
 nBlocks = 81 # 1 extra for practice
