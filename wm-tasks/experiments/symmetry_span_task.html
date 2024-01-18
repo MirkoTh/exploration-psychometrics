@@ -451,8 +451,8 @@
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_ss_loop = {
-    timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
-    //timeline: [instructions, comprehension_question_ss_allinone, comp_feedback_old],
+    //timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old],
+    timeline: [instructions, comprehension_question_ss_allinone, comp_feedback_old_ss_verbose],
     loop_function: function (data) {
       // reset counters
       n = 0;
@@ -470,7 +470,7 @@
         is_practice = 0;
         nSquares = setSizes_test[n]
         selection = selections_test[n]
-        saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + participant_id + ".json", "SS");
+        saveData(JSON.stringify(data_comprehension), "SS_comprehension_check_" + session_id + "_" + participant_id + ".json", "SS");
         data_bonus = {
           participant_id: participant_id,
           prop_correct: Math.round(100 * (n_recalled_cumulative / n_max_correct)) / 100
