@@ -135,6 +135,21 @@
   var nSymmetryAcc = 0 //feedback
   var nSquaresRecalled = 0 //feedback
 
+  var instructions0 = {
+    type: "instructions",
+    pages: function () {
+      pageOne = `<div style="font-size:30px;"><b>IMPORTANT</b><br>
+        Your data are used for scientific purposes.<br>
+        We have invested a lot of time to develop this study.<br>
+        If you use external aids in any of the tasks, we cannot use your data at all!<br>
+        Click the proceed button, if you commit to being honest.`
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Proceed",
+    show_clickable_nav: true
+  }
+
   var instructions = {
     type: 'instructions',
     pages: function () {
@@ -174,7 +189,7 @@
   var instructions_before_compcheck = {
     type: 'instructions',
     pages: function () {
-      pageOne = '<div style="font-size:20px;">We have finished with the practice trials.<br><br>We will now check your comprehension of the task.<br>If you do not manage to answer all questions correctly, you will get another chance to read the instrutions and to do the practice trials.<br><br>Press "Next" to start with the comprehension check.<br><br></div>'
+      pageOne = '<div style="font-size:20px;">We have finished with the practice trials.<br><br>We will now check your comprehension of the task.<br>If you do not manage to answer all questions correctly, you will get another chance to complete the comprehension check.<br><br>Press "Next" to start with the comprehension check.<br><br></div>'
       return [pageOne]
     },
     allow_backward: false,
@@ -451,8 +466,8 @@
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   //compcheck1: if answer incorrect, compcheck1 will be repeated until correct response inserted
   var comp_check_ss_loop = {
-    timeline: [instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck, comprehension_question_ss_allinone, comp_feedback_old_ss_verbose],
-    //timeline: [instructions, comprehension_question_ss_allinone, comp_feedback_old_ss_verbose],
+    timeline: [comprehension_question_ss_allinone, comp_feedback_old_ss_verbose],
+    //timeline: [comprehension_question_ss_allinone, comp_feedback_old_ss_verbose],
     loop_function: function (data) {
       // reset counters
       n = 0;
@@ -495,6 +510,7 @@
     type: 'fullscreen',
     fullscreen_mode: true
   });
+  timeline.push(instructions0, instructions, squaresDemo, instructions2, symmetryDemo, instructions3, fullDemo, instructions_before_compcheck);
   timeline.push(comp_check_ss_loop);
   timeline.push(instructions_before_test);
   timeline.push(test_procedure);

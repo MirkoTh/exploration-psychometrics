@@ -265,23 +265,30 @@ var comp_feedback_wmu_verbose = {
         var answer_Q2 = q_responses[0].response.Q1;
         var answer_Q3 = q_responses[0].response.Q2;
         var answer_Q4 = q_responses[0].response.Q3;
-        var qna1 = "<b>What is your goal in the updating trials?<br></b>" + answer_Q1 + "<br><br></p>";
-        var qna2 = "<b>How do you recall digits?<br></b>" + answer_Q2 + "<br><br></p>";
-        var qna3 = "<b>What are the different trials you are going to experience?<br></b>" + answer_Q3 + "<br><br></p>";
-        var qna4 = "<b>What purpose served the practice trials?<br></b>" + answer_Q4 + "<br><br></p>";
+        var qna1 = "<b>What is your goal in the updating trials?<br>Your response: </b>" + answer_Q1 + "<br>";
+        var qna2 = "<b>How do you recall digits?<br>Your response: </b>" + answer_Q2 + "<br>";
+        var qna3 = "<b>What are the different trials you are going to experience?<br>Your response: </b>" + answer_Q3 + "<br>";
+        var qna4 = "<b>What purpose served the practice trials?<br>Your response: </b>" + answer_Q4 + "<br>";
+
+        var explain1 = "<b>Hint:</b> Things change: Update a digit when a new one is presented at its location; recall only the final set.<br><br></p>";
+        var explain2 = "<b>Hint:</b> Use the numbers on your keyboard and type the final set in the correct serial order.<br><br></p>";
+        var explain3 = "<b>Hint:</b> It is a mix: sometimes recall what is presented initially, sometimes recall the set after seven updating steps.<br><br></p>";
+        var explain4 = "<b>Hint:</b> They were just for your help and do not contribute to your bonus payment.<br><br></p>";
+
+
 
         if (answer_Q1 == 'Update the individually presented digits and recall the last set.') {
             var t1 = '<p style="color:green;align=center">' + qna1
-        } else { var t1 = '<p style="color:red;align=center"">' + qna1 }
+        } else { var t1 = '<p style="color:red;align=center"">' + qna1 + explain1 }
         if (answer_Q2 == 'By typing the digits in the correct serial order using the keyboard.') {
             var t2 = '<p style="color:green;align=center"">' + qna2
-        } else { var t2 = '<p style="color:red;align=center"">' + qna2 }
+        } else { var t2 = '<p style="color:red;align=center"">' + qna2 + explain2 }
         if (answer_Q3 == 'It is a mixture of updating digits and recalling them and immediately recalling the initially presented digits.') {
             var t3 = '<p style="color:green;align=center"">' + qna3
-        } else { var t3 = '<p style="color:red;align=center"">' + qna3 }
+        } else { var t3 = '<p style="color:red;align=center"">' + qna3 + explain3 }
         if (answer_Q4 == 'I should use them to get used to the task procedure. They do not contribute to my final reward.') {
             var t4 = '<p style="color:green;align=center"">' + qna4
-        } else { var t4 = '<p style="color:red;align=center"">' + qna4 }
+        } else { var t4 = '<p style="color:red;align=center"">' + qna4 + explain4 }
 
         var pg = info + t1 + t2 + t3 + t4;
 
