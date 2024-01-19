@@ -5,13 +5,23 @@ library(ggplot2)
 library(jsonlite)
 theme_set(theme_classic(base_size = 14))
 
-#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
 
 
 # select required directory by setting data_idx index
-data_idx <- 3
-rel_dir_data_bandits <- c("data/pilot/bandits/", "data/2023-11-lab-pilot/bandits/", "data/pilot4arb/")[data_idx]
-rel_dir_data_qs <- c("data/pilot/qs/", "data/2023-11-lab-pilot/qs/")[data_idx]
+data_idx <- 4
+rel_dir_data_bandits <- c("data/pilot/bandits/", "data/2023-11-lab-pilot/bandits/", "data/pilot4arb/", "data/wave1/bandits/")[data_idx]
+rel_dir_data_qs <- c("data/pilot/qs/", "data/2023-11-lab-pilot/qs/", "_", "data/wave1/qs/")[data_idx]
+
+json_to_tibble <- function(path_file) {
+  js_txt <- read_file(path_file)
+  js_txt <-str_c("[", str_replace_all(js_txt, "\\}", "\\},"), "]")
+  js_txt <- str_replace(js_txt, ",\n]", "]")
+  my_tbl <- jsonlite::fromJSON(js_txt) %>% as_tibble()
+  return(my_tbl)
+}
+
+
 
 ### load data ########
 
@@ -26,17 +36,34 @@ nTrialsS = 10
 nBlocksR = 1
 nTrialsR = 200
 
-files = list.files(path = rel_dir_data_bandits)
-files <- files[!grepl("temp", files)]
+files_all = list.files(path = rel_dir_data_bandits)
+files <- files_all[!grepl("temp", files_all)]
 
-lookup <- data.frame(PID = rep(NA, length(files)),
-                     ID = 1:length(files))
+
+### make lookup based on questionnaire files bc they seem to be more complete
+qfiles = list.files(path = rel_dir_data_qs)
+
+lookup <- data.frame(PID = rep(NA, length(qfiles)),
+                     ID = 1:length(qfiles))
+
+for (i in 1:length(qfiles)){
+    pid <- substr(qfiles[i], 1, gregexpr("_", qfiles[i])[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
+    lookup$PID[i] <- pid
+}
+
+
 
 bonus <- data.frame(ID = rep(NA, length(files)),
                     TotalBonus = NA,
                     Horizon = NA,
                     Sam = NA,
                     Restless = NA)
+
+comprehension <- data.frame(ID = rep(1:length(files), each = 3),
+                            task = rep(c("horizon", "sam", "restless"), length(files)),
+                    compAttempts = NA,
+                    compTime = NA,
+                    instTime = NA)
 
 horizon <- data.frame(ID = rep(1:length(files), each = nBlocksH*nTrialsH),
                       block = rep(rep(1:nBlocksH, each = nTrialsH), length(files)),
@@ -63,12 +90,15 @@ restless <- data.frame(ID = rep(1:length(files), each = nTrialsR),
                        rt = NA, 
                        session = session)
 
-for (i in 1:length(files)){
-  temp <- fromJSON(paste(rel_dir_data_bandits,files[i], sep = ""))
-  
-  # add PID into lookup
-  lookup$PID[i] <- temp$subjectID
-
+for (i in 1:nrow(lookup)){
+  pid <- lookup$PID[i]
+  # check if we have the final data for that participant
+  if (mean(grepl(pid, files))>0){ID = i} 
+  else { # if not we need to look through temp, easiest to do that manually
+    print(pid)
+    next
+  }
+  temp <- fromJSON(paste(rel_dir_data_bandits, files[grep(pid, files)], sep = ""))
   ### Horizon task
   for (block in 2:(nBlocksH+1)){# bc block 1 is practice
     for (trial in 1:nTrialsH){
@@ -101,8 +131,28 @@ for (i in 1:length(files)){
   }
   
   
+  ### get some info on their comprehension time etc.
+  
+  if(length(temp$comprehensionAttemptsH)>0){ # if we have this info
+    comprehension$compAttempts[comprehension$ID == i & comprehension$task == "horizon"] <- temp$comprehensionAttemptsH
+    comprehension$compAttempts[comprehension$ID == i & comprehension$task == "sam"] <- temp$comprehensionAttemptsS
+    comprehension$compAttempts[comprehension$ID == i & comprehension$task == "restless"] <- temp$comprehensionAttemptsR
+    
+    comprehension$compTime[comprehension$ID == i & comprehension$task == "horizon"] <- temp$horizon$comprehensionTime
+    comprehension$compTime[comprehension$ID == i & comprehension$task == "sam"] <- temp$sam$comprehensionTime
+    comprehension$compTime[comprehension$ID == i & comprehension$task == "restless"] <- temp$restless$comprehensionTime
+    
+    comprehension$instTime[comprehension$ID == i & comprehension$task == "horizon"] <- temp$horizon$instructionTime
+    comprehension$instTime[comprehension$ID == i & comprehension$task == "sam"] <- temp$sam$instructionTime
+    comprehension$instTime[comprehension$ID == i & comprehension$task == "restless"] <- temp$restless$instructionTime
+    
+    
+  }
+  
   
 }
+
+
 
 # info condition should be coded as -1 0 1 but is now coded as -2 0 2 so fix that
 horizon$info <- horizon$info/2
@@ -114,6 +164,7 @@ horizon$info <- horizon$info/2
 write.csv(lookup, file = str_c(str_remove(rel_dir_data_bandits, "[a-z]*/$"),  "BanditLookup.csv"))
 
 
+save(comprehension, file = paste(rel_dir_data_bandits, "comprehension.Rda", sep = ""))
 ############### calculate max rewards #########
 
 ############## Horizon task
@@ -185,7 +236,7 @@ Rrewards$max <- apply(as.array(Rrewards$row), 1, function(x) max(Rrewards[x,3:6]
 maxRestless <- sum(Rrewards$max, na.rm = T)
 
 
-save(maxHorizon, maxSam, maxRestless, file = "task/maxRewards.Rda")
+save(maxHorizon, maxSam, maxRestless, file = paste("task/maxRewards", session, ".Rda", sep = ""))
 
 
 ################# get ground truth variables ###############
@@ -257,10 +308,12 @@ for (i in files){
   if (i == files[1]){# if this is the first one
     qdat <- fromJSON(paste(rel_dir_data_qs, i, sep =""))
     pid <- substr(i, 1, gregexpr("_", i)[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
+    qdat <- as.data.frame(qdat)
     qdat$ID <- lookup$ID[lookup$PID == pid]
   } else {
     temp <- fromJSON(paste(rel_dir_data_qs, i, sep =""))
     pid <- substr(i, 1, gregexpr("_", i)[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
+    temp <- as.data.frame(temp)
     temp$ID <- lookup$ID[lookup$PID == pid]
     qdat <- rbind(qdat, temp)
   }

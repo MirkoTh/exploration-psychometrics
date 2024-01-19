@@ -6,8 +6,9 @@ library(jsonlite)
 theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+session = 1
 
-load("task/maxRewards.Rda")
+load(paste("task/maxRewards", session, ".Rda", sep = ""))
 
 #######################################
 
@@ -21,7 +22,7 @@ json_to_tibble <- function(path_file) {
 
 
 
-files = list.files(path = "data/pilot/bandits")
+files = list.files(path = "data/wave1/bandits")
 files <- files[!grepl("temp", files)]
 
 
@@ -42,7 +43,7 @@ bonus <- data.frame(ID = rep(NA, length(files)),
 for (i in 1:length(files)){
   
   ### bandits
-  temp <- fromJSON(paste("data/pilot/bandits/",files[i], sep = ""))
+  temp <- fromJSON(paste("data/wave1/bandits/",files[i], sep = ""))
   bonus$ID[i] <- temp$subjectID
   horizonPoints <- temp$horizon$taskReward/maxHorizon
   bonus$Horizon[i] <- horizonPoints
@@ -53,18 +54,18 @@ for (i in 1:length(files)){
   
   ### OS
   
-  OS <- json_to_tibble(paste("data/pilot/OS/OS_recall_", bonus$ID[i], ".json", sep = ""))
+  OS <- json_to_tibble(paste("data/wave1/OS/OS_recall_", bonus$ID[i], ".json", sep = ""))
   maxOS <- mean(OS$set_size[OS$is_practice == 0])
   bonus$OS[i] <- mean(OS$n_correct[OS$is_practice == 0])/maxOS
   
   ### WMU
   
-  WMU <- json_to_tibble(paste("data/pilot/WMU/WMU_", bonus$ID[i], ".json", sep = ""))
+  WMU <- json_to_tibble(paste("data/wave1/WMU/WMU_", bonus$ID[i], ".json", sep = ""))
   maxWMU <- 4 # set size is always 4 in our study
   bonus$WMU[i] <- mean(WMU$n_correct[WMU$is_practice == 0])/maxWMU
   
   ## SS
-  SS <- json_to_tibble(paste("data/pilot/SS/SS_recall_", bonus$ID[i], ".json", sep = ""))
+  SS <- json_to_tibble(paste("data/wave1/SS/SS_recall_", bonus$ID[i], ".json", sep = ""))
   maxSS <- mean(SS$set_size[SS$is_practice == 0])
   bonus$SS[i] <- mean(SS$n_correct[SS$is_practice == 0])/maxSS
   
@@ -73,10 +74,10 @@ for (i in 1:length(files)){
 
 ######### attention ##########
 
-files = list.files(path = "data/pilot/qs")
+files = list.files(path = "data/wave1/qs")
 
 for (i in 1:length(files)){
-  temp <- fromJSON(paste("data/pilot/qs/",files[i], sep = ""))
+  temp <- fromJSON(paste("data/wave1/qs/",files[i], sep = ""))
   bonus$attention[i] <- temp$attention1
   
 }
