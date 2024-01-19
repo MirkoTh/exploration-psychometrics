@@ -239,13 +239,11 @@ var comp_feedback_old = {
 var comp_feedback_old_os_verbose = {
     type: "html-button-response",
     stimulus: function () {
-
-
         var last_resp_correct = jsPsych.data.get().last(1).filter({ correct: true });
         if (last_resp_correct.count() == 1) {
             var info = "<p align='center'><b>Well done! You answered all questions correctly.<br><br></b></p>"
         } else {
-            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br><br></b> Please try again. <br><br></p>"
+            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br> Correct responses are printed in <span style='color: green'>green</span>, incorrect responses in <span style='color: red'>red</span>.<br><br></b> Please try again. <br><br></p>"
         }
 
         var q_responses = jsPsych.data.get().last(1).values();
@@ -407,13 +405,11 @@ var comprehension_question_ss_allinone = {
 var comp_feedback_old_ss_verbose = {
     type: "html-button-response",
     stimulus: function () {
-
-
         var last_resp_correct = jsPsych.data.get().last(1).filter({ correct: true });
         if (last_resp_correct.count() == 1) {
             var info = "<p align='center'><b>Well done! You answered all questions correctly.<br><br></b></p>"
         } else {
-            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br><br></b> Please try again. <br><br></p>"
+            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br> Correct responses are printed in <span style='color: green'>green</span>, incorrect responses in <span style='color: red'>red</span>.<br><br></b> Please try again. <br><br></p>"
         }
 
         var q_responses = jsPsych.data.get().last(1).values();

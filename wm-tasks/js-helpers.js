@@ -175,7 +175,7 @@ var comprehension_question_wmu_allinone = {
                 'Remember the first four digits initially presented and recall them.',
                 'Update the individually presented digits and recall the last set.',
                 'Update every second presented digit and recall the last set.',
-                'It is a mixture of recalling initially presented digits and intermediate digits.'
+                'Reorder the presented digits in backward order and recall the first set.'
             ],
 
             required: true
@@ -248,6 +248,46 @@ var comp_feedback = {
         }
     },
     choices: ['Next']
+};
+
+var comp_feedback_wmu_verbose = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: function () {
+        var last_resp_correct = jsPsych.data.get().last(1).filter({ correct: true });
+        if (last_resp_correct.count() == 1) {
+            var info = "<p align='center'><b>Well done! You answered all questions correctly.<br><br></b></p>"
+        } else {
+            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br>Correct responses are printed in <span style='color: green'>green</span>, incorrect responses in <span style='color: red'>red</span>.<br><br></b> Please try again. <br><br></p>"
+        }
+
+        var q_responses = jsPsych.data.get().last(1).values();
+        var answer_Q1 = q_responses[0].response.Q0;
+        var answer_Q2 = q_responses[0].response.Q1;
+        var answer_Q3 = q_responses[0].response.Q2;
+        var answer_Q4 = q_responses[0].response.Q3;
+        var qna1 = "<b>What is your goal in the updating trials?<br></b>" + answer_Q1 + "<br><br></p>";
+        var qna2 = "<b>How do you recall digits?<br></b>" + answer_Q2 + "<br><br></p>";
+        var qna3 = "<b>What are the different trials you are going to experience?<br></b>" + answer_Q3 + "<br><br></p>";
+        var qna4 = "<b>What purpose served the practice trials?<br></b>" + answer_Q4 + "<br><br></p>";
+
+        if (answer_Q1 == 'Update the individually presented digits and recall the last set.') {
+            var t1 = '<p style="color:green;align=center">' + qna1
+        } else { var t1 = '<p style="color:red;align=center"">' + qna1 }
+        if (answer_Q2 == 'By typing the digits in the correct serial order using the keyboard.') {
+            var t2 = '<p style="color:green;align=center"">' + qna2
+        } else { var t2 = '<p style="color:red;align=center"">' + qna2 }
+        if (answer_Q3 == 'It is a mixture of updating digits and recalling them and immediately recalling the initially presented digits.') {
+            var t3 = '<p style="color:green;align=center"">' + qna3
+        } else { var t3 = '<p style="color:red;align=center"">' + qna3 }
+        if (answer_Q4 == 'I should use them to get used to the task procedure. They do not contribute to my final reward.') {
+            var t4 = '<p style="color:green;align=center"">' + qna4
+        } else { var t4 = '<p style="color:red;align=center"">' + qna4 }
+
+        var pg = info + t1 + t2 + t3 + t4;
+
+        return pg
+    },
+    choices: ['Next'],
 };
 
 
