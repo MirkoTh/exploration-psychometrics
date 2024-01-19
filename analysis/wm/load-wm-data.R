@@ -9,7 +9,8 @@ walk(path_utils, source)
 
 path_data <- c("data/2023-11-lab-pilot/", "data/all-data/")[2]
 
-
+n_processing_os <- 90
+n_processing_ss <- 54
 
 participants_returned <- c(
   "6525b562b415d2f7ed82196e", 
@@ -234,6 +235,16 @@ tbl_proc_performance_participants <- tbl_os_proc_participant_agg %>%
   left_join(tbl_os_timeouts, by = "participant_id") %>%
   left_join(tbl_ss_timeouts, by = "participant_id")
 
+tbl_proc_performance_participants$thx_lo_os <- 
+  qbinom(.95, n_processing_os, .5)/n_processing_os
+tbl_proc_performance_participants$thx_lo_ss <- 
+  qbinom(.95, n_processing_ss, .5)/n_processing_ss
+tbl_proc_performance_participants <- tbl_proc_performance_participants %>%
+  mutate(
+    excl_os = OS < thx_lo_os,
+    excl_ss = SS < thx_lo_ss,
+    excl_subject = excl_os + excl_ss > 0
+  )
 
 pl_ss_processing <- plot_pc_against_ss(
   tbl_os_proc_ss_agg_ci, tbl_ss_proc_ss_agg_ci, tbl_ss_proc_ss_agg_ci, 
@@ -253,15 +264,38 @@ tbl_performance_all <- tbl_recall_performance_participants %>%
   left_join(os_rts %>% select(participant_id, rt_os), by = "participant_id") %>%
   left_join(ss_rts %>% select(participant_id, rt_ss), by = "participant_id")
 
-ggplot(tbl_performance_all %>% pivot_longer(c(OS_recall, SS_recall, WMU)), aes(value)) +
-  geom_histogram(color = "black", fill = "skyblue2") +
+tbl_thx <- tibble(
+  name = c("OS_recall", "SS_recall", "WMU", "OS_processing", "SS_processing"),
+  thx = c(
+    0, 0, 0, 
+    tbl_proc_performance_participants$thx_lo_os[1],
+    tbl_proc_performance_participants$thx_lo_ss[1]
+    )
+)
+
+tbl_performance_all %>% 
+  left_join(tbl_ids_lookup, by = c("participant_id" = "participant_id_randomized")) %>%
+  rename(prolific_pid = participant_id, participant_id = participant_id.y) %>%
+  select(participant_id, excl_subject) %>%
+  saveRDS(file = "analysis/wm/subjects-excl-wm.rds")
+
+ggplot() +
+  geom_histogram(
+    data = tbl_performance_all %>% 
+      pivot_longer(
+        c(OS_recall, SS_recall, WMU, OS_processing, SS_processing)
+      ), aes(value),
+    color = "black", fill = "skyblue2") +
+  geom_vline(data = tbl_thx, aes(xintercept = thx), color = "red", linetype = "dotdash", linewidth = 1) +
   facet_wrap(~ name) +
   theme_bw() +
   scale_x_continuous(expand = c(.01, 0)) +
   scale_y_continuous(expand = c(.01, 0)) +
   labs(x = "Prop. Correct", y = "Nr Participants") + 
   theme(
-    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+    strip.background = element_rect(fill = "white"),
+    text = element_text(size = 22),
+    axis.text.x = element_text(angle = 90, vjust = .3)
   )
 
 cor(tbl_performance_all %>% select(-participant_id) %>%
