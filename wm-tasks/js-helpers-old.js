@@ -239,13 +239,11 @@ var comp_feedback_old = {
 var comp_feedback_old_os_verbose = {
     type: "html-button-response",
     stimulus: function () {
-
-
         var last_resp_correct = jsPsych.data.get().last(1).filter({ correct: true });
         if (last_resp_correct.count() == 1) {
             var info = "<p align='center'><b>Well done! You answered all questions correctly.<br><br></b></p>"
         } else {
-            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br><br></b> Please try again. <br><br></p>"
+            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br> Correct responses are printed in <span style='color: green'>green</span>, incorrect responses in <span style='color: red'>red</span>.<br><br></b> Please try again. <br><br></p>"
         }
 
         var q_responses = jsPsych.data.get().last(1).values();
@@ -253,23 +251,28 @@ var comp_feedback_old_os_verbose = {
         var answer_Q2 = q_responses[0].response.question2;
         var answer_Q3 = q_responses[0].response.question3;
         var answer_Q4 = q_responses[0].response.question4;
-        var qna1 = "<b>What is your goal in the operation span task?<br></b>" + answer_Q1 + "<br><br></p>";
-        var qna2 = "<b>How do you respond to the operations?<br></b>" + answer_Q2 + "<br><br></p>";
-        var qna3 = "<b>How do you recall the letters?<br></b>" + answer_Q3 + "<br><br></p>";
-        var qna4 = "<b>How do the trials look like?<br></b>" + answer_Q4 + "<br><br></p>";
+        var qna1 = "<b>What is your goal in the operation span task?<br>Your response: </b>" + answer_Q1 + "<br>";
+        var qna2 = "<b>How do you respond to the operations?<br>Your response: </b>" + answer_Q2 + "<br>";
+        var qna3 = "<b>How do you recall the letters?<br>Your response: </b>" + answer_Q3 + "<br>";
+        var qna4 = "<b>How do the trials look like?<br>Your response: </b>" + answer_Q4 + "<br>";
+
+        var explain1 = "<b>Hint:</b> Your goal is twofold: remember the letters in order of presentation and say if the interleaved operations are correct or not.<br><br></p>";
+        var explain2 = "<b>Hint:</b> If an operation is correct, press the up key. If it is incorrect, press the down key.<br><br></p>";
+        var explain3 = "<b>Hint:</b> Recall the letters by clicking on them in order of presentation using your mouse.<br><br></p>";
+        var explain4 = "<b>Hint:</b> The magic is in the mix: Remember the letters in order of presentation and judge whether the operations are correct or not.<br><br></p>";
 
         if (answer_Q1 == 'Remember the letters and respond to the operations in between.') {
             var t1 = '<p style="color:green;align=center">' + qna1
-        } else { var t1 = '<p style="color:red;align=center"">' + qna1 }
+        } else { var t1 = '<p style="color:red;align=center"">' + qna1 + explain1 }
         if (answer_Q2 == 'Pressing the arrow up key for correct and the arrow down key for incorrect.') {
             var t2 = '<p style="color:green;align=center"">' + qna2
-        } else { var t2 = '<p style="color:red;align=center"">' + qna2 }
+        } else { var t2 = '<p style="color:red;align=center"">' + qna2 + explain2 }
         if (answer_Q3 == 'Clicking on the letters in the correct order.') {
             var t3 = '<p style="color:green;align=center"">' + qna3
-        } else { var t3 = '<p style="color:red;align=center"">' + qna3 }
+        } else { var t3 = '<p style="color:red;align=center"">' + qna3 + explain3 }
         if (answer_Q4 == 'It is always a mixture between remembering characters and responding to operations.') {
             var t4 = '<p style="color:green;align=center"">' + qna4
-        } else { var t4 = '<p style="color:red;align=center"">' + qna4 }
+        } else { var t4 = '<p style="color:red;align=center"">' + qna4 + explain4 }
 
         var pg = info + t1 + t2 + t3 + t4;
 
@@ -407,37 +410,42 @@ var comprehension_question_ss_allinone = {
 var comp_feedback_old_ss_verbose = {
     type: "html-button-response",
     stimulus: function () {
-
-
         var last_resp_correct = jsPsych.data.get().last(1).filter({ correct: true });
         if (last_resp_correct.count() == 1) {
             var info = "<p align='center'><b>Well done! You answered all questions correctly.<br><br></b></p>"
         } else {
-            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br><br></b> Please try again. <br><br></p>"
-        }
+            var info = "<p align='center'><b>Not all questions were answered correctly.<br>Below you get feedback, which questions you got wrong.<br> Correct responses are printed in <span style='color: green'>green</span>, incorrect responses in <span style='color: red'>red</span>.<br><br></b> Please try again. <br><br></p>"
+        };
 
         var q_responses = jsPsych.data.get().last(1).values();
         var answer_Q1 = q_responses[0].response.question1;
         var answer_Q2 = q_responses[0].response.question2;
         var answer_Q3 = q_responses[0].response.question3;
         var answer_Q4 = q_responses[0].response.question4;
-        var qna1 = "<b>What is your goal in the symmetry span task?<br></b>" + answer_Q1 + "<br><br></p>";
-        var qna2 = "<b>How do you respond to the symmetry judgments?<br></b>" + answer_Q2 + "<br><br></p>";
-        var qna3 = "<b>How do you recall the spatial locations presented in the grid?<br></b>" + answer_Q3 + "<br><br></p>";
-        var qna4 = "<b>How do the trials look like?<br></b>" + answer_Q4 + "<br><br></p>";
+        var qna1 = "<b>What is your goal in the symmetry span task?<br>Your response: </b>" + answer_Q1 + "<br>";
+        var qna2 = "<b>How do you respond to the symmetry judgments?<br></b>Your response: " + answer_Q2 + "<br>";
+        var qna3 = "<b>How do you recall the spatial locations presented in the grid?<br>Your response: </b>" + answer_Q3 + "<br>";
+        var qna4 = "<b>How do the trials look like?<br>Your response: </b>" + answer_Q4 + "<br>";
 
+        var explain1 = "<b>Hint:</b> Your goal is twofold: remember the spatial locations in order of presentation and say if the interleaved patterns are symmetric or not.<br><br></p>";
+        var explain2 = "<b>Hint:</b> If a pattern is symmetric, press the f button. If it is asymmetric, press the j button.<br><br></p>";
+        var explain3 = "<b>Hint:</b> Reconstruct the locations by clicking on them in order of presentation using your mouse.<br><br></p>";
+        var explain4 = "<b>Hint:</b> The magic is in the mix: Remember the spatial locations in order of presentation and judge the symmetry of the patterns.<br><br></p>";
+
+
+        console.log("explain1 = " + explain1);
         if (answer_Q1 == 'Remember the locations in the grid in serial order and respond to the symmetry judgments in between.') {
-            var t1 = '<p style="color:green;align=center">' + qna1
-        } else { var t1 = '<p style="color:red;align=center"">' + qna1 }
+            var t1 = '<p style="color:green;align=center">' + qna1 + "</p>";
+        } else { var t1 = '<p style="color:red;align=center">' + qna1 + explain1 }
         if (answer_Q2 == 'Pressing the f key for symmetric and the j key for asymmetric.') {
-            var t2 = '<p style="color:green;align=center"">' + qna2
-        } else { var t2 = '<p style="color:red;align=center"">' + qna2 }
+            var t2 = '<p style="color:green;align=center">' + qna2 + "</p>";
+        } else { var t2 = '<p style="color:red;align=center">' + qna2 + explain2 }
         if (answer_Q3 == 'Clicking on the locations in the correct order in the presented grid.') {
-            var t3 = '<p style="color:green;align=center"">' + qna3
-        } else { var t3 = '<p style="color:red;align=center"">' + qna3 }
+            var t3 = '<p style="color:green;align=center">' + qna3 + "</p>";
+        } else { var t3 = '<p style="color:red;align=center">' + qna3 + explain3 }
         if (answer_Q4 == 'It is always a mixture between remembering spatial locations and judging the symmetry of the patterns.') {
-            var t4 = '<p style="color:green;align=center"">' + qna4
-        } else { var t4 = '<p style="color:red;align=center"">' + qna4 }
+            var t4 = '<p style="color:green;align=center">' + qna4 + "</p>";
+        } else { var t4 = '<p style="color:red;align=center">' + qna4 + explain4 }
 
         var pg = info + t1 + t2 + t3 + t4;
 
