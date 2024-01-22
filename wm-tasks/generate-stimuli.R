@@ -378,8 +378,12 @@ write(json, paste("../pilot4arb/rewards4ARB", session_id, ".json", sep = ""))
 # Sam's task -------------------------------------------------------------
 
 
-my_two_seeds <- c(39737632, 8567389)
-
+my_two_seeds <- c(934742, 445941)# process of arriving at these seeds can be found in the commented out parts below
+# 
+# found = F
+# while (found == F){
+#   seed <- round(runif(1, 1, 1000000))
+#set.seed(seed)
 set.seed(my_two_seeds[session_id])
 nBlocks = 31
 nTrials = 10
@@ -492,6 +496,37 @@ for (i in 1:nBlocks){
 rewards$reward1 <- round(rewards$reward1 + rnorm(nrow(rewards), 0, 1), 0)
 rewards$reward2 <- round(rewards$reward2 + rnorm(nrow(rewards), 0, 1), 0)
 
+
+######## check whether it is all nice and balanced
+rewards$diff <- rewards$reward1 - rewards$reward2
+
+# is 1 arm better on average?
+
+mean(rewards$reward1)
+mean(rewards$reward2)
+
+# do the conditions differ on average
+
+ddply(rewards, ~cond, summarise,  rew1 = mean(reward1), rew2 = mean(reward2))
+
+df <- pivot_longer(rewards, cols = c(3:4), names_to = "arm", values_to = "reward")
+
+df$fluc <- NA
+df$fluc[df$cond == "SS"] <- "S"
+df$fluc[df$cond == "FF"] <- "F"
+df$fluc[df$cond == "SF"] <- ifelse(df$arm[df$cond == "SF"] == "reward1", "S", "F")
+df$fluc[df$cond == "FS"] <- ifelse(df$arm[df$cond == "FS"] == "reward2", "S", "F")
+
+t <- summary(lmer(reward ~ arm* fluc + (1|block), df))
+
+print(t$coefficients)
+# if (mean(t$coefficients[2:4,5]< 0.5) == 0) { found = T; print(seed)}# p of these differences being observed when rewards from same distribution as to be >0.5
+# }
+
+# seed1 <- seed
+# seed2 <- seed
+
+
 ######## save the rewards
 
 ls = list()
@@ -563,7 +598,7 @@ rewards$mean_diff[rewards$trial == 5] <- apply(as.array(1:nBlocks), 1, function(
 
 table(rewards$diff, rewards$Horizon, rewards$infoCond)
 
-table(round(rewards$mean_diff[rewards$trial == 5]/5)*5, rewards$Horizon[rewards$trial == 5], rewards$infoCond[rewards$trial == 5])
+table(round(rewards$mean_diff[rewards$trial == 5]/10)*10, rewards$Horizon[rewards$trial == 5], rewards$infoCond[rewards$trial == 5])
 
 ddply(rewards, ~Horizon+infoCond, summarise, rew1 = mean(reward1), rew2 = mean(reward2))
 
@@ -626,4 +661,4 @@ json = toJSON(horizon)
 write(json, paste("../task/Horizon", session_id,".json", sep = ""))
 
 
-save(rewards, file = paste("../task/rewardsHorizon", session_id, ".Rda"))
+save(rewards, file = paste("../task/rewardsHorizon", session_id, ".Rda", sep =""))
