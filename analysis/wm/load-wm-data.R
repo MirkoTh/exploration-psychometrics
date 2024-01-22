@@ -96,9 +96,9 @@ ggplot(tbl_n_trials, aes(task, participant_id)) +
 
 extract_first_response <- function(tbl_df, g_vars) {
   tbl_df %>% 
-  group_by(across({{g_vars}})) %>%
-  mutate(rwn = row_number()) %>%
-  ungroup() %>% filter(rwn == 1)
+    group_by(across({{g_vars}})) %>%
+    mutate(rwn = row_number()) %>%
+    ungroup() %>% filter(rwn == 1)
 }
 
 tbl_os_recall <- extract_first_response(tbl_os_recall, c(participant_id, trial_id_recall))
@@ -136,6 +136,60 @@ tbl_ss_processing <- tbl_ss_processing %>%
     n_correct = sum(accuracy)
   ) %>%
   ungroup()
+
+
+# Trials per Participant and Condition ------------------------------------
+
+tbl_trials_overview <- tbl_os_recall %>% 
+  group_by(participant_id, set_size) %>% 
+  count() %>%
+  mutate(task = "OS Recall") %>%
+  rbind(
+      tbl_ss_recall %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "SS Recall")
+    ) %>% rbind(
+        tbl_WMU_recall %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "WMU")
+      )  %>% rbind(
+          tbl_os_processing %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "OS Processing")
+        )  %>% rbind(
+            tbl_ss_processing %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "SS Processing")
+          ) %>%
+  ungroup() %>%
+  mutate(p_id_short = substr(participant_id, 1, 5)) %>%
+  group_by(participant_id) %>%
+  mutate(n_total_datapoints = sum(n)) %>%
+  ungroup()
+tbl_trials_overview2 <- tbl_trials_overview %>% group_by(participant_id, p_id_short) %>% summarize(n = max(n_total_datapoints)) %>% ungroup() %>%
+  mutate(task = "All Tasks", set_size = 4)
+  #select(-c(set_size)) %>%
+  #pivot_wider(names_from = task, values_from = n) %>%
+tbl_trials_all <- rbind(tbl_trials_overview %>% select(-c(n_total_datapoints)), tbl_trials_overview2)
+ggplot(tbl_trials_all %>% arrange(desc(n)) %>% mutate(p_id_short = fct_inorder(factor(p_id_short))), aes(set_size, p_id_short)) +
+  geom_tile(aes(fill = n)) +
+  geom_text(aes(label = n), color = "white") +
+  facet_wrap(~ task, nrow = 1) +
+  theme_bw() +
+  scale_fill_gradient2(midpoint = 100) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = "Set Size", y = "Participant ID") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "Nr. Obs.")
+
+
+
+# Exclude Incomplete Datsets ----------------------------------------------
+
+n_thx <- 190 # keep data set of participants with only one data point missing
+tbl_complete <- tbl_trials_all %>% filter(task == "All Tasks" & n >= n_thx)
+tbl_complete_p <- tbl_complete %>% select(participant_id)
+tbl_os_recall <- tbl_os_recall %>% inner_join(tbl_complete_p, "participant_id")
+tbl_ss_recall <- tbl_ss_recall %>% inner_join(tbl_complete_p, "participant_id")
+tbl_os_processing <- tbl_os_processing %>% inner_join(tbl_complete_p, "participant_id")
+tbl_ss_processing <- tbl_ss_processing %>% inner_join(tbl_complete_p, "participant_id")
+tbl_WMU_recall <- tbl_WMU_recall %>% inner_join(tbl_complete_p, "participant_id")
+
 
 
 # Recall ------------------------------------------------------------------
@@ -270,7 +324,7 @@ tbl_thx <- tibble(
     0, 0, 0, 
     tbl_proc_performance_participants$thx_lo_os[1],
     tbl_proc_performance_participants$thx_lo_ss[1]
-    )
+  )
 )
 
 tbl_performance_all %>% 
@@ -298,7 +352,7 @@ ggplot() +
     axis.text.x = element_text(angle = 90, vjust = .3)
   )
 
-cor(tbl_performance_all %>% select(-participant_id) %>%
+cor(tbl_performance_all %>% select(ends_with("recall"), ends_with("processing"), "WMU") %>%
       filter(
         !is.na(WMU))
 )
