@@ -278,17 +278,17 @@ var comp_feedback_wmu_verbose = {
 
 
         if (answer_Q1 == 'Update the individually presented digits and recall the last set.') {
-            var t1 = '<p style="color:green;align=center">' + "<b>CORRECT! " + qna1
-        } else { var t1 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna1 + explain1 }
+            var t1 = '<p style="color:green;align=center">' + "<b>CORRECT! </b>" + qna1
+        } else { var t1 = '<p style="color:red;align=center"">' + "<b>INCORRECT! </b>" + qna1 + explain1 }
         if (answer_Q2 == 'By typing the digits in the correct serial order using the keyboard.') {
-            var t2 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna2
-        } else { var t2 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna2 + explain2 }
+            var t2 = '<p style="color:green;align=center"">' + "<b>CORRECT! </b>" + qna2
+        } else { var t2 = '<p style="color:red;align=center"">' + "<b>INCORRECT! </b>" + qna2 + explain2 }
         if (answer_Q3 == 'It is a mixture of updating digits and recalling them and immediately recalling the initially presented digits.') {
-            var t3 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna3
-        } else { var t3 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna3 + explain3 }
+            var t3 = '<p style="color:green;align=center"">' + "<b>CORRECT! </b>" + qna3
+        } else { var t3 = '<p style="color:red;align=center"">' + "<b>INCORRECT! </b>" + qna3 + explain3 }
         if (answer_Q4 == 'I should use them to get used to the task procedure. They do not contribute to my final reward.') {
-            var t4 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna4
-        } else { var t4 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna4 + explain4 }
+            var t4 = '<p style="color:green;align=center"">' + "<b>CORRECT! </b>" + qna4
+        } else { var t4 = '<p style="color:red;align=center"">' + "<b>INCORRECT! </b>" + qna4 + explain4 }
 
         var pg = info + t1 + t2 + t3 + t4;
 

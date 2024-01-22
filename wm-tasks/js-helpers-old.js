@@ -262,17 +262,17 @@ var comp_feedback_old_os_verbose = {
         var explain4 = "<b>Hint:</b> The magic is in the mix: Remember the letters in order of presentation and judge whether the operations are correct or not.<br><br></p>";
 
         if (answer_Q1 == 'Remember the letters and respond to the operations in between.') {
-            var t1 = '<p style="color:green;align=center">' + "<b>CORRECT! " + qna1
-        } else { var t1 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna1 + explain1 }
+            var t1 = '<p style="color:green;align=center">' + "<b>CORRECT! </b>" + qna1
+        } else { var t1 = '<p style="color:red;align=center"">' + "<b>INCORRECT! </b>" + qna1 + explain1 }
         if (answer_Q2 == 'Pressing the arrow up key for correct and the arrow down key for incorrect.') {
-            var t2 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna2
-        } else { var t2 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna2 + explain2 }
+            var t2 = '<p style="color:green;align=center"">' + "<b>CORRECT! </b>" + qna2
+        } else { var t2 = '<p style="color:red;align=center"">' + "<b>INCORRECT! </b>" + qna2 + explain2 }
         if (answer_Q3 == 'Clicking on the letters in the correct order.') {
-            var t3 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna3
-        } else { var t3 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna3 + explain3 }
+            var t3 = '<p style="color:green;align=center"">' + "<b>CORRECT! </b>" + qna3
+        } else { var t3 = '<p style="color:red;align=center"">' + "<b>INCORRECT! </b>" + qna3 + explain3 }
         if (answer_Q4 == 'It is always a mixture between remembering characters and responding to operations.') {
-            var t4 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna4
-        } else { var t4 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna4 + explain4 }
+            var t4 = '<p style="color:green;align=center"">' + "<b>CORRECT! </b>" + qna4
+        } else { var t4 = '<p style="color:red;align=center"">' + "<b>INCORRECT! </b>" + qna4 + explain4 }
 
         var pg = info + t1 + t2 + t3 + t4;
 
@@ -435,17 +435,17 @@ var comp_feedback_old_ss_verbose = {
 
         console.log("explain1 = " + explain1);
         if (answer_Q1 == 'Remember the locations in the grid in serial order and respond to the symmetry judgments in between.') {
-            var t1 = '<p style="color:green;align=center">' + "<b>CORRECT! " + qna1 + "</p>";
-        } else { var t1 = '<p style="color:red;align=center">' + "<b>INCORRECT! " + qna1 + explain1 }
+            var t1 = '<p style="color:green;align=center">' + "<b>CORRECT! </b>" + qna1 + "</p>";
+        } else { var t1 = '<p style="color:red;align=center">' + "<b>INCORRECT! </b>" + qna1 + explain1 }
         if (answer_Q2 == 'Pressing the f key for symmetric and the j key for asymmetric.') {
-            var t2 = '<p style="color:green;align=center">' + "<b>CORRECT! " + qna2 + "</p>";
-        } else { var t2 = '<p style="color:red;align=center">' + "<b>INCORRECT! " + qna2 + explain2 }
+            var t2 = '<p style="color:green;align=center">' + "<b>CORRECT! </b>" + qna2 + "</p>";
+        } else { var t2 = '<p style="color:red;align=center">' + "<b>INCORRECT! </b>" + qna2 + explain2 }
         if (answer_Q3 == 'Clicking on the locations in the correct order in the presented grid.') {
-            var t3 = '<p style="color:green;align=center">' + "<b>CORRECT! " + qna3 + "</p>";
-        } else { var t3 = '<p style="color:red;align=center">' + "<b>INCORRECT! " + qna3 + explain3 }
+            var t3 = '<p style="color:green;align=center">' + "<b>CORRECT! </b>" + qna3 + "</p>";
+        } else { var t3 = '<p style="color:red;align=center">' + "<b>INCORRECT! </b>" + qna3 + explain3 }
         if (answer_Q4 == 'It is always a mixture between remembering spatial locations and judging the symmetry of the patterns.') {
-            var t4 = '<p style="color:green;align=center">' + "<b>CORRECT! " + qna4 + "</p>";
-        } else { var t4 = '<p style="color:red;align=center">' + "<b>INCORRECT! " + qna4 + explain4 }
+            var t4 = '<p style="color:green;align=center">' + "<b>CORRECT! </b>" + qna4 + "</p>";
+        } else { var t4 = '<p style="color:red;align=center">' + "<b>INCORRECT! </b>" + qna4 + explain4 }
 
         var pg = info + t1 + t2 + t3 + t4;
 
