@@ -278,17 +278,17 @@ var comp_feedback_wmu_verbose = {
 
 
         if (answer_Q1 == 'Update the individually presented digits and recall the last set.') {
-            var t1 = '<p style="color:green;align=center">' + qna1
-        } else { var t1 = '<p style="color:red;align=center"">' + qna1 + explain1 }
+            var t1 = '<p style="color:green;align=center">' + "<b>CORRECT! " + qna1
+        } else { var t1 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna1 + explain1 }
         if (answer_Q2 == 'By typing the digits in the correct serial order using the keyboard.') {
-            var t2 = '<p style="color:green;align=center"">' + qna2
-        } else { var t2 = '<p style="color:red;align=center"">' + qna2 + explain2 }
+            var t2 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna2
+        } else { var t2 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna2 + explain2 }
         if (answer_Q3 == 'It is a mixture of updating digits and recalling them and immediately recalling the initially presented digits.') {
-            var t3 = '<p style="color:green;align=center"">' + qna3
-        } else { var t3 = '<p style="color:red;align=center"">' + qna3 + explain3 }
+            var t3 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna3
+        } else { var t3 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna3 + explain3 }
         if (answer_Q4 == 'I should use them to get used to the task procedure. They do not contribute to my final reward.') {
-            var t4 = '<p style="color:green;align=center"">' + qna4
-        } else { var t4 = '<p style="color:red;align=center"">' + qna4 + explain4 }
+            var t4 = '<p style="color:green;align=center"">' + "<b>CORRECT! " + qna4
+        } else { var t4 = '<p style="color:red;align=center"">' + "<b>INCORRECT! " + qna4 + explain4 }
 
         var pg = info + t1 + t2 + t3 + t4;
 
@@ -380,4 +380,25 @@ function direct_to_wmu() {
     progress_url = updateQueryStringParameter("wm-tasks/experiments/wm-updating-numerical.html", "PROLIFIC_PID", participant_id);
 
     window.location.href = progress_url;
-}
+};
+
+
+var instructions0 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+        {
+            prompt: `<div style="font-size:30px;"><b>IMPORTANT</b><br><br><br>
+        Your data are used for scientific purposes.<br>
+        We have invested a lot of time to develop this study.<br>
+        <u>Please do not use external aids in any task; otherwise, we cannot use your data at all!</u><br>
+        Please commit to being honest.`,
+            options: [
+                'I commit to being honest'
+            ],
+
+            required: true,
+            name: "question1"
+        }
+    ],
+    preamble: "<div style='font-size:40px;color:red'><u>DO NOT USE EXTERNAL AIDS!</u><br><br></div>",
+};

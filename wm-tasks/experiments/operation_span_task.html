@@ -157,20 +157,20 @@
     return '<div style="font-size:46px;">' + num1 + operation + num2 + ' = ' + ans + '<br><br><br><br></div>'
   }
 
-  var instructions0 = {
-    type: "instructions",
-    pages: function () {
-      pageOne = `<div style="font-size:30px;"><b>IMPORTANT</b><br>
-        Your data are used for scientific purposes.<br>
-        We have invested a lot of time to develop this study.<br>
-        If you use external aids in any of the tasks, we cannot use your data at all!<br>
-        Click the proceed button, if you commit to being honest.`
-      return [pageOne]
-    },
-    allow_backward: false,
-    button_label_next: "Proceed",
-    show_clickable_nav: true
-  }
+  /*   var instructions0 = {
+      type: "instructions",
+      pages: function () {
+        pageOne = `<div style="font-size:30px;"><b>IMPORTANT</b><br>
+          Your data are used for scientific purposes.<br>
+          We have invested a lot of time to develop this study.<br>
+          If you use external aids in any of the tasks, we cannot use your data at all!<br>
+          Click the proceed button, if you commit to being honest.`
+        return [pageOne]
+      },
+      allow_backward: false,
+      button_label_next: "Proceed",
+      show_clickable_nav: true
+    } */
 
   var instructions = {
     type: 'instructions',
@@ -575,6 +575,7 @@
     fullscreen_mode: true
   });
   timeline.push(instructions0, instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions_before_compcheck);
+  //timeline.push(instructions0);
   timeline.push(comp_check_os_loop);
   timeline.push(instructions_before_test);
   timeline.push(test_procedure);
