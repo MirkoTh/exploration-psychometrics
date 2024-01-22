@@ -425,6 +425,59 @@ recovery_sam <- function(data, model, hierarchical){
   
   
 }
+
+fit_model_horizon <- function(data, model, full = T){
+  #' parameter recovery for data from Horizon task
+  #' 
+  #' @description fits model to data
+  #' @usage model = fit_model_horizon(data, model, full)
+  #' @param data data.frame containing all the task data
+  #' @param model UCB, Wilson
+  #' @param full boolean; T for full random effects; F for reduced random effects
+  #' @return a brms model object
+  #' 
+  
+  ### Wilson model
+  if (model == "Wilson"){
+    data$mean_L <- NA
+    data$mean_R <- NA
+    
+    data$row <- 1:nrow(data)
+    data$mean_L[data$trial == 5] <- apply(as.array(data$row[data$trial == 5]), 1, function(x) meann(data$reward[data$ID == data$ID[x]&
+                                                                                                                  data$block == data$block[x] &
+                                                                                                                  data$chosen == 0 & 
+                                                                                                                  data$trial < 5]))
+    data$mean_R[data$trial == 5] <- apply(as.array(data$row[data$trial == 5]), 1, function(x) meann(data$reward[data$ID == data$ID[x]&
+                                                                                                                  data$block == data$block[x] &
+                                                                                                                  data$chosen == 1& 
+                                                                                                                  data$trial < 5]))
+    ## calculate deltas
+    data$delta_mean <- scale(data$mean_L - data$mean_R)
+    
+      
+      if (full == T){
+        
+        baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID), family = "bernoulli", 
+                        data = data[data$trial == 5, ],
+                        chains = 2,
+                        cores = 2,
+                        iter = 10000)
+        
+      } else {
+        baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID), family = "bernoulli",
+                        data = data[data$trial == 5, ],
+                        chains = 2,
+                        cores = 2,
+                        iter = 10000)
+        
+      }
+      
+      return(baymodel)
+      
+    }
+  
+  
+}
   
   
 recovery_horizon <- function(data, model, full = T, bayesian = T){

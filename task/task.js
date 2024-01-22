@@ -4,7 +4,7 @@
 
 // settings
 
-var quickrunthrough = false // if true, we use placeholder rewards and only 2 blocks per task
+var quickrunthrough = true // if true, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
 //var session = 1
@@ -39,6 +39,8 @@ var tic
 var toc
 var clickable = 0
 var task
+var incorrect
+var exp
 data["horizon"] = {}
 data["sam"] = {}
 data["restless"] = {}
@@ -116,6 +118,8 @@ if (window.location.search.indexOf('PROLIFIC_PID') > -1) {
     //console.log(subjectID)
 }
 
+data["subjectID"] = subjectID
+
 function keyDownHandler(e, task) {
     if (clickable == 1) {
         if (task != "restless") {
@@ -171,7 +175,7 @@ async function handle_operation_keypress(e) {
 
 // randomly select which order the tasks are in
 var order = Math.floor(Math.random() * 6) + 1;
-//order = 1
+order = 1
 var tasks
 if (order == 1) {
     tasks = [horizonTask, samTask, restlessTask]
@@ -307,21 +311,29 @@ var clickMachine = function(machine, task) {
     if (trial == 4 & task == "horizon") {
         clickable = 0
         setTimeout(function() {
-        slot_machines.style.display = "none";}, 1000)
+        slot_machines.style.display = "none";
+
         if (Ntrials == 5){
-            document.getElementById('machine_title').innerHTML = '<b>Short round.</b> You can now make <b>one</b> free choice. <br> Press S for the left machine and K for the right machine.'; 
+            document.getElementById('machine_title').innerHTML = '<h1 style ="color:Tomato"><center><u>Short round.</u> You can now make only <u>one</u> free choice.</center></h1>'; 
         } else {
-            document.getElementById('machine_title').innerHTML = '<b>Long round.</b> You can now make <b>6</b> free choices. <br> Press S for the left machine and K for the right machine.';
+            document.getElementById('machine_title').innerHTML = '<h1 style ="color:Tomato"><center><u>Long round.</u> You can now make <u>6</u> free choices.</center></h1>';
         }
 
+        document.getElementById('score').style.display = 'none';
+        
         setTimeout(function() {
             slot_machines.style.display = "flex";
             clickable = 1
 
-            //document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1) +
-             //   '<br> Press S for the left machine and K for the right machine.';
+            document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1) +
+               '<br> Press S for the left machine and K for the right machine.';
+
+            document.getElementById('score').style.display = 'block';
             
-        }, 3000)
+        }, 4000) // timing for how long the notice "short round/long round" is displayed
+ 
+        }, 800) // timing for how long the reward of the 4th click is displayed before short/long round disclaimer
+       
         
     }
 
@@ -382,7 +394,7 @@ var clickMachine = function(machine, task) {
             data["comprehensionAttemptsS"] = comprehensionAttemptsS
             data["comprehensionAttemptsR"] = comprehensionAttemptsR
             
-
+            if(quickrunthrough){console.log(data)}
 
             saveData(JSON.stringify(data))
             //saveData(JSON.stringify([0,0]))
@@ -413,8 +425,8 @@ var clickMachine = function(machine, task) {
                 document.addEventListener("keydown", handle_operation_keypress, false);
 
                 if (task == "horizon") { // for Horizon task, we are back to fixed choice
-                    if (NtrialsCollect[currentBlock] == 5){document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the highlighted slot machine. Round '+ (currentBlock) +' of ' + (Nblocks-1);} 
-                    else {document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the highlighted slot machine. Round '+ currentBlock +' of ' + (Nblocks-1);}
+                    if (NtrialsCollect[currentBlock] == 5){document.getElementById('machine_title').innerHTML = '<u>Short round.</u> Select the highlighted slot machine. Round '+ (currentBlock) +' of ' + (Nblocks-1);} 
+                    else {document.getElementById('machine_title').innerHTML = '<u>Long round.</u> Select the highlighted slot machine. Round '+ currentBlock +' of ' + (Nblocks-1);}
 
                     fixedChoices = fixedChoicesCollect[currentBlock]
                     if (fixedChoices[trial] == 0) {
@@ -486,6 +498,7 @@ function horizonTask() {
     Ntrials = NtrialsCollect[currentBlock]
     nextTaskButton.onclick = tasks[task_ind]
     nextTaskButton.style.display = 'none';
+    compButton.style.display = 'none';
 
     // instructions first -----------------
 
@@ -493,16 +506,20 @@ function horizonTask() {
     
     document.getElementById('instructions').firstElementChild.innerHTML = "Game "+task_ind+" Instructions"
 
-    if (comprehensionAttemptsH > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
 
     startPracticeButton.innerHTML = "Start Practice Round";
     startPracticeButton.style.display = 'block';
 
     document.getElementById('instructions').style.display = 'block';
-    document.getElementById('instructionText').innerHTML = "In this game, you will choose between two slot machines that give different average rewards. The average rewards for each machine stay the same within a round but there is some noise added. Before making your choice, you will have to make 4 choices that we pre-determined. You will see which machine is highlighted and have to choose the highlighted machine."+
-    " <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 6 free choices. You can see how many choices you can make under 'Trials left in this round' as well as above the slot machines where it says 'Short round' when you can only make one free choice and 'Long round' when you can make 6 free choices. "+
-    "To select a slot machine, press the 's' key for the left machine and the 'k' key for the right machine, as indicated above the machines.<br> <br>"
-    "You will play " + (Nblocks-1)+" rounds of this game. <br> <br> Click the button below to start a practice round.";
+    document.getElementById('instructionText').innerHTML = "In this game, you will choose between two slot machines that give different average rewards."+
+    " <u>The average rewards for each machine stay the same within a round, but some noise is added</u>. This means that if you play a slot machine several times, you will get approximately the same reward each time.<br>"+
+    "<br> At the start of each round, you will have to make <u>4"+
+    " pre-determined choices</u>. Choose the machine that is highlighted and receive the rewards from that machine."+
+    " <br> <br> After these 4 intial pre-determined choices, you get to make either<u> 1 or 6 free choices</u>. You can see how many choices you can make under"+
+    " 'Trials left in this round'. Also, above the slot machines where it says <u>'Short round'</u> when you can only make one free choice and <u>'Long round'</u> when you can make 6 free choices. "+
+    "<br><br>To select a slot machine, press the 's' key for the left machine and the 'k' key for the right machine, as indicated above the machines.<br> <br>"+
+    "You will play " + (Nblocks-1)+" rounds of this game. <br> <br>And as always, when a <u>new round</u> starts, you get <u>new slot machines</u> with new rewards that you need to learn again.<br> <br>"+
+    "Click the button below to start a practice round.";
     
 
     // start practice --------------------------
@@ -527,9 +544,9 @@ function horizonTask() {
         document.getElementById("mach_div4").style.display = 'none';
         // fixed choice
         if (Ntrials == 5) {
-            document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted. <br> Press S for the left machine and K for the right machine.';
+            document.getElementById('machine_title').innerHTML = '<u>Short round.</u> Select the machine that is highlighted. <br> Press S for the left machine and K for the right machine.';
         } else {
-            document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted. <br> Press S for the left machine and K for the right machine.';
+            document.getElementById('machine_title').innerHTML = '<u>Long round.</u> Select the machine that is highlighted. <br> Press S for the left machine and K for the right machine.';
         }
         
 
@@ -573,6 +590,7 @@ function samTask() {
     // only increment task_ind if people are not coming back here from the comprehension questions
     if (understood) {task_ind += 1}
     nextTaskButton.style.display = 'none';
+    compButton.style.display = 'none';
     if (quickrunthrough) {console.log("started sam task")}
     tic = Number(new Date())
     // rewards here are a list of lists of lists bc we need to allow for the drifting rewards
@@ -595,12 +613,16 @@ function samTask() {
     // instructions first -----------------
     document.getElementById('task').style.display = 'none';
     document.getElementById('instructions').firstElementChild.innerHTML = "Game "+task_ind+" Instructions"
-    if (comprehensionAttemptsS > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
+
+
     startPracticeButton.innerHTML = "Start Practice Round";
     startPracticeButton.style.display = 'block';
     document.getElementById('instructions').style.display = 'block';
-    document.getElementById('instructionText').innerHTML = "In this game you will choose between two slot machines that give different average rewards. Sometimes, the average rewards for one or both of the machines changes over time. You can choose either machine at any time. You will play "+ (Nblocks-1)+
-    " rounds of this game consisting of "+ Ntrials+" choices each. <br>You select the slot machines using the S and the K keys on your keyboard.<br> Click the button below to start a practice round.";
+    document.getElementById('instructionText').innerHTML = "In this game you will choose between two slot machines that give different average rewards.<br><br>"+
+    " <u>Sometimes</u>, the average rewards for one or both of the machines <u>changes over time</u>.<br><br> You can <u>choose either machine</u> at any time. Try to get as many points as possible. <br>"+
+    "You will play "+ (Nblocks-1)+ " rounds of this game consisting of <u>"+ Ntrials+" choices</u> each."+
+    " <br><br>You select the slot machines using the S and the K keys on your keyboard.<br><br>As always, when a <u>new round</u> starts, you get <u>new slot machines</u> and need to learn their rewards again.<br><br>"+
+    " Click the button below to start a practice round.";
 
     // start practice --------------------------------
 
@@ -656,6 +678,7 @@ function restlessTask() {
     if (understood) {task_ind += 1}
     nextTaskButton.onclick = tasks[task_ind]
     nextTaskButton.style.display = 'none';
+    compButton.style.display = 'none';
     if (quickrunthrough) {console.log("started restless task")}
     tic = Number(new Date())
 
@@ -687,15 +710,13 @@ function restlessTask() {
     document.getElementById('task').style.display = 'none';
 
     document.getElementById('instructions').firstElementChild.innerHTML ="Game "+task_ind+" Instructions"
-    if (comprehensionAttemptsR > 1) {document.getElementById('instructions').firstElementChild.innerHTML += "<br> You answered one or more questions incorrectly. Please read the instructions again and try again."}
-
     startPracticeButton.innerHTML = "Start Practice Round";
     startPracticeButton.style.display = 'block';
 
     document.getElementById('instructions').style.display = 'block';
-    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time "+
-    "so a slot machine that gives low rewards can give high rewards later on and vice-versa. You can choose any machine at any time. In this game, you will only play one round consisting of "+ 
-    NtrialsCollect[1] +" choices. <br> You can select the machines using the S, D, K and L keys, as indicated above the slot machines. <br> Click the button below to start a practice round.";
+    document.getElementById('instructionText').innerHTML = "In this game you will choose between four slot machines that give different average rewards.<br> Importantly, the <u>average reward of each slot machine changes</u> over time. "+
+    "Thus, a slot machine that gives low rewards at first can give high rewards later on and vice-versa.<br><br> You can choose <u>any machine at any time</u>.<br><br> In this game, you will only play <u>one round</u> consisting of <u>"+ 
+    NtrialsCollect[1] +" choices</u>. <br><br> You can select the machines using the S, D, K and L keys, as indicated above the slot machines. <br><br> Click the button below to start a practice round.";
 
 
     // start practice --------------------------------
@@ -744,17 +765,10 @@ function restlessTask() {
 document.getElementById('instructions').style.display = 'block';
 document.getElementById('task').style.display = 'none';
 document.getElementById('questionnaire').style.display = 'none';
-document.getElementById('instructionText').innerHTML= "Welcome to the experiment! <br> <br> In this experiment, you will have to choose between playing different slot machines across a series of games. <br> <br> Each slot machine gives you a different average reward. <br> <br> "+
-"Your goal is to earn as many points as possible. <br> <br> You will play 3 different games. Each game consists of several rounds, in which the slot machines have different rewards. Thus, if a new round starts, the average rewards of the slot machines have changed and you need to learn them again!"+
-" You know how many clicks you have left in a round through the 'trials left this round' indicator. <br>" +
+document.getElementById('instructionText').innerHTML= "Welcome to the casino games! <br> <br> In this experiment, you will have to <u>choose between playing different slot machines</u> across a series of games. <br> <br> Each slot machine gives you a <u>different average reward</u>. <br> <br> "+
+"Your goal is to earn as many points as possible. <br> <br> You will play <u>3 different games</u>. Each game consists of several rounds, in which the slot machines have different rewards. Thus, if a <u>new round</u> starts, the <u>average rewards of the slot machines have changed</u> and you need to learn them again!<br><br>"+
+" You know how many clicks you have left in a round through the <u>'trials left this round' indicator</u>. <br>" +
 "Below, you can see what an example game looks like: <br><br><img src='task.png' height = 500>" 
-
-var horizonInstructions = "In this game, you will choose between two slot machines that give different average rewards. Before making your choice, you will have to make 4 choices that we pre-determined. You will see which machine is highlighted and have to choose the highlighted machine."+
-" <br> <br> After these 4 intial pre-determined choices, you get to make either 1 or 6 free choices. You can see how many choices you can make under 'Trials left in this round'. You will play"+ (Nblocks-1)+"  rounds of this game. <br> <br> Click the button below to start a practice round.";
-
-var samInstructions = "In this game you will choose between two slot machines that give different average rewards. Sometimes, the average rewards for one or both of the machines changes over time. You can choose either machine at any time. You will play "+ (Nblocks-1)+" rounds of this game consisting of "+ Ntrials+" choices each. <br> <br> Click the button below to start a practice round.";
-var restlessInstructions = "In this game you will choose between four slot machines that give different average rewards. Importantly, the average reward of each slot machine changes over time. You can choose any machine at any time. In this game, you will only play one round consisting of "+ Ntrials+" choices. <br> <br> Click the button below to start a practice round.";
-
 
 
 // comprehension questions -----------------------------
@@ -895,10 +909,10 @@ function checkComprehension(task){
 
         if (task == "horizon") {
             if (Ntrials == 5){
-                document.getElementById('machine_title').innerHTML = '<b>Short round.</b> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1) +
+                document.getElementById('machine_title').innerHTML = '<u>Short round.</u> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1) +
                 '<br> Press S for the left machine and K for the right machine.';
             } else {
-                document.getElementById('machine_title').innerHTML = '<b>Long round.</b> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1) +
+                document.getElementById('machine_title').innerHTML = '<u>Long round.</u> Select the machine that is highlighted. Round '+ (currentBlock) +' of ' + (Nblocks-1) +
                 '<br> Press S for the left machine and K for the right machine.';
             }
 
@@ -927,6 +941,65 @@ function checkComprehension(task){
 
         
       } else {//complete but incorrect
+
+        // save incorrect answers and what the correct answers would be
+
+        incorrect = [];
+        exp = [];
+        if (task == "horizon") {
+            if (values["Q1_0"] != "1") {
+                incorrect.push("How many free choices can you make in each round after the first 4 that were pre-determined for you?")
+                exp.push("In each round, you can make <u>1 or 6 free choices</u> after the first 4 that were pre-determined for you. <br>"+
+                "You will know which one is the case depending on whether the text above the slot machines says <u>'Short round'</u> or <u>'Long round'</u>.")
+            }
+            if (values["Q2_1"] != "0") {
+                incorrect.push("What happens when you play the same slot machine several times?")
+                exp.push("The average rewards for each machine <u>stay the same within a round</u>, but some noise is added.<br> This means that if you play a slot machine several times, you will get <u>approximately the same reward</u> each time.")
+            }
+            if (values["Q3_2"] != "1") {
+                incorrect.push("Can you choose freely which slot machine to play?")
+                exp.push("At the start of each round, you will have to make <u>4 pre-determined choices</u>. Choose the machine that is highlighted and receive the rewards from that machine. <br>"+
+                "Afterwards, you can make either <u>1 or 6 free choices</u> depending on whether it is a <u>short or long round</u>.")
+            }
+            if (values["Q4_3"] != "0") {
+                incorrect.push("Do the points you get for each slot machine change between rounds?")
+                exp.push("When a <u>new round</u> starts, you get <u>new slot machines</u> with new rewards that you need to learn again.")
+            }
+        } else if (task == "sam") {
+            if (values["Q1_0"] != "2") {
+                incorrect.push("How many choices can you make in each round?")
+                exp.push("For each round, you can make exactly <u>10 choices</u>.")
+            }
+            if (values["Q2_1"] != "1") {
+                incorrect.push("Do the points you get for each slot machine change over time?")
+                exp.push("<u>Sometimes</u> the average rewards for <u>one or both</u> slot machines <u>change over time</u>. <u>Sometimes</u> they stay the <u>same</u>. <br>You can only find out by playing the machines.")
+            }
+            if (values["Q3_2"] != "2") {
+                incorrect.push("Can you choose freely which slot machine to play?")
+                exp.push("You can choose <u>any machine at any time</u>.")
+            }
+            if (values["Q4_3"] != "0") {
+                incorrect.push("Do the points you get for each slot machine change between rounds?")
+                exp.push("When a <u>new round</u> starts, you get <u>new slot machines</u> with new rewards that you need to learn again.")
+            }
+        } else {
+            if (values["Q1_0"] != "1") {
+                incorrect.push("How many choices can you make in each round?")
+                exp.push("There is only <u>one round</u> in this game consisting of <u>200 choices</u>.")
+            }
+            if (values["Q2_1"] != "2") {
+                incorrect.push("Do the points you get for each slot machine change over time?")
+                exp.push("The <u>average reward of each slot machine changes</u> over time. <br>Thus, a slot machine that gives low rewards at first can give high rewards later on and vice-versa.")
+            }
+            if (values["Q3_2"] != "2") {
+                incorrect.push("Can you choose freely which slot machine to play?")
+                exp.push("You can choose <u>any machine at any time</u>.")
+            }
+            if (values["Q4_3"] != "2") {
+                incorrect.push("Do the points you get for each slot machine change between rounds?")
+                exp.push("In this game, there is only one round consisting of 200 choices.")
+            }
+        }
   
         // hide quiz
         $(document.getElementById("questionnaire")).hide()
@@ -934,8 +1007,29 @@ function checkComprehension(task){
   
         window.scrollTo(0,0);
 
-        // set everything to beginning
-        if (task == "horizon") {comprehensionAttemptsH +=1; horizonTask()} else if (task == "sam") {comprehensionAttemptsS += 1; samTask()} else {comprehensionAttemptsR += 1; restlessTask()}
+       // explain what they did wrong
+
+       document.getElementById('task').style.display = 'none';
+    
+       document.getElementById('instructions').firstElementChild.innerHTML = "You answered one or more questions incorrectly."
+   
+       document.getElementById('instructions').firstElementChild.innerHTML += " Here are the question(s) that you answered incorrectly: <br> <br></h2> "
+           var i
+           for (i = 0; i < incorrect.length; i++) {
+               document.getElementById('instructions').firstElementChild.innerHTML +="<h2 style ='color:Tomato'><b>" + incorrect[i] + "</b></h2>"
+                document.getElementById('instructions').firstElementChild.innerHTML +="<h2>" + exp[i] + "</h2><br><br>"
+
+           }
+        document.getElementById('instructions').firstElementChild.innerHTML += "<h2>Click the button below to return to the comprehension questions.</h2> "
+        
+        // make button to go back to the comprehension questions
+        
+       compButton.style.display = 'block';
+    
+       startPracticeButton.style.display = 'none';
+   
+       document.getElementById('instructions').style.display = 'block';
+       document.getElementById('instructionText').innerHTML = "";
         
       }
   
@@ -957,8 +1051,8 @@ function startComprehension(task){
     if (task == "horizon") {
         var q1Data = {
             qNumber: 0,
-            prompt: "How many choices can you make in each round?",
-            labels: ['5', 'Sometimes 5, sometimes 10. Indicated by number of trials left', '10']
+            prompt: "How many free choices can you make in each round after the first 4 that were pre-determined for you?",
+            labels: ['5', 'Sometimes 1, sometimes 6. Indicated by number of trials left', '10']
           };
           var q2Data = {
             qNumber: 1,
@@ -1058,7 +1152,9 @@ const startPracticeButton = document.getElementById('startPractice');
 const startTaskButton = document.getElementById('startTask');
 const endTaskButton = document.getElementById('endTask');
 const nextTaskButton = document.getElementById('nextTask');
+const compButton = document.getElementById("comprehension")
 
+compButton.style.display = 'none';
 nextTaskButton.style.display = 'none';
 endTaskButton.style.display = 'none';
 startTaskButton.style.display = 'none';
@@ -1090,3 +1186,8 @@ endTaskButton.addEventListener('click', () => {
           }, 500)
     
 });
+
+compButton.addEventListener('click', () => {
+    if (task == "horizon") {comprehensionAttemptsH +=1} else if (task == "sam") {comprehensionAttemptsS += 1} else {comprehensionAttemptsR += 1}
+    startComprehension(task)
+})
