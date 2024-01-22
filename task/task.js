@@ -4,7 +4,7 @@
 
 // settings
 
-var quickrunthrough = false // if true, we use placeholder rewards and only 2 blocks per task
+var quickrunthrough = true // if true, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
 //var session = 1
@@ -175,7 +175,7 @@ async function handle_operation_keypress(e) {
 
 // randomly select which order the tasks are in
 var order = Math.floor(Math.random() * 6) + 1;
-//order = 1
+order = 1
 var tasks
 if (order == 1) {
     tasks = [horizonTask, samTask, restlessTask]
@@ -311,21 +311,29 @@ var clickMachine = function(machine, task) {
     if (trial == 4 & task == "horizon") {
         clickable = 0
         setTimeout(function() {
-        slot_machines.style.display = "none";}, 1000)
+        slot_machines.style.display = "none";
+
         if (Ntrials == 5){
-            document.getElementById('machine_title').innerHTML = '<u>Short round.</u> You can now make <u>one</u> free choice. <br> Press S for the left machine and K for the right machine.'; 
+            document.getElementById('machine_title').innerHTML = '<h1 style ="color:Tomato"><center><u>Short round.</u> You can now make only <u>one</u> free choice.</center></h1>'; 
         } else {
-            document.getElementById('machine_title').innerHTML = '<u>Long round.</u> You can now make <u>6</u> free choices. <br> Press S for the left machine and K for the right machine.';
+            document.getElementById('machine_title').innerHTML = '<h1 style ="color:Tomato"><center><u>Long round.</u> You can now make <u>6</u> free choices.</center></h1>';
         }
 
+        document.getElementById('score').style.display = 'none';
+        
         setTimeout(function() {
             slot_machines.style.display = "flex";
             clickable = 1
 
-            //document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1) +
-             //   '<br> Press S for the left machine and K for the right machine.';
+            document.getElementById('machine_title').innerHTML = 'Select the slot machine you would like to play! Round '+ currentBlock +' of ' + (Nblocks-1) +
+               '<br> Press S for the left machine and K for the right machine.';
+
+            document.getElementById('score').style.display = 'block';
             
-        }, 3000)
+        }, 4000) // timing for how long the notice "short round/long round" is displayed
+ 
+        }, 800) // timing for how long the reward of the 4th click is displayed before short/long round disclaimer
+       
         
     }
 

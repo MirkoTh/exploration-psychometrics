@@ -9,11 +9,10 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
 
-load("data/pilot/bandits.Rda")
-
-sam <- get_KL_into_df(sam)
+load("data/wave1/bandits.Rda")
 
 source("analysis/recovery_utils.R")
+sam <- get_KL_into_df(sam)
 
 se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}

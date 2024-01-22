@@ -3,7 +3,7 @@ library(tidyverse)
 
 # set session_id to 1 or 2
 # stimulus sets for all tasks are generated for that session
-session_id <- 1
+session_id <- 2
 my_two_seeds <- c(39737632, 8567389)
 
 
@@ -11,7 +11,7 @@ my_two_seeds <- c(39737632, 8567389)
 #source("utils-gen-stim.R")
 
 set.seed(my_two_seeds[session_id])
-
+library(permute)
 
 
 # Operation Span ----------------------------------------------------------
@@ -521,6 +521,7 @@ save(rewards, file =paste("../task/rewardsSam", session_id, ".Rda" , sep = ""))
 my_two_seeds <- c(39737632, 8567389)
 
 set.seed(my_two_seeds[session_id])
+
 data <- read.csv("ZallerEtAl.csv")
 
 nBlocks = 81 # 1 extra for practice
@@ -528,16 +529,54 @@ nTrials = 10 # just always sample 10 trials even if it is a short horizon and th
 
 sub <- sample(unique(data$Subject),1)
 
-rewards <- data.frame(block = 1:nBlocks,
-                      reward1 = c(40, data$mu_L[data$Subject == sub & data$Trial == 1]), # their rewards are perfectly balanced, just different order for every subject
-                      reward2 = c(60, data$mu_R[data$Subject == sub & data$Trial == 1]),
-                      infoCond = c(-1, data$Info[data$Subject == sub & data$Trial == 1]), # stealing infoCond and Horizon from Zaller et al. bc it is a pain to get it as perfectly orthogonal as they did without having a pattern
-                      Horizon = c(10, data$Horizon[data$Subject == sub & data$Trial == 1]))
+diffs <- c(-30, -20, -12, -8, -4, 4, 8, 12, 20, 30)
+
+rewards <- data.frame(block = rep(1:nBlocks, each = nTrials),
+                      trial = rep(1:nTrials, nBlocks),
+                      reward1 = rep(c(40, data$mu_L[data$Subject == sub & data$Trial == 1]), each = nTrials), # their rewards are perfectly balanced, just different order for every subject
+                      reward2 = rep(NA, nBlocks*nTrials),
+                      infoCond = rep(c(-1, data$Info[data$Subject == sub & data$Trial == 1]), each = nTrials), # stealing infoCond and Horizon from Zaller et al. bc it is a pain to get it as perfectly orthogonal as they did without having a pattern
+                      Horizon = rep(c(10, data$Horizon[data$Subject == sub & data$Trial == 1]), each = nTrials))
 
 
-
+rewards$diff <- NA
+rewards$diff[rewards$Horizon == 5 & rewards$infoCond == 0] <- rep(rep(diffs, each = 2)[shuffle(length(diffs)*2)], each = nTrials)
+rewards$diff[rewards$Horizon == 10 & rewards$infoCond == 0] <- rep(rep(diffs, each = 2)[shuffle(length(diffs)*2)], each = nTrials)
+rewards$diff[rewards$Horizon == 5 & rewards$infoCond == 1] <- rep(diffs[shuffle(length(diffs))], each = nTrials)
+rewards$diff[rewards$Horizon == 5 & rewards$infoCond == -1] <- rep(diffs[shuffle(length(diffs))], each = nTrials)
+rewards$diff[rewards$Horizon == 10 & rewards$infoCond == 1] <- rep(diffs[shuffle(length(diffs))], each = nTrials)
+rewards$diff[rewards$Horizon == 10 & rewards$infoCond == -1] <- rep(c(20, diffs[shuffle(length(diffs))]), each = nTrials)# prepend large difference for practice
+  
+rewards$reward2 <- rewards$reward1 + rewards$diff
 
 noise_var <- 17 # variance inferred from dataset by Zaller et al
+
+rewards$reward1 <- round(rewards$reward1 + rnorm(nrow(rewards), 1, sqrt(noise_var)))
+rewards$reward2 <- round(rewards$reward2 + rnorm(nrow(rewards), 1, sqrt(noise_var)))
+
+
+######### test whether this looks good and balanced now
+
+rewards$mean_diff <- NA
+rewards$mean_diff[rewards$trial == 5] <- apply(as.array(1:nBlocks), 1, function(x) mean(rewards$reward1[rewards$block == x & rewards$trial < 5] -
+                                                                                          rewards$reward2[rewards$block == x & rewards$trial <5]))
+
+table(rewards$diff, rewards$Horizon, rewards$infoCond)
+
+table(round(rewards$mean_diff[rewards$trial == 5]/5)*5, rewards$Horizon[rewards$trial == 5], rewards$infoCond[rewards$trial == 5])
+
+ddply(rewards, ~Horizon+infoCond, summarise, rew1 = mean(reward1), rew2 = mean(reward2))
+
+# test for statistical significance of any potential unwanted patterns
+library(lmerTest)
+library(tidyr)
+df <- pivot_longer(rewards, cols = 3:4, names_to = "arm", values_to = "reward")
+
+# balancing of means between conditions and between left and right
+summary(lmer(reward ~ arm * Horizon + arm* infoCond + Horizon*infoCond + (1|block), df))
+
+summary(lm(mean_diff ~Horizon * infoCond , rewards[rewards$trial == 5, ]))# here also intercept should be nowhere near significant
+
 
 
 ## save rewards
@@ -546,15 +585,8 @@ ls = list()
 for (i in 1:nBlocks){
   block = list()
   for (j in 1:nTrials){
-    found = 0
-    while (found == 0){
-      re <- c(round(rewards$reward1[rewards$block == i] + rnorm(1,0,sqrt(noise_var))), round(rewards$reward2[rewards$block == i]+ rnorm(1,0,sqrt(noise_var))))
-      if (mean(re >= 0 & re <= 100) == 1) {
-        block[[j]] <- re
-        found = 1
-      }
-    }
-    
+      re <- c(rewards$reward1[rewards$block == i & rewards$trial == j], rewards$reward2[rewards$block == i&rewards$trial == j])
+      block[[j]] <- re
   }
   ls[[i]] <- block
 }
@@ -572,11 +604,11 @@ fixed <- list()
 library(permute)
 
 for (i in 1:nBlocks){
-  if (rewards$infoCond[rewards$block == i] == -1){ # right more info
+  if (rewards$infoCond[rewards$block == i & rewards$trial == 1] == -1){ # right more info
     choices <- c(0,1,1,1)
-  } else if (rewards$infoCond[rewards$block == i] == 0){# equal info
+  } else if (rewards$infoCond[rewards$block == i& rewards$trial == 1] == 0){# equal info
     choices <- c(1,1,0,0)
-  }else if (rewards$infoCond[rewards$block == i] == 1){# left more info
+  }else if (rewards$infoCond[rewards$block == i& rewards$trial == 1] == 1){# left more info
     choices <- c(0,0,0,1)
   }
   fixed[[i]] <- choices[shuffle(4)]
@@ -584,11 +616,14 @@ for (i in 1:nBlocks){
 
 json = toJSON(fixed)
 
-write(json, paste("task/fixedChoices", session_id,".json", sep = ""))
+write(json, paste("../task/fixedChoices", session_id,".json", sep = ""))
 
 ## save horizon
 
-horizon <- rewards$Horizon
+horizon <- rewards$Horizon[rewards$trial == 1]
 
 json = toJSON(horizon)
-write(json, paste("task/Horizon", session_id,".json", sep = ""))
+write(json, paste("../task/Horizon", session_id,".json", sep = ""))
+
+
+save(rewards, file = paste("../task/rewardsHorizon", session_id, ".Rda"))
