@@ -355,7 +355,10 @@ horizon$chooseBest <- ifelse(horizon$chosen == horizon$optimal, 1, 0)
 overall <- ddply(horizon[horizon$trial > 4, ], ~ID, summarise, optimal = meann(chooseBest))
 table(overall$optimal <= pchance) # 6 excluded
 
-lookup$perfHorizon[match(overall$ID, lookup$ID)] <- ifelse(overall$optimal <=pchance, 1, 0)
+ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
+  ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
+
+lookup$perfHorizon[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <=pchance, 1, 0))
 
 #### Sam's task performance
 
@@ -364,7 +367,10 @@ sam$chooseBest <- ifelse(sam$chosen == sam$optimal, 1, 0)
 
 overall <- ddply(sam, ~ID, summarise, optimal = meann(chooseBest))
 
-lookup$perfSam[match(overall$ID, lookup$ID)] <- ifelse(overall$optimal <= pchance, 1, 0)
+ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
+  ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
+
+lookup$perfSam[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <= pchance, 1, 0))
 
 
 #### 4arb performance 
@@ -383,7 +389,10 @@ pchance <- qbinom(0.95, n, 0.25)/n
 
 overall <- ddply(data, ~ID, summarise, optimal = meann(chooseBest))
 
-lookup$perfRestless[match(overall$ID, lookup$ID)] <- ifelse(overall$optimal <= pchance, 1, 0)
+ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
+  ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
+
+lookup$perfRestless[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <= pchance, 1, 0))
 
 #### comprehension attempts horizon
 
@@ -393,17 +402,17 @@ mean_sd$SD <- 2*mean_sd$SD + mean_sd$meanComp
 
 comprehension$excl <- ifelse(comprehension$compAttempts > mean_sd$SD[match(comprehension$task, mean_sd$task)], 1, 0)
 
-
-lookup$compHorizon[match(comprehension$ID[comprehension$task == "horizon"], lookup$ID)] <- comprehension$excl[comprehension$task == "horizon"]
+table(comprehension$excl)
+lookup$compHorizon[na.omit(match(comprehension$ID[comprehension$task == "horizon"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "horizon"])
 
 #### comprehension attempts sam
 
-lookup$compSam[match(comprehension$ID[comprehension$task == "sam"], lookup$ID)] <- comprehension$excl[comprehension$task == "sam"]
+lookup$compSam[na.omit(match(comprehension$ID[comprehension$task == "sam"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "sam"])
 
 
 #### comprehension attempts 4arb
 
-lookup$compRestless[match(comprehension$ID[comprehension$task == "restless"], lookup$ID)] <- comprehension$excl[comprehension$task == "restless"]
+lookup$compRestless[na.omit(match(comprehension$ID[comprehension$task == "restless"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "restless"])
 
 #### attention checks
 
