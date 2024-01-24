@@ -84,13 +84,13 @@ hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_
   l_tbl_OS_recall_indiv <- map(map(l_paths$`OS-recall`$indiv, inner_map), "result")
   l_tbl_OS_recall_compound <- map(map(l_paths$`OS-recall`$compound, inner_map), "result")
   l_tbl_OS_processing_indiv <- map(map(l_paths$`OS-processing`$indiv, inner_map), "result")
-  l_tbl_OS_processing_compound <- map(map(l_paths$`OS-recall`$compound, inner_map), "result")
+  l_tbl_OS_processing_compound <- map(map(l_paths$`OS-processing`$compound, inner_map), "result")
   l_tbl_OS_bonus <- map(map(l_paths$`OS-bonus`$indiv, inner_map), "result")
   
   l_tbl_SS_recall_indiv <- map(map(l_paths$`SS-recall`$indiv, inner_map), "result")
   l_tbl_SS_recall_compound <- map(map(l_paths$`SS-recall`$compound, inner_map), "result")
   l_tbl_SS_processing_indiv <- map(map(l_paths$`SS-processing`$indiv, inner_map), "result")
-  l_tbl_SS_processing_compound <- map(map(l_paths$`SS-recall`$compound, inner_map), "result")
+  l_tbl_SS_processing_compound <- map(map(l_paths$`SS-processing`$compound, inner_map), "result")
   l_tbl_SS_bonus <- map(map(l_paths$`SS-bonus`$indiv, inner_map), "result")
   
   select_more_rows <- function(a, b) {
