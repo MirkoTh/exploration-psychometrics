@@ -191,19 +191,19 @@ horizon$mean_diff <- ifelse(is.na(horizon$reward), NA, horizon$reward1 - horizon
 
 # adjust it to be informative - uninformative
 
-#horizon$mean_diff[horizon$info == 1 & horizon$trial == 5] <- horizon$mean_diff[horizon$info == 1 & horizon$trial == 5] * -1
+horizon$mean_diff[horizon$info == 1 & horizon$trial == 5] <- horizon$mean_diff[horizon$info == 1 & horizon$trial == 5] * -1
 
 # turn mean diff into binned
-# 
-# horizon$mean_diff <- round(horizon$mean_diff / 5) * 5
-# 
-# horizon$explore <- NA
-# horizon$explore[horizon$trial == 5] <- ifelse(horizon$info[horizon$trial == 5] != -1, horizon$chosen[horizon$trial == 5], 1-horizon$chosen[horizon$trial == 5])
-# 
-# 
-# psych <- ddply(horizon[horizon$info != 0&horizon$trial == 5, ], ~mean_diff+Horizon, summarise, explore = meann(explore))
-# 
-# ggplot(psych, aes(mean_diff, explore, color = as.factor(Horizon))) + geom_point() + geom_line()
+
+horizon$mean_diff <- round(horizon$mean_diff / 5) * 5
+
+horizon$explore <- NA
+horizon$explore[horizon$trial == 5] <- ifelse(horizon$info[horizon$trial == 5] != -1, horizon$chosen[horizon$trial == 5], 1-horizon$chosen[horizon$trial == 5])
+
+
+psych <- ddply(horizon[horizon$info != 0&horizon$trial == 5, ], ~mean_diff+Horizon, summarise, explore = meann(explore))
+
+ggplot(psych, aes(mean_diff, explore, color = as.factor(Horizon))) + geom_point() + geom_line()
 
 library(brms)
 summary(brm(chosen ~ Horizon * info + Horizon*mean_diff+ (Horizon*info + Horizon*mean_diff | ID), 

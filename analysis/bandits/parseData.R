@@ -22,7 +22,8 @@ json_to_tibble <- function(path_file) {
 }
 
 
-
+se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
+meann <- function(x){mean(x, na.rm = T)}
 ### load data ########
 
 session = 1
@@ -324,4 +325,104 @@ for (i in files){
 
 save(qdat, file = str_c(str_remove(rel_dir_data_qs, "[a-z]*/$"),  "qs.Rda"))
 
+########## make table of exclusions #############
 
+##### WM
+
+#load what mirko did here
+wm <- readRDS("data/wave1/subjects-excl-wm.rds")
+wm <- subset(wm, is.element(participant_id, lookup$PID))
+lookup$perfWM <- NA
+lookup$perfWM[match(wm$participant_id, lookup$PID)] <- ifelse(wm$excl_subject, 1, 0)
+
+#### used external aids 
+lookup$WMaid[match(qdat$ID, lookup$ID)] <- qdat$mem_aid_0
+lookup$slotaid[match(qdat$ID, lookup$ID)] <- qdat$slot_aid_0
+
+#### Horizon performance
+n <- length(na.omit(horizon$chosen[horizon$ID == 1])) - 80*4 # subtract the free choices
+# for which number of best arm choices is there a 95% probability that this is by chance?
+qbinom(0.95, n, 0.5) # 154
+
+# proportion of optimal choices you get by chance
+pchance <- 154/n
+
+horizon$optimal <- ifelse(horizon$reward1 > horizon$reward2, 0, 1)
+horizon$chooseBest <- ifelse(horizon$chosen == horizon$optimal, 1, 0)
+
+# how many subjects are on average at chance performance?
+
+overall <- ddply(horizon[horizon$trial > 4, ], ~ID, summarise, optimal = meann(chooseBest))
+table(overall$optimal <= pchance) # 6 excluded
+
+ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
+  ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
+
+lookup$perfHorizon[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <=pchance, 1, 0))
+
+#### Sam's task performance
+
+sam$optimal <- ifelse(sam$reward1 > sam$reward2, 0, 1)
+sam$chooseBest <- ifelse(sam$chosen == sam$optimal, 1, 0)
+
+overall <- ddply(sam, ~ID, summarise, optimal = meann(chooseBest))
+
+ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
+  ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
+
+lookup$perfSam[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <= pchance, 1, 0))
+
+
+#### 4arb performance 
+
+data <- restless
+data$optimalR <- rep(apply(as.array(data$trial[data$ID == 1]), 1, function(x) max(c(data$reward1[data$trial == x],
+                                                                                    data$reward2[data$trial == x],
+                                                                                    data$reward3[data$trial == x],
+                                                                                    data$reward4[data$trial == x]))), 
+                     length(unique(data$ID)))
+
+data$chooseBest <- ifelse(data$reward == data$optimalR, 1, 0)
+
+n <- 200
+pchance <- qbinom(0.95, n, 0.25)/n
+
+overall <- ddply(data, ~ID, summarise, optimal = meann(chooseBest))
+
+ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
+  ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
+
+lookup$perfRestless[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <= pchance, 1, 0))
+
+#### comprehension attempts horizon
+
+mean_sd <- ddply(comprehension, ~task, summarise, meanComp = mean(compAttempts, na.rm =T), SD = sd(compAttempts, na.rm = T))
+
+mean_sd$SD <- 2*mean_sd$SD + mean_sd$meanComp
+
+comprehension$excl <- ifelse(comprehension$compAttempts > mean_sd$SD[match(comprehension$task, mean_sd$task)], 1, 0)
+
+table(comprehension$excl)
+lookup$compHorizon[na.omit(match(comprehension$ID[comprehension$task == "horizon"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "horizon"])
+
+#### comprehension attempts sam
+
+lookup$compSam[na.omit(match(comprehension$ID[comprehension$task == "sam"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "sam"])
+
+
+#### comprehension attempts 4arb
+
+lookup$compRestless[na.omit(match(comprehension$ID[comprehension$task == "restless"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "restless"])
+
+#### attention checks
+
+lookup$attention[match(qdat$ID, lookup$ID)] <- ifelse(qdat$attention1 < 2, 1, 0)
+
+
+##### total
+
+lookup$exclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(na.omit(lookup[x, -c(1:2)])))))
+lookup$exclude <- ifelse(lookup$exclude == 0, 0 , 1)
+table(lookup$exclude)# 25 excluded, 19 kept
+
+write.csv(lookup, "data/wave1/exclusions.csv")

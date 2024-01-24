@@ -4,7 +4,7 @@
 
 // settings
 
-var quickrunthrough = true // if true, we use placeholder rewards and only 2 blocks per task
+var quickrunthrough = false // if true, we use placeholder rewards and only 2 blocks per task
 
 // variables we need
 //var session = 1
@@ -175,7 +175,7 @@ async function handle_operation_keypress(e) {
 
 // randomly select which order the tasks are in
 var order = Math.floor(Math.random() * 6) + 1;
-order = 1
+//order = 1
 var tasks
 if (order == 1) {
     tasks = [horizonTask, samTask, restlessTask]
@@ -314,9 +314,9 @@ var clickMachine = function(machine, task) {
         slot_machines.style.display = "none";
 
         if (Ntrials == 5){
-            document.getElementById('machine_title').innerHTML = '<h1 style ="color:Tomato"><center><u>Short round.</u> You can now make only <u>one</u> free choice.</center></h1>'; 
+            document.getElementById('machine_title').innerHTML = '<h1 style ="color:Tomato"><center><u>Short round.</u> Only <u>one</u> free choice.</center></h1>'; 
         } else {
-            document.getElementById('machine_title').innerHTML = '<h1 style ="color:Tomato"><center><u>Long round.</u> You can now make <u>6</u> free choices.</center></h1>';
+            document.getElementById('machine_title').innerHTML = '<h1 style ="color:Tomato"><center><u>Long round.</u> <u>6</u> free choices.</center></h1>';
         }
 
         document.getElementById('score').style.display = 'none';
@@ -330,7 +330,7 @@ var clickMachine = function(machine, task) {
 
             document.getElementById('score').style.display = 'block';
             
-        }, 4000) // timing for how long the notice "short round/long round" is displayed
+        }, 3000) // timing for how long the notice "short round/long round" is displayed
  
         }, 800) // timing for how long the reward of the 4th click is displayed before short/long round disclaimer
        
