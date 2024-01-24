@@ -9,8 +9,16 @@ walk(path_utils, source)
 
 path_data <- c("data/2023-11-lab-pilot/", "data/all-data/")[2]
 
-n_processing_os <- 90
-n_processing_ss <- 54
+# these are the nr. trials that were administed in the experiment
+tbl_trials_administered <- tibble(
+  os_recall = 15,
+  ss_recall = 12,
+  os_processing = 90,
+  ss_processing = 54,
+  wmu_recall = 20
+) %>% pivot_longer(colnames(.))
+colnames(tbl_trials_administered) <- c("task", "n_administered")
+
 
 participants_returned <- c(
   "6525b562b415d2f7ed82196e", 
@@ -27,18 +35,35 @@ participants_returned <- c(
   "616a94b54cf4a5cde4d9c015",
   "60cc4cbfd6bdf9ee88cdd2f6",
   "611e480c5772542ccce1a22f",
-  "64eb650fbf222d6e2ec9cff9" 
+  "64eb650fbf222d6e2ec9cff9",
+  "62d1326fee93c50ea5638e9f",
+  "5d20b0157e17470001e1c635",
+  "62b182ba39468032223841bb",
+  "5d4986318fe73e0001569573",
+  "59f1d43d24d7bf00012f17f2",
+  "61222038c2048b50449284a1",
+  "63d8074daa40629318ada75f" 
+)
+
+time_out_exclude <- c(
+  "56b6e2fcf2fc70000c32f9d5",
+  "571a78f06a1c6300114b8d80"
 )
 
 # select the time range for the data to be loaded
 time_period <- c(
-  make_datetime(2024, 1, 16, 17, tz = "CET"), 
-  make_datetime(2024, 1, 17, 19, tz = "CET")
+  make_datetime(2024, 1, 23, 11, tz = "CET"), 
+  make_datetime(2024, 1, 23, 20, tz = "CET")
 ) # 10 prolific pilot participant range
-hash_ids(path_data, participants_returned, time_period = time_period)
+hash_ids(
+  path_data, 
+  c(participants_returned, time_out_exclude), 
+  time_period = time_period
+)
 
 tbl_ids_lookup <- read_csv(str_c(path_data, "participant-lookup.csv"))
 
+# exclude practice trials
 tbl_os_recall <- readRDS(str_c(path_data, "tbl_OS_recall.RDS")) %>%
   filter(is_practice == 0)#read_csv(str_c(path_data, "tbl_OS_recall.csv"))
 tbl_os_processing <- read_csv(str_c(path_data, "tbl_OS_processing.csv")) %>%
@@ -55,68 +80,11 @@ tbl_os_processing <- read_csv(str_c(path_data, "tbl_OS_processing.csv")) %>%
 
 
 
-
+# exclude practice trials and add missing variables
 tbl_ss_recall <- readRDS(str_c(path_data, "tbl_SS_recall.RDS")) %>%
   filter(is_practice == 0)#read_csv(str_c(path_data, "tbl_SS_recall.csv"))
 tbl_ss_processing <- read_csv(str_c(path_data, "tbl_SS_processing.csv")) %>%
   filter(is_practice == 0)
-
-# this is only for pilot data where processing position was not correctly stored
-# tbl_ss_processing <- tbl_ss_processing %>% group_by(participant_id, trial_id_recall, processing_position) %>%
-#   mutate(rwn = row_number(rt))
-# tbl_ss_processing$processing_position[tbl_ss_processing$rwn == 2] <- tbl_ss_processing$processing_position[tbl_ss_processing$rwn == 2] + 1
-# tbl_ss_processing <- tbl_ss_processing %>% select(-rwn)
-
-
-tbl_WMU_recall <- readRDS(str_c(path_data, "tbl_WMU_recall.rds")) %>%
-  filter(is_practice == 0 & trial_type == "update")
-
-
-# how many trials were collected from the participants?
-how_many_trials <- function(nm, tbl_df) {
-  tbl_df %>% 
-    group_by(participant_id) %>%
-    count() %>% 
-    arrange(desc(n)) %>%
-    ungroup() %>%
-    mutate(task = nm)
-}
-
-tbl_n_trials <- map2(
-  list("os_recall", "os_processing", "ss_recall", "ss_processing", "wmu_recall"),
-  list(tbl_os_recall, tbl_os_processing, tbl_ss_recall, tbl_ss_processing, tbl_WMU_recall),
-  how_many_trials
-) %>% reduce(rbind)
-
-ggplot(tbl_n_trials, aes(task, participant_id)) +
-  geom_tile(aes(fill = n)) +
-  geom_text(aes(label = n), color = "white")
-
-# use first given responses for participants with multiple responses
-
-extract_first_response <- function(tbl_df, g_vars) {
-  tbl_df %>% 
-    group_by(across({{g_vars}})) %>%
-    mutate(rwn = row_number()) %>%
-    ungroup() %>% filter(rwn == 1)
-}
-
-tbl_os_recall <- extract_first_response(tbl_os_recall, c(participant_id, trial_id_recall))
-tbl_os_processing <- extract_first_response(tbl_os_processing, c(participant_id, trial_id_recall, processing_position))
-tbl_ss_recall <- extract_first_response(tbl_ss_recall, c(participant_id, trial_id_recall))
-tbl_ss_processing <- extract_first_response(tbl_ss_processing, c(participant_id, trial_id_recall, processing_position))
-tbl_WMU_recall <- extract_first_response(tbl_WMU_recall, c(participant_id, trial_id))
-
-tbl_n_trials <- map2(
-  list("os_recall", "os_processing", "ss_recall", "ss_processing", "wmu_recall"),
-  list(tbl_os_recall, tbl_os_processing, tbl_ss_recall, tbl_ss_processing, tbl_WMU_recall),
-  how_many_trials
-) %>% reduce(rbind)
-
-ggplot(tbl_n_trials, aes(task, participant_id)) +
-  geom_tile(aes(fill = n)) +
-  geom_text(aes(label = n), color = "white")
-
 
 tbl_os_processing <- tbl_os_processing %>%
   mutate(processing_position = processing_position + 1) %>%
@@ -137,31 +105,119 @@ tbl_ss_processing <- tbl_ss_processing %>%
   ) %>%
   ungroup()
 
+# this is only for pilot data where processing position was not correctly stored
+# tbl_ss_processing <- tbl_ss_processing %>% group_by(participant_id, trial_id_recall, processing_position) %>%
+#   mutate(rwn = row_number(rt))
+# tbl_ss_processing$processing_position[tbl_ss_processing$rwn == 2] <- tbl_ss_processing$processing_position[tbl_ss_processing$rwn == 2] + 1
+# tbl_ss_processing <- tbl_ss_processing %>% select(-rwn)
 
-# Trials per Participant and Condition ------------------------------------
+
+# exclude practice trials
+tbl_WMU_recall <- readRDS(str_c(path_data, "tbl_WMU_recall.rds")) %>%
+  filter(is_practice == 0 & trial_type == "update")
+
+
+
+# N Trials Collected ------------------------------------------------------
+
+
+# how many trials were collected from the participants?
+how_many_trials <- function(nm, tbl_df) {
+  tbl_df %>% 
+    group_by(participant_id) %>%
+    count() %>% 
+    arrange(desc(n)) %>%
+    ungroup() %>%
+    mutate(task = nm)
+}
+
+tbl_n_trials <- map2(
+  list("os_recall", "os_processing", "ss_recall", "ss_processing", "wmu_recall"),
+  list(tbl_os_recall, tbl_os_processing, tbl_ss_recall, tbl_ss_processing, tbl_WMU_recall),
+  how_many_trials
+) %>% reduce(rbind)
+
+ggplot(tbl_n_trials, aes(task, substr(participant_id, 1, 6))) +
+  geom_tile(aes(fill = n)) +
+  geom_text(aes(label = n), color = "white")
+
+# use first given responses for participants with multiple responses
+
+extract_first_response <- function(tbl_df, g_vars) {
+  tbl_df %>% 
+    group_by(across({{g_vars}})) %>%
+    mutate(rwn = row_number()) %>%
+    ungroup() %>% filter(rwn == 1)
+}
+
+tbl_os_recall <- extract_first_response(tbl_os_recall, c(participant_id, trial_id_recall))
+tbl_os_processing <- extract_first_response(tbl_os_processing, c(participant_id, trial_id_recall, processing_position))
+tbl_ss_recall <- extract_first_response(tbl_ss_recall, c(participant_id, trial_id_recall))
+tbl_ss_processing <- extract_first_response(tbl_ss_processing, c(participant_id, trial_id_recall, processing_position))
+tbl_WMU_recall <- extract_first_response(tbl_WMU_recall, c(participant_id, trial_id))
+
+tmp_n_trials <- map2(
+  list("os_recall", "os_processing", "ss_recall", "ss_processing", "wmu_recall"),
+  list(tbl_os_recall, tbl_os_processing, tbl_ss_recall, tbl_ss_processing, tbl_WMU_recall),
+  how_many_trials
+) %>% reduce(rbind)
+
+tbl_design <- crossing(
+  task = unique(tbl_n_trials$task),
+  participant_id = unique(tbl_n_trials$participant_id)
+)
+
+tbl_n_trials <- tbl_design %>%
+  left_join(tmp_n_trials, by = c("participant_id", "task")) %>%
+  replace_na(list(n = 0))
+
+tbl_n_trials <- tbl_n_trials %>%
+  left_join(tbl_trials_administered, by = "task") %>%
+  mutate(
+    too_few = n < n_administered
+  )
+
+tbl_ids_lookup <- tbl_ids_lookup %>%
+  left_join(
+    tbl_n_trials %>%
+      group_by(participant_id) %>%
+      summarize(any_task_too_few = sum(too_few) >= 1)
+    , by = c("participant_id_randomized" = "participant_id")
+  )
+
+ggplot(tbl_n_trials, aes(task, substr(participant_id, 1, 6))) +
+  geom_tile(aes(fill = n)) +
+  geom_text(aes(label = n), color = "white")
+
+
+
+
+
+# Trials per Participant, Task, and Set Size -------------------------
 
 tbl_trials_overview <- tbl_os_recall %>% 
   group_by(participant_id, set_size) %>% 
   count() %>%
   mutate(task = "OS Recall") %>%
   rbind(
-      tbl_ss_recall %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "SS Recall")
-    ) %>% rbind(
-        tbl_WMU_recall %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "WMU")
-      )  %>% rbind(
-          tbl_os_processing %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "OS Processing")
-        )  %>% rbind(
-            tbl_ss_processing %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "SS Processing")
-          ) %>%
+    tbl_ss_recall %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "SS Recall")
+  ) %>% rbind(
+    tbl_WMU_recall %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "WMU")
+  )  %>% rbind(
+    tbl_os_processing %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "OS Processing")
+  )  %>% rbind(
+    tbl_ss_processing %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "SS Processing")
+  ) %>%
   ungroup() %>%
   mutate(p_id_short = substr(participant_id, 1, 5)) %>%
   group_by(participant_id) %>%
   mutate(n_total_datapoints = sum(n)) %>%
   ungroup()
-tbl_trials_overview2 <- tbl_trials_overview %>% group_by(participant_id, p_id_short) %>% summarize(n = max(n_total_datapoints)) %>% ungroup() %>%
+tbl_trials_overview2 <- tbl_trials_overview %>%
+  group_by(participant_id, p_id_short) %>% summarize(n = max(n_total_datapoints)) %>% ungroup() %>%
   mutate(task = "All Tasks", set_size = 4)
-  #select(-c(set_size)) %>%
-  #pivot_wider(names_from = task, values_from = n) %>%
+#select(-c(set_size)) %>%
+#pivot_wider(names_from = task, values_from = n) %>%
 tbl_trials_all <- rbind(tbl_trials_overview %>% select(-c(n_total_datapoints)), tbl_trials_overview2)
 ggplot(tbl_trials_all %>% arrange(desc(n)) %>% mutate(p_id_short = fct_inorder(factor(p_id_short))), aes(set_size, p_id_short)) +
   geom_tile(aes(fill = n)) +
@@ -179,7 +235,12 @@ ggplot(tbl_trials_all %>% arrange(desc(n)) %>% mutate(p_id_short = fct_inorder(f
 
 
 
-# Exclude Incomplete Datsets ----------------------------------------------
+# Exclude Incomplete Datasets ---------------------------------------------
+
+
+# this criterion can be more lenient than excluding participants
+# if there is any task with too few trials (as above)
+# if n_thx < 191
 
 n_thx <- 190 # keep data set of participants with only one data point missing
 tbl_complete <- tbl_trials_all %>% filter(task == "All Tasks" & n >= n_thx)
@@ -190,7 +251,13 @@ tbl_os_processing <- tbl_os_processing %>% inner_join(tbl_complete_p, "participa
 tbl_ss_processing <- tbl_ss_processing %>% inner_join(tbl_complete_p, "participant_id")
 tbl_WMU_recall <- tbl_WMU_recall %>% inner_join(tbl_complete_p, "participant_id")
 
-
+tbl_ids_lookup <- tbl_ids_lookup %>% 
+  left_join(
+    tbl_complete_p %>% 
+      mutate(all_tasks_too_few = FALSE),
+    by = c("participant_id_randomized" = "participant_id")
+  ) %>%
+  replace_na(list(all_tasks_too_few = TRUE))
 
 # Recall ------------------------------------------------------------------
 
@@ -232,7 +299,7 @@ tbl_recall_performance_participants <- tbl_os_participant_agg %>%
 
 
 pl_ss_recall <- plot_pc_against_ss(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci, tbl_wmu_ss_agg_ci) +
-  ggtitle("Recall") + coord_cartesian(ylim = c(.5, 1))
+  ggtitle("Recall") + coord_cartesian(ylim = c(.3, 1))
 
 # recall rts
 os_rts <- grouped_agg(tbl_os_recall, participant_id, rt) %>%
@@ -290,15 +357,26 @@ tbl_proc_performance_participants <- tbl_os_proc_participant_agg %>%
   left_join(tbl_ss_timeouts, by = "participant_id")
 
 tbl_proc_performance_participants$thx_lo_os <- 
-  qbinom(.95, n_processing_os, .5)/n_processing_os
+  qbinom(.95, tbl_trials_administered$n_administered[tbl_trials_administered$task == "os_processing"], .5)/
+  tbl_trials_administered$n_administered[tbl_trials_administered$task == "os_processing"]
 tbl_proc_performance_participants$thx_lo_ss <- 
-  qbinom(.95, n_processing_ss, .5)/n_processing_ss
+  qbinom(.95, tbl_trials_administered$n_administered[tbl_trials_administered$task == "ss_processing"], .5)/
+  tbl_trials_administered$n_administered[tbl_trials_administered$task == "ss_processing"]
 tbl_proc_performance_participants <- tbl_proc_performance_participants %>%
   mutate(
     excl_os = OS < thx_lo_os,
     excl_ss = SS < thx_lo_ss,
-    excl_subject = excl_os + excl_ss > 0
+    proc_below_thx = excl_os + excl_ss > 0
   )
+
+# add exclusions to overview tbl
+tbl_ids_lookup <- tbl_ids_lookup %>%
+  left_join(
+    tbl_proc_performance_participants[, c("participant_id", "proc_below_thx")], 
+    by = c("participant_id_randomized" = "participant_id")
+  )
+
+
 
 pl_ss_processing <- plot_pc_against_ss(
   tbl_os_proc_ss_agg_ci, tbl_ss_proc_ss_agg_ci, tbl_ss_proc_ss_agg_ci, 
@@ -327,10 +405,12 @@ tbl_thx <- tibble(
   )
 )
 
-tbl_performance_all %>% 
-  left_join(tbl_ids_lookup, by = c("participant_id" = "participant_id_randomized")) %>%
-  rename(prolific_pid = participant_id, participant_id = participant_id.y) %>%
-  select(participant_id, excl_subject) %>%
+tbl_ids_lookup %>% select(-proc_below_thx) %>% 
+  left_join(tbl_performance_all, by = c("participant_id_randomized" = "participant_id")) %>%
+  replace_na(list(proc_below_thx =  0)) %>%
+  rename(prolific_pid = participant_id, participant_id = participant_id_randomized) %>%
+  select(participant_id, all_tasks_too_few, proc_below_thx) %>%
+  mutate(excl_subject = pmax(all_tasks_too_few, proc_below_thx)) %>%
   saveRDS(file = "analysis/wm/subjects-excl-wm.rds")
 
 ggplot() +
@@ -352,10 +432,32 @@ ggplot() +
     axis.text.x = element_text(angle = 90, vjust = .3)
   )
 
-cor(tbl_performance_all %>% select(ends_with("recall"), ends_with("processing"), "WMU") %>%
-      filter(
-        !is.na(WMU))
-)
+tbl_cor <- cor(tbl_performance_all %>% select(ends_with("recall"), ends_with("processing"), "WMU") %>%
+                 filter(
+                   !is.na(WMU))
+) %>% as.data.frame() %>%
+  mutate(task = c("OS Recall", "SS Recall", "OS Processing", "SS Processing", "WMU")) %>%
+  pivot_longer(- task) 
+tbl_cor$name <- factor(tbl_cor$name)
+levels(tbl_cor$name) <- c("OS Processing", "OS Recall", "SS Processing", "SS Recall", "WMU")
+tbl_cor$task <- factor(tbl_cor$task)
+levels(tbl_cor$task) <- c("OS Processing", "OS Recall", "SS Processing", "SS Recall", "WMU")
+
+
+tbl_cor %>%
+  ggplot(aes(task, name)) +
+  geom_tile(aes(fill = value)) +
+  geom_text(aes(label = round(value, 2)), color = "darkgrey", size = 5) +
+  scale_fill_viridis_c(name = "Correlation", guide = "none") +
+  theme_bw() +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = "", y = "") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    axis.text.x = element_text(angle = 90)
+  )
 
 grid::grid.draw(gridExtra::arrangeGrob(pl_ss_recall, pl_ss_processing, nrow = 1))
 
