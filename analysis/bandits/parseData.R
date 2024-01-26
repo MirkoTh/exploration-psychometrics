@@ -41,50 +41,51 @@ files_all = list.files(path = rel_dir_data_bandits)
 files <- files_all[!grepl("temp", files_all)]
 
 
-### make lookup based on questionnaire files bc they seem to be more complete
+### get IDs of participants that have questionnaire data (and thus seem to have completed the study)
 qfiles = list.files(path = rel_dir_data_qs)
+qPIDs = apply(as.array(qfiles), 1, function(x) substr(x, 1, gregexpr("_", x)[[1]][1]-1))
 
-lookup <- data.frame(PID = rep(NA, length(qfiles)),
-                     ID = 1:length(qfiles))
+### get IDs of participants that completed bandits bc some of them might not have questionnaire data for some reason
+bPIDs = apply(as.array(files), 1, function(x) substr(x, 1, gregexpr("_", x)[[1]][1]-1))
 
-for (i in 1:length(qfiles)){
-    pid <- substr(qfiles[i], 1, gregexpr("_", qfiles[i])[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
-    lookup$PID[i] <- pid
-}
+# merge both lists
+PIDs = unique(c(qPIDs, bPIDs))
 
+# make lookup table with anonymised IDs
+lookup <- data.frame(PID = PIDs,
+                     ID = 1:length(PIDs))
 
-
-bonus <- data.frame(ID = rep(NA, length(files)),
+bonus <- data.frame(ID = rep(NA, length(PIDs)),
                     TotalBonus = NA,
                     Horizon = NA,
                     Sam = NA,
                     Restless = NA)
 
-comprehension <- data.frame(ID = rep(1:length(files), each = 3),
-                            task = rep(c("horizon", "sam", "restless"), length(files)),
+comprehension <- data.frame(ID = rep(1:length(PIDs), each = 3),
+                            task = rep(c("horizon", "sam", "restless"), length(PIDs)),
                     compAttempts = NA,
                     compTime = NA,
                     instTime = NA)
 
-horizon <- data.frame(ID = rep(1:length(files), each = nBlocksH*nTrialsH),
-                      block = rep(rep(1:nBlocksH, each = nTrialsH), length(files)),
-                      trial = rep(1:nTrialsH, nBlocksH*length(files)),
+horizon <- data.frame(ID = rep(1:length(PIDs), each = nBlocksH*nTrialsH),
+                      block = rep(rep(1:nBlocksH, each = nTrialsH), length(PIDs)),
+                      trial = rep(1:nTrialsH, nBlocksH*length(PIDs)),
                       chosen = NA,
                       reward = NA,
                       rt = NA, 
                       session = session)
 
 
-sam <- data.frame(ID = rep(1:length(files), each = nBlocksS*nTrialsS),
-                  block = rep(rep(1:nBlocksS, each = nTrialsS), length(files)),
-                  trial = rep(1:nTrialsS, nBlocksS*length(files)),
+sam <- data.frame(ID = rep(1:length(PIDs), each = nBlocksS*nTrialsS),
+                  block = rep(rep(1:nBlocksS, each = nTrialsS), length(PIDs)),
+                  trial = rep(1:nTrialsS, nBlocksS*length(PIDs)),
                   chosen = NA,
                   reward = NA,
                   rt = NA, 
                   session = session)
 
 
-restless <- data.frame(ID = rep(1:length(files), each = nTrialsR),
+restless <- data.frame(ID = rep(1:length(PIDs), each = nTrialsR),
                        trial = 1:nTrialsR,
                        chosen = NA,
                        reward = NA,
@@ -92,14 +93,18 @@ restless <- data.frame(ID = rep(1:length(files), each = nTrialsR),
                        session = session)
 
 for (i in 1:nrow(lookup)){
+  
+  if (i%%20 == 0){print(i)}
+  
   pid <- lookup$PID[i]
+  file_ind <- grep(pid, files)
   # check if we have the final data for that participant
-  if (mean(grepl(pid, files))>0){ID = i} 
+  if (length(file_ind)>0){ID = i} 
   else { # if not we need to look through temp, easiest to do that manually
     print(pid)
     next
   }
-  temp <- fromJSON(paste(rel_dir_data_bandits, files[grep(pid, files)], sep = ""))
+  temp <- fromJSON(paste(rel_dir_data_bandits, files[file_ind], sep = ""))
   ### Horizon task
   for (block in 2:(nBlocksH+1)){# bc block 1 is practice
     for (trial in 1:nTrialsH){
@@ -305,21 +310,27 @@ save(horizon, sam, restless, file = str_c(str_remove(rel_dir_data_bandits, "[a-z
 
 files = list.files(path = rel_dir_data_qs)
 
-for (i in files){
-  if (i == files[1]){# if this is the first one
-    qdat <- fromJSON(paste(rel_dir_data_qs, i, sep =""))
-    pid <- substr(i, 1, gregexpr("_", i)[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
+for (i in 1:nrow(lookup)){
+
+  pid <- lookup$PID[i]
+  # check if we have the final data for that participant
+  if (mean(grepl(pid, files))>0){ID = i} 
+  else { # if not we need to look through temp, easiest to do that manually
+    print(pid)
+    next
+  }
+  temp <- fromJSON(paste(rel_dir_data_qs, files[grep(pid, files)], sep = ""))
+  
+  if (i == 1){# if this is the first one
+    qdat <- temp
     qdat <- as.data.frame(qdat)
-    qdat$ID <- lookup$ID[lookup$PID == pid]
+    qdat$ID <- ID
   } else {
-    temp <- fromJSON(paste(rel_dir_data_qs, i, sep =""))
-    pid <- substr(i, 1, gregexpr("_", i)[[1]][1]-1)# cut filename after prolific ID which ends with _ but there are other _ in the filename
     temp <- as.data.frame(temp)
-    temp$ID <- lookup$ID[lookup$PID == pid]
+    temp$ID <- ID
     qdat <- rbind(qdat, temp)
   }
 }
-
 
 ## save it
 
@@ -331,11 +342,13 @@ save(qdat, file = str_c(str_remove(rel_dir_data_qs, "[a-z]*/$"),  "qs.Rda"))
 
 #load what mirko did here
 wm <- readRDS("data/wave1/subjects-excl-wm.rds")
-wm <- subset(wm, is.element(participant_id, lookup$PID))
+wm <- subset(wm, is.element(prolific_pid, lookup$PID))
 lookup$perfWM <- NA
-lookup$perfWM[match(wm$participant_id, lookup$PID)] <- ifelse(wm$excl_subject, 1, 0)
+lookup$perfWM[match(wm$prolific_pid, lookup$PID)] <- wm$excl_subject
 
-#### used external aids 
+#### used external aids
+lookup$WMaid <- NA
+lookup$slotaid <- NA
 lookup$WMaid[match(qdat$ID, lookup$ID)] <- qdat$mem_aid_0
 lookup$slotaid[match(qdat$ID, lookup$ID)] <- qdat$slot_aid_0
 
@@ -355,10 +368,14 @@ horizon$chooseBest <- ifelse(horizon$chosen == horizon$optimal, 1, 0)
 overall <- ddply(horizon[horizon$trial > 4, ], ~ID, summarise, optimal = meann(chooseBest))
 table(overall$optimal <= pchance) # 6 excluded
 
+# get rid of person w/o data
+overall <- subset(overall, !is.na(optimal))
+
 ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
   ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
 
-lookup$perfHorizon[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <=pchance, 1, 0))
+lookup$perfHorizon <- NA
+lookup$perfHorizon[match(overall$ID, lookup$ID)] <- ifelse(overall$optimal <=pchance, 1, 0)
 
 #### Sam's task performance
 
@@ -367,10 +384,16 @@ sam$chooseBest <- ifelse(sam$chosen == sam$optimal, 1, 0)
 
 overall <- ddply(sam, ~ID, summarise, optimal = meann(chooseBest))
 
+# get rid of person w/o data
+overall <- subset(overall, !is.na(optimal))
+
+table(overall$optimal <= pchance)
+
 ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
   ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
 
-lookup$perfSam[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <= pchance, 1, 0))
+lookup$perfSam <- NA
+lookup$perfSam[match(overall$ID, lookup$ID)] <- ifelse(overall$optimal <= pchance, 1, 0)
 
 
 #### 4arb performance 
@@ -389,10 +412,12 @@ pchance <- qbinom(0.95, n, 0.25)/n
 
 overall <- ddply(data, ~ID, summarise, optimal = meann(chooseBest))
 
+overall <- subset(overall, !is.na(optimal))
+
 ggplot(overall, aes(optimal)) + geom_histogram(alpha = 0.5) + geom_vline(aes(xintercept = pchance))+
   ggtitle("proportion of optimal choices by subject", subtitle = "vertical line indicates 95 percentile of chance performance")
 
-lookup$perfRestless[na.omit(match(overall$ID, lookup$ID))] <- na.omit(ifelse(overall$optimal <= pchance, 1, 0))
+lookup$perfRestless[match(overall$ID, lookup$ID)] <- ifelse(overall$optimal <= pchance, 1, 0)
 
 #### comprehension attempts horizon
 
@@ -403,26 +428,31 @@ mean_sd$SD <- 2*mean_sd$SD + mean_sd$meanComp
 comprehension$excl <- ifelse(comprehension$compAttempts > mean_sd$SD[match(comprehension$task, mean_sd$task)], 1, 0)
 
 table(comprehension$excl)
-lookup$compHorizon[na.omit(match(comprehension$ID[comprehension$task == "horizon"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "horizon"])
+lookup$compHorizon[match(comprehension$ID[comprehension$task == "horizon"], lookup$ID)] <- comprehension$excl[comprehension$task == "horizon"]
 
 #### comprehension attempts sam
 
-lookup$compSam[na.omit(match(comprehension$ID[comprehension$task == "sam"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "sam"])
+lookup$compSam[match(comprehension$ID[comprehension$task == "sam"], lookup$ID)] <- comprehension$excl[comprehension$task == "sam"]
 
 
 #### comprehension attempts 4arb
 
-lookup$compRestless[na.omit(match(comprehension$ID[comprehension$task == "restless"], lookup$ID))] <- na.omit(comprehension$excl[comprehension$task == "restless"])
+lookup$compRestless[match(comprehension$ID[comprehension$task == "restless"], lookup$ID)] <- comprehension$excl[comprehension$task == "restless"]
 
 #### attention checks
 
+lookup$attention <- NA
 lookup$attention[match(qdat$ID, lookup$ID)] <- ifelse(qdat$attention1 < 2, 1, 0)
 
+table(lookup$attention)
 
 ##### total
 
-lookup$exclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(na.omit(lookup[x, -c(1:2)])))))
-lookup$exclude <- ifelse(lookup$exclude == 0, 0 , 1)
-table(lookup$exclude)# 25 excluded, 19 kept
+lookup$totalExclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(lookup[x, -c(1:2)])), na.rm = T))
+
+hist(lookup$totalExclude, breaks = max(lookup$totalExclude))
+
+lookup$exclude <- ifelse(lookup$totalExclude == 0, 0 , 1)
+table(lookup$exclude)/nrow(lookup)
 
 write.csv(lookup, "data/wave1/exclusions.csv")
