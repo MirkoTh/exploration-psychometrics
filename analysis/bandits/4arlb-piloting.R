@@ -295,27 +295,3 @@ tbl_both %>% left_join(tbl_4arlb_performance, by = c("ID", "block")) %>%
   theme(
     strip.background = element_rect(fill = "white"), text = element_text(size = 22)
   )
-
-
-
-ggplot(tbl_4arlb_performance, aes(ID, prop_correct_4arlb)) +
-  geom_hline(yintercept = .25) +
-  # geom_hline(data = tbl_hline, aes(yintercept = y_ic, group = name), linetype = "dotdash", color = "tomato3", size = 1) +
-  geom_text(aes(label = ID), size = 5) +
-  coord_cartesian(ylim = c(0, 1))+
-  theme_bw() +
-  scale_y_continuous(expand = c(0, 0), breaks = seq(0, 1, by = .1)) +
-  scale_x_discrete(expand = c(.04, 0), breaks = seq(1, 10, by = 1)) +
-  labs(x = "Participant ID", y = "Prop. Best Arm") + 
-  theme(
-    strip.background = element_rect(fill = "white"), text = element_text(size = 18)
-  )
-
-tbl_4arlb_performance %>%
-  select(-se_is_max) %>%
-  pivot_wider(names_from = block, values_from = prop_correct_4arlb) %>%
-  ggplot(aes(`1`, `2`)) +
-  geom_abline() +
-  geom_label(aes(label = ID)) +
-  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))
-
