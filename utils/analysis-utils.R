@@ -6,15 +6,25 @@ json_to_tibble <- function(path_file) {
   return(my_tbl)
 }
 # check for each participant which file has more data and select that one
-hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_period = NULL, is_considered = c("OS", "SS", "WMU")) {
+hash_ids <- function(
+    path_data, 
+    participants_returned, 
+    add_gender = FALSE, 
+    time_period = NULL, 
+    is_considered = c("OS", "SS", "WMU"),
+    random_hashes = TRUE
+    ) {
   #' hash prolific ids and save data from wm tasks
   #' 
   #' @description loads data from json files and writes to csv with
   #' prolific ids replaced by random ids; writes hash table to csv as well
   #' @param path_data sub-folder with batch data
   #' @param participants_returned list with returned and rejected prolific
-  
-  #'  
+  #' @param add_gender should gender be added from the prolific data, defaults to FALSE and is currently not implemented
+  #' @param time_period the time period considered for loading the .json files
+  #' @param is_considered the task to load the data from, default to all three tasks
+  #' @param random_hashes should prolific ids be replaced by random ids or 
+  #' is a file with an already existing mapping from prolific id to another id available?
   #' @return nothing, just writes
   #' 
   # read individual performance
@@ -135,10 +145,18 @@ hash_ids <- function(path_data, participants_returned, add_gender = FALSE, time_
   
   # create a lookup table mapping prolific ids to random ids
   tbl_ids_lookup <- tibble(participant_id = unique(tbl_WMU_recall$participant_id))
-  tbl_ids_lookup <- tbl_ids_lookup %>%
+  if (random_hashes) {
+      tbl_ids_lookup <- tbl_ids_lookup %>%
     filter(!(participant_id %in% participants_returned)) %>% 
     group_by(participant_id) %>%
     mutate(participant_id_randomized = random_id(1)) %>% ungroup()
+  } else {
+    tmp <- read_csv("analysis/bandits/exclusions-session-i.csv") %>%
+      rename(participant_id = PID, participant_id_randomized = ID) %>%
+      select(-"...1")
+    tbl_ids_lookup <- tbl_ids_lookup %>% 
+      left_join(tmp, by = c("participant_id"))
+  }
   write_csv(tbl_ids_lookup, str_c(path_data, "participant-lookup.csv"))
   
   
