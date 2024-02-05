@@ -14,7 +14,7 @@ tbl_trials_administered <- tibble(
   os_recall = 15,
   ss_recall = 12,
   os_processing = 90,
-  ss_processing = 54,
+  ss_processing = 50, #54,
   wmu_recall = 20
 ) %>% pivot_longer(colnames(.))
 colnames(tbl_trials_administered) <- c("task", "n_administered")
@@ -42,23 +42,63 @@ participants_returned <- c(
   "5d4986318fe73e0001569573",
   "59f1d43d24d7bf00012f17f2",
   "61222038c2048b50449284a1",
-  "63d8074daa40629318ada75f" 
+  "63d8074daa40629318ada75f",
+  "65905ceb2330f2dae2ddca37",
+  "65957cbb286733b37b46dfa4",
+  "5a538952f6c517000194916e",
+  "60455b1578f6f36a3e8ea81c",
+  "6310c063bd0cce86b0289d20",
+  "5bcfde8c8301810001a33bea",
+  "6090755b3aebf491674a5e86",
+  "60b0f62eb8e276ae78fd6180",
+  "60e10e95d56310858005f994",
+  "5e299d8c2e9dc4000be0fde0",
+  "5b258c9ba7cee100011d8aad",
+  "63ced717cb553d29a3beac43",
+  "5fb6b4fee395490d9f90d513",
+  "5e9607da6b866106f5666075",
+  "61193d8ce8940db66d5d632e",
+  "57dd186e6598aa0001992616",
+  "60fd666391dc3d42dc1b1827",
+  "62fe6312269d0e4ae894297b",
+  "63d152b604e8c21933a58a66",
+  "62e1581acad06eee3b6509dc",
+  "5fe9284c2c2ee63925e41e5d",
+  "6361bfe81e0da4a406b33f1e",
+  "57619c099fce230007797320",
+  "5f276d8f38b9f857f5cebf21",
+  "55b2d3f2fdf99b525bc839aa",
+  "600db78b56935a5dd8c759b3",
+  "5c01d3c509e9c70001500b10",
+  "5e06ecd524f9390991997bb7",
+  "5d1a69d8f97a18001977e0d7",
+  "648af2818c1b1e60ed0ff001",
+  "63d7bea144b8a11f63c2a763",
+  "6141f62294ff9bf9d89e8897",
+  "5e77a65dcce2a2319f9e8849",
+  "5c92f797803bff0017fef8dd",
+  "6127c5e5db9bf1a49993c300",
+  "6173240b98f6e6f48d97880a",
+  "5df3c82961b48a2907204173",
+  "5eb6d09db2c9c85dd30dc94e",
+  "55eb04337480920010aa9e0d"
 )
-
 time_out_exclude <- c(
   "56b6e2fcf2fc70000c32f9d5",
-  "571a78f06a1c6300114b8d80"
+  "571a78f06a1c6300114b8d80",
+  "5f7f18137488a50407d729e6"
 )
 
 # select the time range for the data to be loaded
 time_period <- c(
-  make_datetime(2024, 1, 23, 11, tz = "CET"), 
-  make_datetime(2024, 1, 23, 20, tz = "CET")
+  make_datetime(2024, 1, 22, 11, tz = "CET"), 
+  make_datetime(2024, 1, 24, 23, tz = "CET")
 ) # 10 prolific pilot participant range
 hash_ids(
   path_data, 
   c(participants_returned, time_out_exclude), 
-  time_period = time_period
+  time_period = time_period,
+  random_hashes = FALSE
 )
 
 tbl_ids_lookup <- read_csv(str_c(path_data, "participant-lookup.csv"))
@@ -86,24 +126,38 @@ tbl_ss_recall <- readRDS(str_c(path_data, "tbl_SS_recall.RDS")) %>%
 tbl_ss_processing <- read_csv(str_c(path_data, "tbl_SS_processing.csv")) %>%
   filter(is_practice == 0)
 
+tbl_os_setsize <- tbl_os_recall %>%
+  group_by(trial_id_recall, set_size) %>%
+  count() %>% ungroup() %>% select(-n)
+
+
 tbl_os_processing <- tbl_os_processing %>%
+  left_join(tbl_os_setsize, by = "trial_id_recall") %>%
   mutate(processing_position = processing_position + 1) %>%
   group_by(participant_id, trial_id_recall) %>%
   mutate(
-    set_size = max(processing_position),
     n_correct = sum(accuracy)
   ) %>%
   ungroup()
 
+tbl_ss_setsize <- tbl_ss_recall %>%
+  group_by(trial_id_recall, set_size) %>%
+  count() %>% ungroup() %>% select(-n)
+
 tbl_ss_processing <- tbl_ss_processing %>%
+  left_join(tbl_ss_setsize, by = c("trial_id_recall")) %>%
   mutate(processing_position = processing_position + 1) %>%
   group_by(participant_id, trial_id_recall) %>%
   mutate(
-    processing_position = row_number(processing_position),
-    set_size = max(processing_position),
+    # fill processing_position according to saving history
+    # i.e., take the first entry, if several have been stored
+    # (e.g., the person started twice)
+    processing_position = row_number(trial_id_recall),
     n_correct = sum(accuracy)
   ) %>%
+  filter(processing_position <= set_size) %>%
   ungroup()
+  
 
 # this is only for pilot data where processing position was not correctly stored
 # tbl_ss_processing <- tbl_ss_processing %>% group_by(participant_id, trial_id_recall, processing_position) %>%
@@ -185,6 +239,16 @@ tbl_ids_lookup <- tbl_ids_lookup %>%
     , by = c("participant_id_randomized" = "participant_id")
   )
 
+tbl_n_trials %>%
+  group_by(task, n_trials = n) %>%
+  count() %>%
+  mutate(rwn = row_number(n_trials)) %>%
+  ggplot(aes(as.factor(n_trials), rwn)) +
+  geom_tile(aes(fill = n)) +
+  geom_label(aes(label = n)) +
+  facet_wrap(~ task, scales = "free_x") +
+  scale_fill_viridis_c(guide = "none")
+
 ggplot(tbl_n_trials, aes(task, substr(participant_id, 1, 6))) +
   geom_tile(aes(fill = n)) +
   geom_text(aes(label = n), color = "white")
@@ -242,7 +306,7 @@ ggplot(tbl_trials_all %>% arrange(desc(n)) %>% mutate(p_id_short = fct_inorder(f
 # if there is any task with too few trials (as above)
 # if n_thx < 191
 
-n_thx <- 190 # keep data set of participants with only one data point missing
+n_thx <- sum(tbl_trials_administered$n_administered) # keep data set of participants with only one data point missing
 tbl_complete <- tbl_trials_all %>% filter(task == "All Tasks" & n >= n_thx)
 tbl_complete_p <- tbl_complete %>% select(participant_id)
 tbl_os_recall <- tbl_os_recall %>% inner_join(tbl_complete_p, "participant_id")
@@ -405,23 +469,28 @@ tbl_thx <- tibble(
   )
 )
 
-tbl_ids_lookup %>% select(-proc_below_thx) %>% 
+tbl_exclusions <- tbl_ids_lookup %>% select(participant_id, participant_id_randomized, exclude, all_tasks_too_few) %>% 
+  rename(exclude_bandits = exclude) %>%
   left_join(tbl_performance_all, by = c("participant_id_randomized" = "participant_id")) %>%
   replace_na(list(proc_below_thx =  0)) %>%
   rename(prolific_pid = participant_id, participant_id = participant_id_randomized) %>%
-  select(participant_id, all_tasks_too_few, proc_below_thx) %>%
-  mutate(excl_subject = pmax(all_tasks_too_few, proc_below_thx)) %>%
-  saveRDS(file = "analysis/wm/subjects-excl-wm.rds")
+  select(prolific_pid, participant_id, exclude_bandits, all_tasks_too_few, proc_below_thx) %>%
+  mutate(excl_subject = pmax(all_tasks_too_few, proc_below_thx, exclude_bandits))
+  
+
+saveRDS(tbl_exclusions, file = "analysis/wm/subjects-excl-wm.rds")
+
+tbl_performance_all <- tbl_performance_all %>% left_join(tbl_exclusions[, c("participant_id", "excl_subject")], by = "participant_id")
 
 ggplot() +
   geom_histogram(
-    data = tbl_performance_all %>% 
+    data = tbl_performance_all %>% filter(!excl_subject) %>%
       pivot_longer(
         c(OS_recall, SS_recall, WMU, OS_processing, SS_processing)
       ), aes(value),
     color = "black", fill = "skyblue2") +
   geom_vline(data = tbl_thx, aes(xintercept = thx), color = "red", linetype = "dotdash", linewidth = 1) +
-  facet_wrap(~ name) +
+  facet_wrap(~ name, scales = "free_y") +
   theme_bw() +
   scale_x_continuous(expand = c(.01, 0)) +
   scale_y_continuous(expand = c(.01, 0)) +
@@ -432,9 +501,14 @@ ggplot() +
     axis.text.x = element_text(angle = 90, vjust = .3)
   )
 
-tbl_cor <- cor(tbl_performance_all %>% select(ends_with("recall"), ends_with("processing"), "WMU") %>%
-                 filter(
-                   !is.na(WMU))
+
+
+grid::grid.draw(gridExtra::arrangeGrob(pl_ss_recall, pl_ss_processing, nrow = 1))
+
+tbl_cor <- cor(
+  tbl_performance_all %>% 
+     filter(!is.na(WMU) & !excl_subject) %>%
+    select(ends_with("recall"), ends_with("processing"), "WMU")
 ) %>% as.data.frame() %>%
   mutate(task = c("OS Recall", "SS Recall", "OS Processing", "SS Processing", "WMU")) %>%
   pivot_longer(- task) 
@@ -459,18 +533,8 @@ tbl_cor %>%
     axis.text.x = element_text(angle = 90)
   )
 
-grid::grid.draw(gridExtra::arrangeGrob(pl_ss_recall, pl_ss_processing, nrow = 1))
 
-tbl_performance_all %>% 
-  left_join(tbl_ids_lookup, join_by(participant_id == participant_id_randomized), suffix = c("_random", "_orig")) %>%
-  select(-participant_id) %>%
-  rename(participant_id = participant_id_orig) %>%
-  relocate(participant_id, .before = OS_recall)
+# Save recall, and processing files of included participants --------------
 
 
-load("data/pilot/qs.Rda")
-load("data/pilot/bandits.Rda")
-
-
-
-
+saveRDS(tbl_performance_all, file = "data/all-data/tbl-performance-wm.rds")
