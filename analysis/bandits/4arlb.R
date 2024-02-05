@@ -224,7 +224,7 @@ tbl_both %>% count(ucb_wins_bic)
 ggplot(
   tbl_fits_sm %>% left_join(
     tbl_fits_ucb, by = c("ID", "session"), suffix = c("_sm", "_ucb")
-    ), aes(gamma_sm, gamma_ucb)
+  ), aes(gamma_sm, gamma_ucb)
 ) +
   geom_abline() +
   geom_point()
@@ -354,7 +354,7 @@ m_cor <- cor(
     select(
       starts_with("prop_correct") | ends_with("recall") | "WMU" |
         "gamma_ucb" | "beta"
-      ), use = "complete.obs"
+    ), use = "complete.obs"
 )
 tbl_cor <- as_tibble(m_cor) %>%
   mutate(task_a = rownames(m_cor))
@@ -422,5 +422,22 @@ ggplot(tbl_performance_3tasks, aes(value)) +
   ) + 
   scale_fill_manual(values = c("skyblue2", "tomato4", "forestgreen"), name = "")
 
-
+ggplot(
+  tbl_performance_3tasks_wide %>% 
+    pivot_longer(c(beta, gamma_ucb)) %>%
+    mutate(name = factor(name, levels = c("beta", "gamma_ucb"), labels = c("Beta", "Gamma"))),
+  aes(value, prop_correct_4arlb)) +
+  geom_vline(xintercept = 0, color = "grey", linetype = "dotdash", linewidth = 1) +
+  geom_point(shape = 1) +
+  geom_smooth(color = "skyblue2") +
+  theme_bw() +
+  facet_wrap(~ name, scales = "free_x") +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Parameter", y = "Prop. Correct 4ARLB") + 
+  theme(
+    strip.background = element_rect(fill = "white"),
+    text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
 
