@@ -78,6 +78,12 @@ my_participants_tbl_delta <- function(l_params_decision, delta, sim_d) {
   )
 }
 
+# values from actual stimulus set
+sigma_xi_sq <- 7.84
+sigma_epsilon_sq <- 16
+sigma_prior <- 1000
+mu_prior <- 50
+
 
 
 # Fit, Simulate, & Recover Parameters -------------------------------------
@@ -93,8 +99,8 @@ if (fit_or_load == "fit") {
   l_kalman_softmax_no_variance <- furrr::future_map(
     l_participants, fit_softmax_no_variance_wrapper, 
     tbl_rewards = tbl_rewards, condition_on_observed_choices = TRUE,
-    sigma_xi_sq = 7.84, sigma_epsilon_sq = 16,
-    sigma_prior = 1000, mu_prior = 50,
+    sigma_xi_sq, sigma_epsilon_sq,
+    sigma_prior, mu_prior,
     bds = bds,
     .progress = TRUE
   )
@@ -117,13 +123,11 @@ if (fit_or_load == "fit") {
     bds = bds, tbl_rewards = tbl_rewards
   )
   
-  saveRDS(tbl_results_kalman_softmax, file = "exploration-R/data/empirical-parameter-recovery-kalman-softmax-recovery.rds")
+  saveRDS(tbl_results_kalman_softmax, file = "data/empirical-parameter-recovery-kalman-softmax-recovery.rds")
 } else if (fit_or_load == "load") {
-  l_kalman_softmax_no_variance <- readRDS(file = "exploration-R/data/empirical-parameter-recovery-kalman-softmax-fit.rds")
-  tbl_results_kalman_softmax <- readRDS(file = "exploration-R/data/empirical-parameter-recovery-kalman-softmax-recovery.rds")
+  l_kalman_softmax_no_variance <- readRDS(file = "data/empirical-parameter-recovery-kalman-softmax-fit.rds")
+  tbl_results_kalman_softmax <- readRDS(file = "data/empirical-parameter-recovery-kalman-softmax-recovery.rds")
 }
-
-
 
 
 tbl_recovery_kalman_softmax <- tbl_results_kalman_softmax %>%
@@ -147,11 +151,13 @@ if (fit_or_load == "fit") {
   l_kalman_ucb_no_variance <- furrr:::future_map(
     l_participants, fit_ucb_no_variance_wrapper,
     tbl_rewards = tbl_rewards, condition_on_observed_choices = TRUE,
+    sigma_xi_sq, sigma_epsilon_sq,
+    sigma_prior, mu_prior,
     bds = bds, 
     .progress = TRUE
   )
   plan("sequential")
-  saveRDS(l_kalman_ucb_no_variance, file = "exploration-R/data/empirical-parameter-recovery-kalman-ucb-fit.rds")
+  saveRDS(l_kalman_ucb_no_variance, file = "data/empirical-parameter-recovery-kalman-ucb-fit.rds")
   
   tbl_kalman_ucb_no_variance <- reduce(l_kalman_ucb_no_variance, rbind) %>%
     as.data.frame() %>% as_tibble() %>% rename(gamma = V1, beta = V2, ll = V3)
@@ -161,28 +167,21 @@ if (fit_or_load == "fit") {
     ~ list(gamma = ..1, beta = ..2, choicemodel = "ucb", no = 4)
   )
   
-  tbl_participants_kalman_ucb <- my_participants_tbl_kalman(l_params_decision, TRUE)
-  tbl_results_kalman_ucb_sim <- simulate_and_fit_ucb(
-    tbl_participants_kalman_ucb, nr_vars = 0, cond_on_choices = TRUE, 
-    nr_trials = nr_trials, bds = bds
-  )
   tbl_participants_kalman_ucb <- my_participants_tbl_kalman(l_params_decision, FALSE)
-  tbl_results_kalman_ucb_fix <- simulate_and_fit_ucb(
+  tbl_results_kalman_ucb <- simulate_and_fit_ucb(
     tbl_participants_kalman_ucb, nr_vars = 0, cond_on_choices = TRUE, 
-    nr_trials = nr_trials, bds = bds
+    nr_trials = nr_trials, bds = bds, tbl_rewards = tbl_rewards
   )
-  
-  tbl_results_kalman_ucb <- rbind(tbl_results_kalman_ucb_fix, tbl_results_kalman_ucb_sim)
-  saveRDS(tbl_results_kalman_ucb, file = "exploration-R/data/empirical-parameter-recovery-kalman-ucb-recovery.rds")
+
+  saveRDS(tbl_results_kalman_ucb, file = "data/empirical-parameter-recovery-kalman-ucb-recovery.rds")
 } else if (fit_or_load == "load") {
-  l_kalman_ucb_no_variance <- readRDS(file = "exploration-R/data/empirical-parameter-recovery-kalman-ucb-fit.rds")
-  tbl_results_kalman_ucb <- readRDS(file = "exploration-R/data/empirical-parameter-recovery-kalman-ucb-recovery.rds")
+  l_kalman_ucb_no_variance <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-fit.rds")
+  tbl_results_kalman_ucb <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-recovery.rds")
 }
 
 
 tbl_recovery_kalman_ucb <- tbl_results_kalman_ucb %>%
   unnest_wider(params_decision) %>%
-  group_by(simulate_data) %>%
   summarize(
     r_gamma = cor(gamma, gamma_ml),
     r_beta = cor(beta, beta_ml),
@@ -192,8 +191,6 @@ tbl_recovery_kalman_ucb <- tbl_results_kalman_ucb %>%
 
 tbl_recovery_kalman_ucb_long <- tbl_recovery_kalman_ucb  %>% 
   mutate(
-    simulate_data = factor(simulate_data),
-    simulate_data = fct_recode(simulate_data, "Simulate By Participant" = "TRUE", "Simulate Once" = "FALSE"),
     beta_mn = "empirical",
     gamma_mn = "empirical"
   ) %>%
@@ -205,14 +202,13 @@ tbl_recovery_kalman_ucb_long <- tbl_recovery_kalman_ucb  %>%
   ) %>%
   pivot_longer(cols = c(Gamma, Beta, `Gamma in Beta out`, `Beta in Gamma out`)) %>%
   mutate(
-    param_in = rep(c("Gamma", "Beta"), 4),
-    param_out = rep(c("Gamma", "Beta", "Beta", "Gamma"), 2)
+    param_in = rep(c("Gamma", "Beta"), 2),
+    param_out = c("Gamma", "Beta", "Beta", "Gamma")
   )
 
 pl_recov_ucb_sm <- ggplot(tbl_recovery_kalman_ucb_long, aes(param_in, param_out)) +
   geom_tile(aes(fill = value)) +
   geom_text(aes(label = round(value, 2))) +
-  facet_wrap(~ simulate_data) +
   scale_fill_gradient2(name = "") +
   geom_label(aes(label = str_c("r = ", round(value, 2)))) +
   theme_bw() +
