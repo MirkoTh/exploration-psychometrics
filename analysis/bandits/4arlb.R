@@ -84,11 +84,14 @@ tbl_horizon_performance <- grouped_agg(
 
 
 x <- c(.2, 2)
-bds <- list(gamma = list(lo = 0, hi = 1), beta = list(lo = -10, hi = 10))
+bds_ucb <- list(gamma = list(lo = 0, hi = 1), beta = list(lo = -10, hi = 10))
+bds_sm <- list(gamma = list(lo = 0, hi = 1))
 
 tbl_results <- tbl_restless %>% filter(!is.na(choices))
 nr_options <- 4
-sigma_xi_sq <- 16 # 36 in stimulus set of first prolific pilot; 16 in lab pilot
+sigma_prior <- 1000
+mu_prior <- 50
+sigma_xi_sq <- 7.84 # 36 in stimulus set of first prolific pilot; 16 in lab pilot
 sigma_epsilon_sq <- 16
 tbl_results1 <- filter(tbl_results, ID == 1)
 
@@ -123,14 +126,16 @@ if (is_fit) {
   future::plan(future::multisession, workers = future::availableCores() - 2)
   
   for (i in 1:n_init_vals) {
-    params_init <- c(runif(1, bds$gamma$lo, bds$gamma$hi), runif(1, bds$beta$lo/2, bds$beta$hi/2))
+    params_init <- c(runif(1, bds_ucb$gamma$lo, bds_ucb$gamma$hi), runif(1, bds_ucb$beta$lo/2, bds_ucb$beta$hi/2))
     l_fit_ucb <- furrr::future_map(
       l_tbl_results, fit_ucb_no_variance_wrapper, 
       tbl_rewards = NULL, 
       condition_on_observed_choices = TRUE,
       sigma_xi_sq = sigma_xi_sq, 
       sigma_epsilon_sq = sigma_epsilon_sq, 
-      bds = bds, 
+      sigma_prior = 1000,
+      mu_prior = 50,
+      bds = bds_ucb, 
       params_init = params_init,
       .progress = TRUE
     )
@@ -141,7 +146,9 @@ if (is_fit) {
       condition_on_observed_choices = TRUE,
       sigma_xi_sq = sigma_xi_sq, 
       sigma_epsilon_sq = sigma_epsilon_sq, 
-      bds = bds$gamma, 
+      sigma_prior = 1000,
+      mu_prior = 50,
+      bds = bds_sm, 
       params_init = params_init[1],
       .progress = TRUE
     )
@@ -150,7 +157,7 @@ if (is_fit) {
     l_fits_sm[[i]] <- l_fit_sm
     l_inits[[i]] <- params_init
   }
-  future::plan("default")
+  future::plan("sequential")
   beepr::beep()
   t_end <- Sys.time()
   round(t_end - t_start, 1)
