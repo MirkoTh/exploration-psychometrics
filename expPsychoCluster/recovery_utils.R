@@ -701,13 +701,13 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
     } else {
 
       if (full == T){
-        baymodelUCB <- brm(chosen ~ V*Horizon + RU*Horizon + (RU*Horizon + V*Horizon| ID), family = "bernoulli",
+        baymodelUCB <- brm(chosen | trials(80) ~ V*Horizon + RU*Horizon + (RU*Horizon + V*Horizon| ID), family = "binomial",
                                   data = data[data$trial == 5, ],
                                   chains = 2,
                                   cores = 2,
                                   iter = 8000)
       } else {
-        baymodelUCB <- brm(chosen | trials(1) ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| ID), family = "binomial",
+        baymodelUCB <- brm(chosen ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| ID), family = "binomial",
                                   data = data[data$trial == 5, ],
                                   chains = 2,
                                   cores = 2,
@@ -720,13 +720,13 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
       simdat$chosen <- predict(baymodelUCB)[ ,1]
       simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
       if (full == T){
-        recovModelUCB <- brm(chosen | trials(80) ~ V*Horizon + RU*Horizon + (RU*Horizon+ V*Horizon| ID), family = "binomial", 
+        recovModelUCB <- brm(chosen ~ V*Horizon + RU*Horizon + (RU*Horizon+ V*Horizon| ID), family = "binomial", 
                              data = simdat,
                              chains = 2,
                              cores = 2,
                              iter = 8000)
       } else {
-        recovModelUCB <- brm(chosen | trials(80) ~ V*Horizon + RU*Horizon + (RU:Horizon+ V:Horizon| ID), family = "binomial", 
+        recovModelUCB <- brm(chosen ~ V*Horizon + RU*Horizon + (RU:Horizon+ V:Horizon| ID), family = "binomial", 
                              data = simdat,
                              chains = 2,
                              cores = 2,

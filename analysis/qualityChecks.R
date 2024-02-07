@@ -11,10 +11,10 @@ se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
 
 
-setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-load("data/wave1/bandits.Rda")
-load("data/wave1/qs.Rda")
+load("analysis/bandits/banditsWave1.Rda")
+load("analysis/qsWave1.Rda")
 load("data/wave1/bandits/comprehension.Rda")
 
 ######## plot aspects of comprehension questions ###########
