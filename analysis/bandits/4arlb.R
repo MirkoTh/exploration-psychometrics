@@ -13,6 +13,11 @@ dirs_homegrown <- c(
 )
 walk(dirs_homegrown, source)
 
+
+
+# Read and Preprocess Data ------------------------------------------------
+
+
 load(file = "analysis/bandits/banditsWave1.Rda")
 tbl_wm <- readRDS("data/all-data/tbl-performance-wm.rds")
 tbl_exclude <- readRDS(file = "analysis/wm/subjects-excl-wm.rds")
@@ -80,6 +85,10 @@ tbl_horizon_performance <- grouped_agg(
 ) %>% 
   ungroup() %>%
   rename(prop_correct_horizon = mean_is_max)
+
+
+
+# Model Fitting -----------------------------------------------------------
 
 
 
@@ -169,6 +178,10 @@ if (is_fit) {
     
   }
 }
+
+
+
+# Postprocessing ----------------------------------------------------------
 
 
 n_blocks <- 1#max(tbl_restless$block)
