@@ -27,7 +27,7 @@ kalman_learning <- function(tbl_df, no, sigma_xi_sq, sigma_epsilon_sq) {
   #' @return a tbl with by-trial posterior means and variances for all bandits
   rewards <- tbl_df$reward
   choices <- tbl_df$chosen
-  m0 <- 0
+  m0 <- 50
   v0 <- 100
   nt <- length(rewards) # number of time points
   m <- matrix(m0, ncol = no, nrow = nt + 1) # to hold the posterior means
@@ -209,13 +209,14 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F)
   return(simdat)
 }
 
-fit_model_sam <- function(data, model, hierarchical){
+fit_model_sam <- function(data, model, hierarchical, it = 2000){
   #' fit model to data from Sam's task
   #' 
   #' @description fits the type of model described by input to function to the data given to function
   #' @param data data.frame containing all the task data
   #' @param model string: UCB vs hybrid
   #' @param hierarchical boolean; bayesian fitting or subject-level glm
+  #' @param it number of iterations, optional, only relevant if hierarchical = T
   #' @return list containing model object and if hierarchical == F also a data.frame with coefficients
   
   if (hierarchical){
@@ -226,7 +227,7 @@ fit_model_sam <- function(data, model, hierarchical){
                       data = data,
                       chains = 2,
                       cores = 2,
-                      iter = 10000)
+                      iter = it)
       
     } else if (model == "UCB") {
       
@@ -235,7 +236,7 @@ fit_model_sam <- function(data, model, hierarchical){
                        data = data,
                        chains = 2,
                        cores = 2,
-                       iter = 10000)
+                       iter = it)
     }
     
     ## get posterior estimates of subject-level parameters
@@ -321,13 +322,14 @@ get_KL_into_df <- function(data){
 }
 
 
-recovery_sam <- function(data, model, hierarchical){
+recovery_sam <- function(data, model, hierarchical, it = 2000){
   #' parameter recovery for data from Sam's task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
   #' @param data data.frame containing all the task data
   #' @param model UCB, hybrid
   #' @param hierarchical boolean; whether data are fit using brms or subject-level glms
+  #' @param it iterations, option, only relevant if hierarchical = T
   #' @return a list containing a data.frame with subject-level estimates fitted to the observed data, a data.frame with the recovered estimates, a ggplot element plotting the recovery
   
   
@@ -352,7 +354,7 @@ recovery_sam <- function(data, model, hierarchical){
     
     ### fit model
     if (hierarchical){
-      out <- fit_model_sam(data, model, T)
+      out <- fit_model_sam(data, model, T, it)
       trueModel <- out[[1]]
       trueParams <- out[[2]]
     }
@@ -391,7 +393,7 @@ recovery_sam <- function(data, model, hierarchical){
     
     ## extract parameters for hierarchical
     if (hierarchical){
-      simParams <- fit_model_sam(simdatCollect, model, T)[[2]]
+      simParams <- fit_model_sam(simdatCollect, model, T, it)[[2]]
       
       ### get correlations for hierarchical
       
@@ -431,7 +433,7 @@ recovery_sam <- function(data, model, hierarchical){
   
 }
 
-fit_model_horizon <- function(data, model, full = T){
+fit_model_horizon <- function(data, model, full = T, it = 2000){
   #' parameter recovery for data from Horizon task
   #' 
   #' @description fits model to data
@@ -439,6 +441,7 @@ fit_model_horizon <- function(data, model, full = T){
   #' @param data data.frame containing all the task data
   #' @param model UCB, Wilson
   #' @param full boolean; T for full random effects; F for reduced random effects
+  #' @param it iterations of brms
   #' @return a brms model object
   #' 
   
@@ -466,26 +469,43 @@ fit_model_horizon <- function(data, model, full = T){
                         data = data[data$trial == 5, ],
                         chains = 2,
                         cores = 2,
-                        iter = 10000)
+                        iter = it)
         
       } else {
         baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID), family = "bernoulli",
                         data = data[data$trial == 5, ],
                         chains = 2,
                         cores = 2,
-                        iter = 10000)
+                        iter = it)
         
       }
       
       return(baymodel)
       
+  } else if (model == "UCB"){
+      
+    if (full == T){
+      baymodelUCB <- brm(chosen ~ V*Horizon + RU*Horizon + (RU*Horizon + V*Horizon| ID), family = "bernoulli",
+                         data = data[data$trial == 5, ],
+                         chains = 2,
+                         cores = 2,
+                         iter = 1000)
+    } else {
+      baymodelUCB <- brm(chosen ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| ID), family = "bernoulli",
+                         data = data[data$trial == 5, ],
+                         chains = 2,
+                         cores = 2,
+                         iter = 1000)
+    }
+    
+    
     }
   
   
 }
   
   
-recovery_horizon <- function(data, model, full = T, bayesian = T){
+recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000){
   #' parameter recovery for data from Horizon task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
@@ -494,6 +514,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
   #' @param model UCB, Wilson
   #' @param full boolean; T for full random effects; F for reduced random effects; irrelevant if bayesian == F
   #' @param bayesian boolean; T for brms implementation, F for subject-level glm implementation
+  #' @param it iterations of brms, only relevant if bayesian = T
   #' @return a list containing a data.frame with subject-level estimates fitted to the observed data, a data.frame with the recovered estimates, a ggplot element plotting the recovery
   
   
@@ -501,61 +522,19 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
   
   ### Wilson model
   if (model == "Wilson"){
-    data$mean_L <- NA
-    data$mean_R <- NA
-    
-    data$row <- 1:nrow(data)
-    data$mean_L[data$trial == 5] <- apply(as.array(data$row[data$trial == 5]), 1, function(x) meann(data$reward[data$ID == data$ID[x]&
-                                                                                                                  data$block == data$block[x] &
-                                                                                                                  data$chosen == 0 & 
-                                                                                                                  data$trial < 5]))
-    data$mean_R[data$trial == 5] <- apply(as.array(data$row[data$trial == 5]), 1, function(x) meann(data$reward[data$ID == data$ID[x]&
-                                                                                                                  data$block == data$block[x] &
-                                                                                                                  data$chosen == 1& 
-                                                                                                                  data$trial < 5]))
-    ## calculate deltas
-    data$delta_mean <- scale(data$mean_L - data$mean_R)
     
     
     if (bayesian == T){
       
-      if (full == T){
-        
-        baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID), family = "bernoulli", 
-                        data = data[data$trial == 5, ],
-                        chains = 2,
-                        cores = 2,
-                        iter = 10000)
-        
-      } else {
-        baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID), family = "bernoulli",
-                               data = data[data$trial == 5, ],
-                               chains = 2,
-                               cores = 2,
-                               iter = 10000)
-        
-      }
+     baymodel <- fit_model_horizon(data = data, model = model, full = full, it = it)
       
       # simulate data
       simdat <- subset(data, trial == 5, -chosen)
       simdat$chosen <- predict(baymodel)[ ,1]
       simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
       
-      if (full == T){
-        recovModel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID), family = "binomial", 
-                          data = simdat,
-                          chains = 2,
-                          cores = 2,
-                          iter = 8000)
-      } else {
-        recovModel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID), family = "binomial", 
-                          data = simdat,
-                          chains = 2,
-                          cores = 2,
-                          iter = 8000)
-        
-        
-      }
+    
+      recovModel <- fit_model_horizon(data, model, full, it)
       
       # get posterior estimates from both models
       
@@ -700,38 +679,14 @@ recovery_horizon <- function(data, model, full = T, bayesian = T){
       ##### bayesian implementation
     } else {
 
-      if (full == T){
-        baymodelUCB <- brm(chosen ~ V*Horizon + RU*Horizon + (RU*Horizon + V*Horizon| ID), family = "bernoulli",
-                                  data = data[data$trial == 5, ],
-                                  chains = 2,
-                                  cores = 2,
-                                  iter = 8000)
-      } else {
-        baymodelUCB <- brm(chosen | trials(1) ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| ID), family = "binomial",
-                                  data = data[data$trial == 5, ],
-                                  chains = 2,
-                                  cores = 2,
-                                  iter = 8000)
-      }
-      
+     baymodelUCB <- fit_model_horizon(data, model, full, it)
       
       # simulate data
       simdat <- subset(data, trial == 5, -chosen)
       simdat$chosen <- predict(baymodelUCB)[ ,1]
       simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
-      if (full == T){
-        recovModelUCB <- brm(chosen | trials(80) ~ V*Horizon + RU*Horizon + (RU*Horizon+ V*Horizon| ID), family = "binomial", 
-                             data = simdat,
-                             chains = 2,
-                             cores = 2,
-                             iter = 8000)
-      } else {
-        recovModelUCB <- brm(chosen | trials(80) ~ V*Horizon + RU*Horizon + (RU:Horizon+ V:Horizon| ID), family = "binomial", 
-                             data = simdat,
-                             chains = 2,
-                             cores = 2,
-                             iter = 8000)
-      }
+      
+      recovModelUCB <- fit_model_horizon(data, model, full, it)
       
       # get posterior estimates from both models
       
