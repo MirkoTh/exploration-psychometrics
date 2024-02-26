@@ -81,7 +81,7 @@ n_iter <- 10
 
 
 gamma <- seq(.01, 1, length.out = 10)
-beta <- seq(-3, 3, length.out = 10)
+beta <- sort(c(0, seq(-3, 3, length.out = 10)))
 tbl_params <- crossing(gamma, beta)
 
 # parallelization in inner loop
@@ -89,6 +89,7 @@ tbl_params <- crossing(gamma, beta)
 l_results_w1 <- list()
 l_results_w2 <- list()
 
+is_fit <- TRUE
 # takes approx. 17 mins for n_iter = 10, and 10x10 parameter grid
 if (is_fit) {
   plan(multisession, workers = availableCores() - 3)
@@ -139,7 +140,47 @@ colnames(tbl_results_w2) <- c(str_c("it", 1:(ncol(tbl_results_w2) - 1)), "stim_s
 tbl_results_w2 <- cbind(tbl_params, tbl_results_w2) %>%
   pivot_longer(starts_with("it"))
 
-tbl_results <- rbind(tbl_results_w1, tbl_results_w2)
+
+
+# expected rewards on random stimulus sets --------------------------------
+
+l_results_random <- list()
+if (is_fit) {
+  plan(multisession, workers = availableCores() - 3)
+  pb <- progress_bar$new(total = nrow(tbl_params))
+  for (i in 1:nrow(tbl_params)) {
+    l_params_decision$gamma <- tbl_params$gamma[i]
+    l_params_decision$beta <- tbl_params$beta[i]
+    l_results_random[[i]] <- future_map(1:n_iter, ~ simulate_kalman(
+      sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
+      lambda, nr_trials, l_params_decision, simulate_data = TRUE,
+      seed = .x, tbl_rewards = tbl_rewards_w1 %>% select(-trial_id),
+      mu_init = "sample"
+    ))
+    pb$tick()
+  }
+  # save results
+  saveRDS(l_results_random, "data/4arlb-optimal-random.rds")
+  plan("sequential")
+} else if (!is_fit) {
+  l_results_random <- readRDS("data/4arlb-optimal-random.rds")
+}
+
+tbl_results_random <- map(
+  l_results_random, ~ map_dbl(
+    .x, ~ sum(.x$tbl_return$rewards)
+  )) %>% reduce(rbind) %>% as.data.frame() %>%
+  as_tibble() %>% mutate(stim_set = "Random Stimulus Sets")
+colnames(tbl_results_random) <- c(str_c("it", 1:(ncol(tbl_results_random) - 1)), "stim_set")
+tbl_results_random <- cbind(tbl_params, tbl_results_random) %>%
+  pivot_longer(starts_with("it"))
+
+
+
+# plot results ------------------------------------------------------------
+
+tbl_results <- rbind(tbl_results_w1, tbl_results_w2, tbl_results_random)
+
 
 grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
   group_by(stim_set) %>%
@@ -156,12 +197,16 @@ grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
   theme(
     strip.background = element_rect(fill = "white"),
     text = element_text(size = 22)
-    )
+  )
 
 grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
+  # group_by(stim_set) %>%
+  # mutate(mean_value_shifted = mean_value - min(mean_value)) %>%
   pivot_longer(gamma) %>%
   rbind(
     grouped_agg(tbl_results, c(beta, stim_set), value) %>%
+      # group_by(stim_set) %>%
+      # mutate(mean_value_shifted = mean_value - min(mean_value)) %>%
       pivot_longer(beta)
   ) %>%
   ggplot(aes(value, mean_value, group = stim_set)) +
@@ -171,16 +216,38 @@ grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
   facet_wrap(~ name, scales = "free_x") +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0)) +
-  scale_y_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0), labels = scales::comma) +
   labs(x = "Parameter Value", y = "Cum. Rewards") + 
   theme(
-    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+    strip.background = element_rect(fill = "white"),
+    text = element_text(size = 22),
+    axis.text.y = element_text(),
+    legend.position = "bottom"
   ) + 
-  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+  scale_color_manual(values = c("skyblue2", "tomato4", "gold"), name = "")
+
+
+
+test_sum_bandits <- function(idx) {
+  tmp <- generate_restless_bandits(
+    sigma_xi_sq = sigma_xi_sq, sigma_epsilon_sq = sigma_epsilon_sq, mu1 = mu_init, 
+    lambda = lambda, nr_trials = nr_trials, center_decay = center_decay
+  ) %>% mutate_if(is.double, round) %>%
+    pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`))
+  sum(tmp$value)
   
+}
+r <- map_dbl(1:100, test_sum_bandits)
 
+w1_long <- tbl_rewards_w1 %>% mutate_if(is.double, round) %>%
+  pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`))
 
-# expected rewards on random stimulus sets --------------------------------
+w2_long <- tbl_rewards_w2 %>% mutate_if(is.double, round) %>%
+  pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`))
+
+mean(r)
+sum(w1_long$value)
+sum(w2_long$value)
 
 
 
