@@ -54,9 +54,21 @@ tbl_rewards_w2 <- generate_restless_bandits(
   lambda = lambda, nr_trials = nr_trials, center_decay = center_decay
 ) %>% mutate_if(is.double, round)
 
+ggplot(
+  rbind(tbl_rewards_w1 %>% mutate(wave = 1), tbl_rewards_w2 %>% mutate(wave = 2)) %>%
+    pivot_longer(c(`Arm 1`, `Arm 2`, `Arm 3`, `Arm 4`)),
+  aes(trial_id, value, group = name)) +
+  geom_line(aes(color = name), linewidth = .75) +
+  facet_wrap(~ wave) +
+  scale_color_viridis_d(name = "") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_bw() +
+  labs(x = "Trial ID", y = "Reward")
+
+
 
 # expected rewards on fixed stimulus sets ---------------------------------
-
 
 
 l_params_decision <- list(
@@ -65,12 +77,11 @@ l_params_decision <- list(
   choicemodel = "ucb",
   no = 4
 )
-bds_ucb <- list(gamma = list(lo = 0, hi = .5), beta = list(lo = -10, hi = 10))
-n_iter <- 5
+n_iter <- 10
 
 
-gamma <- seq(.01, 1, length.out = 3)
-beta <- seq(-3, 3, length.out = 3)
+gamma <- seq(.01, 1, length.out = 10)
+beta <- seq(-3, 3, length.out = 10)
 tbl_params <- crossing(gamma, beta)
 
 # parallelization in inner loop
@@ -78,22 +89,37 @@ tbl_params <- crossing(gamma, beta)
 l_results_w1 <- list()
 l_results_w2 <- list()
 
-for (i in 1:nrow(tbl_params)) {
-  l_params_decision$gamma <- tbl_params$gamma[i]
-  l_params_decision$beta <- tbl_params$beta[i]
-  plan(multisession, workers = availableCores() - 2)
-  l_results_w1[[i]] <- future_map(1:n_iter, ~ simulate_kalman(
-    sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
-    lambda, nr_trials, l_params_decision, simulate_data = FALSE,
-    seed = .x, tbl_rewards = tbl_rewards_w1 %>% select(-trial_id)
-  ), seed = NULL, .progress = TRUE)
-  l_results_w2[[i]] <- future_map(1:n_iter, ~ simulate_kalman(
-    sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
-    lambda, nr_trials, l_params_decision, simulate_data = FALSE,
-    seed = .x, tbl_rewards = tbl_rewards_w2 %>% select(-trial_id)
-  ), seed = NULL, .progress = TRUE)
+# takes approx. 17 mins for n_iter = 10, and 10x10 parameter grid
+if (is_fit) {
+  plan(multisession, workers = availableCores() - 3)
+  pb <- progress_bar$new(total = nrow(tbl_params))
+  for (i in 1:nrow(tbl_params)) {
+    l_params_decision$gamma <- tbl_params$gamma[i]
+    l_params_decision$beta <- tbl_params$beta[i]
+    l_results_w1[[i]] <- future_map(1:n_iter, ~ simulate_kalman(
+      sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
+      lambda, nr_trials, l_params_decision, simulate_data = FALSE,
+      seed = .x, tbl_rewards = tbl_rewards_w1 %>% select(-trial_id)
+    ), seed = NULL)
+    l_results_w2[[i]] <- future_map(1:n_iter, ~ simulate_kalman(
+      sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
+      lambda, nr_trials, l_params_decision, simulate_data = FALSE,
+      seed = .x, tbl_rewards = tbl_rewards_w2 %>% select(-trial_id)
+    ), seed = NULL)
+    pb$tick()
+  }
+  # save results
+  l_results_both <- list(
+    l_results_w1, l_results_w2
+  )
+  saveRDS(l_results_both, "data/4arlb-optimal-2-fixed.rds")
   plan("sequential")
+} else if (!is_fit) {
+  l_results_both <- readRDS("data/4arlb-optimal-2-fixed.rds")
 }
+
+
+
 
 tbl_results_w1 <- map(
   l_results_w1, ~ map_dbl(
@@ -116,9 +142,42 @@ tbl_results_w2 <- cbind(tbl_params, tbl_results_w2) %>%
 tbl_results <- rbind(tbl_results_w1, tbl_results_w2)
 
 grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
+  group_by(stim_set) %>%
+  mutate(mean_value_prop = mean_value/max(mean_value)) %>%
   ggplot(aes(gamma, beta)) +
-  geom_tile(aes(fill = mean_value)) +
-  facet_wrap(~ stim_set)
+  geom_tile(aes(fill = mean_value_prop)) +
+  geom_label(aes(label = round(mean_value_prop, 2))) +
+  facet_wrap(~ stim_set) +
+  scale_fill_viridis_c(guide = "none") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = expression(gamma), y = expression(beta)) + 
+  theme(
+    strip.background = element_rect(fill = "white"),
+    text = element_text(size = 22)
+    )
+
+grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
+  pivot_longer(gamma) %>%
+  rbind(
+    grouped_agg(tbl_results, c(beta, stim_set), value) %>%
+      pivot_longer(beta)
+  ) %>%
+  ggplot(aes(value, mean_value, group = stim_set)) +
+  geom_line(aes(color = stim_set)) +
+  geom_point(color = "white", size = 3) +
+  geom_point(aes(color = stim_set)) +
+  facet_wrap(~ name, scales = "free_x") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Parameter Value", y = "Cum. Rewards") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+  
 
 
 # expected rewards on random stimulus sets --------------------------------
