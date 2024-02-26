@@ -212,3 +212,150 @@ summary(brm(chosen ~ Horizon * info + Horizon*mean_diff+ (Horizon*info + Horizon
             cores = 2,
             chains = 2,
             iter = 2000))
+
+
+
+############ performance plots for presentation ############
+
+########## horizon
+
+n <- length(na.omit(horizon$chosen[horizon$ID == 1])) - 80*4 # subtract the free choices
+# for which number of best arm choices is there a 95% probability that this is by chance?
+qbinom(0.95, n, 0.5) # 154
+
+# proportion of optimal choices you get by chance
+pchance <- 154/n
+
+horizon$optimal <- ifelse(horizon$reward1 > horizon$reward2, 0, 1)
+horizon$chooseBest <- ifelse(horizon$chosen == horizon$optimal, 1, 0)
+
+best <- ddply(horizon[horizon$trial > 4, ], ~ID+Horizon+trial, summarise, optimal = mean(chooseBest, na.rm = T))
+head(best)
+
+
+# dist plot
+
+ggplot(best, aes(x = optimal,y = trial, fill = as.factor(Horizon)))+ geom_density_ridges(aes(y = as.factor(trial)), alpha = 0.6) +
+  #geom_jitter(aes(y = as.factor(Horizon)), alpha = 0.5, height = 0.1)+
+  xlim(c(0, 1))+
+  geom_vline(aes(xintercept = 0.5))+
+  labs(title = "Proportion of best arm choices on the Horizon task over trials",
+       x = "Proportion of best arm choices")+
+  scale_fill_discrete(name = "Horizon", labels = c(5, 10))
+
+#### Sam
+
+
+sam$optimal <- ifelse(sam$reward1 > sam$reward2, 0, 1)
+sam$chooseBest <- ifelse(sam$chosen == sam$optimal, 1, 0)
+
+best <- ddply(sam, ~ID+trial, summarise, optimal = meann(chooseBest))
+head(best)
+
+ggplot(best, aes(x = optimal))+ geom_density_ridges(aes(y = as.factor(trial)), alpha = 0.6) +
+  xlim(c(0, 1))+
+  geom_vline(aes(xintercept = 0.5))+
+  labs(title = "Proportion of best arm choices on Sam's task over trials",
+       x = "Proportion of best arm choices",
+       y = "trial")
+  
+
+
+sam$optimalR <- ifelse(sam$reward1>sam$reward2, sam$reward1, sam$reward2)
+sam$regret <- sam$optimalR - sam$reward
+
+regret <- ddply(sam, ~ID+trial+cond, summarise, regret = meann(regret))
+
+# dist plot
+
+ggplot(regret, aes(x = regret))+ geom_density_ridges(aes(y = as.factor(trial)), alpha = 0.6) +
+  facet_wrap(vars(cond))
+
+
+#### restless bandit
+
+data <- restless
+data$optimalR <- rep(apply(as.array(paste(data$trial[data$ID == 1], data$block[data$ID == 1])), 1, function(x) max(c(data$reward1[paste(data$trial, data$block) == x],
+                                                                                                                     data$reward2[paste(data$trial, data$block) == x],
+                                                                                                                     data$reward3[paste(data$trial, data$block) == x],
+                                                                                                                     data$reward4[paste(data$trial, data$block) == x]))), 
+                     length(unique(data$ID)))
+
+data$regret <- data$optimalR - data$reward
+
+
+data$chooseBest <- ifelse(data$reward == data$optimalR, 1, 0)
+
+best <- ddply(data, ~ID, summarise, optimal = meann(chooseBest))
+head(best)
+
+ggplot(best, aes(optimal)) + geom_density(alpha = 0.6, fill = "grey") + xlim(c(0, 1))+
+  geom_vline(aes(xintercept = 0.25))+
+  labs(title = "Proportion of best arm choices on restless 4 armed bandit task over trials",
+       x = "Proportion of best arm choices")
+
+
+
+
+
+
+############ psychometric curve Horizon task ################
+
+data <- horizon
+
+
+
+## get mean difference
+
+data$mean_L <- NA
+data$mean_R <- NA
+
+data$row <- 1:nrow(data)
+data$mean_L[data$trial == 5] <- apply(as.array(data$row[data$trial == 5]), 1, function(x) meann(data$reward[data$ID == data$ID[x]&
+                                                                                                              data$block == data$block[x] &
+                                                                                                              data$chosen == 0 & 
+                                                                                                              data$trial < 5]))
+data$mean_R[data$trial == 5] <- apply(as.array(data$row[data$trial == 5]), 1, function(x) meann(data$reward[data$ID == data$ID[x]&
+                                                                                                              data$block == data$block[x] &
+                                                                                                              data$chosen == 1& 
+                                                                                                              data$trial < 5]))
+## calculate deltas
+data$delta_mean <- data$mean_L - data$mean_R
+
+
+
+
+# recode choices to be informative vs uninformative and not left vs right (for unequal info cond)
+data$chosen[data$info == -1] <- ifelse(data$chosen[data$info == -1] == 0, 1, 0)
+data$delta_mean[data$info == 1] <- data$delta_mean[data$info == 1] * -1 # flip sign in direction of informative - uninformative
+
+data$info <- abs(data$info)
+
+
+# bin mean differences
+
+data$diffBin <- round(data$delta_mean / 10) * 10
+
+unique(data$diffBin)
+
+df <- ddply(data[!is.na(data$diffBin), ], ~diffBin+ Horizon,summarise, chooseUncertain = meann(chosen), n = length(na.omit(chosen))) 
+
+df <- subset(df, n >= 999)
+ggplot(df, aes(diffBin, chooseUncertain, fill = as.factor(Horizon), color = as.factor(Horizon))) + geom_point(aes(size = n)) + geom_line()
+
+
+
+############# do participants have a general bias towards one side in sam's task? #############
+
+library(lme4)
+
+df <- ddply(sam, ~ID, summarise, chooseRight = meann(chosen))
+
+hist(df$chooseRight, breaks = 50)
+
+t.test(df$chooseRight, mu= 0.5)
+
+
+library(brms)
+
+brm(chosen ~ V + RU + (V + RU | ID), sam, family = "bernoulli", cores = 2, iter = 500, chains = 2)
