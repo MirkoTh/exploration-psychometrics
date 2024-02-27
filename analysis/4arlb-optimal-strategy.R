@@ -9,16 +9,8 @@ rm(list = ls())
 
 library(tidyverse)
 library(rutils)
-library(grid)
-library(gridExtra)
-library(mvtnorm)
-library(zoo)
-library(TTR)
 library(future)
 library(furrr)
-library(ggbeeswarm)
-library(reactable)
-library(reactablefmtr)
 
 home_grown <- c("utils/analysis-utils.R", "utils/modeling-utils.R", "utils/plotting-utils.R")
 walk(home_grown, source)
@@ -39,7 +31,7 @@ nr_trials <- 200
 center_decay <- 50
 
 
-my_two_seeds <- c(997733, 49015499)
+my_two_seeds <- c(997733, 5247222) #49015499 originally for wave II, now tested and okish: 9832927, better: 5247222
 set.seed(my_two_seeds[1])
 mu_init <- rnorm(4, 50, 3)
 tbl_rewards_w1 <- generate_restless_bandits(
@@ -77,7 +69,7 @@ l_params_decision <- list(
   choicemodel = "ucb",
   no = 4
 )
-n_iter <- 10
+n_iter <- 50
 
 
 gamma <- seq(.01, 1, length.out = 10)
@@ -187,7 +179,7 @@ grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
   mutate(mean_value_prop = mean_value/max(mean_value)) %>%
   ggplot(aes(gamma, beta)) +
   geom_tile(aes(fill = mean_value_prop)) +
-  geom_label(aes(label = round(mean_value_prop, 2))) +
+  geom_text(aes(label = round(mean_value_prop, 2)), color = "grey50") + 
   facet_wrap(~ stim_set) +
   scale_fill_viridis_c(guide = "none") +
   theme_bw() +
@@ -199,6 +191,7 @@ grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
     text = element_text(size = 22)
   )
 
+pd <- position_dodge(width = .15)
 grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
   # group_by(stim_set) %>%
   # mutate(mean_value_shifted = mean_value - min(mean_value)) %>%
@@ -210,9 +203,14 @@ grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
       pivot_longer(beta)
   ) %>%
   ggplot(aes(value, mean_value, group = stim_set)) +
-  geom_line(aes(color = stim_set)) +
-  geom_point(color = "white", size = 3) +
-  geom_point(aes(color = stim_set)) +
+  geom_line(aes(color = stim_set), position = pd) +
+  geom_errorbar(aes(
+    ymin = mean_value - 1.96 * se_value, 
+    ymax = mean_value + 1.96 * se_value, 
+    color = stim_set
+    ), width = .15, position = pd) +
+  geom_point(color = "white", size = 3, position = pd) +
+  geom_point(aes(color = stim_set), position = pd) +
   facet_wrap(~ name, scales = "free_x") +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0)) +
