@@ -28,3 +28,20 @@ plot_pc_against_ss <- function(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci, tbl_wmu_ss_ag
   
   return(pl)
 }
+
+save_my_tiff <- function(pl, path_fl, w, h) {
+  tiff(path_fl, w, h, "in", res = 300)
+  grid.draw(pl)
+  dev.off()
+}
+
+save_my_pdf <- function(pl, path_fl, w, h) {
+  pdf(path_fl, w, h, paper = "special")
+  grid.draw(pl)
+  dev.off()
+}
+
+save_my_pdf_and_tiff <- function(pl, path_fl, w, h) {
+  save_my_pdf(pl, str_c(path_fl, ".pdf"), w, h)
+  save_my_tiff(pl, str_c(path_fl, ".tiff"), w, h)
+}
