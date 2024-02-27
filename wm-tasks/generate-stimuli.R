@@ -229,7 +229,7 @@ str_c("[", str_replace_all(paste(final_set_str, collapse = ","), "(, )(])", repl
 source("wm-tasks/utils-gen-stim.R")
 
 # change seeds for 4arlb
-my_two_seeds <- c(997733, 49015499)
+my_two_seeds <- c(997733, 5247222)
 set.seed(my_two_seeds[session_id])
 mu_init <- rnorm(4, 50, 3)
 tbl_4a_rlb <- generate_restless_bandits(
@@ -299,7 +299,7 @@ write(json, paste("../task/rewards4ARB", session_id, ".json", sep = ""))
 
 ######### gen rewards for testing the "random" walks
 
-my_two_seeds <- c(997733, 49015499)
+my_two_seeds <- c(997733, 5247222)
 set.seed(my_two_seeds[1])
 mu_init <- rnorm(4, 50, 3)
 tbl_4a_rlb1 <- generate_restless_bandits(
