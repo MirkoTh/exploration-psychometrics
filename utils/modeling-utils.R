@@ -595,7 +595,7 @@ choice_probs_e2 <- function(l_results_by_id) {
 
 simulate_kalman <- function(
     sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, lambda, nr_trials,
-    params_decision, simulate_data, seed, tbl_rewards) {
+    params_decision, simulate_data, seed, tbl_rewards, mu_init = NULL) {
   #'
   #' @description simulate choices from a Kalman filter with some choice model
   #' @param sigma_prior prior variance
@@ -612,9 +612,16 @@ simulate_kalman <- function(
   #'
   set.seed(seed)
   if (simulate_data) {
-    tbl_rewards <- generate_restless_bandits(
-      sigma_xi_sq, sigma_epsilon_sq, c(-60, -20, 20, 60), lambda, nr_trials
-    ) %>% select(-trial_id)
+    if (is.null(mu_init)) {
+      tbl_rewards <- generate_restless_bandits(
+        sigma_xi_sq, sigma_epsilon_sq, c(-60, -20, 20, 60), lambda, nr_trials
+      ) %>% select(-trial_id)
+    } else {
+      mu_init <- rnorm(4, 50, 3)
+      tbl_rewards <- generate_restless_bandits(
+        sigma_xi_sq, sigma_epsilon_sq, mu_init, lambda, nr_trials, center_decay = 50
+      ) %>% select(-trial_id)
+    }
   }
   
   nt <- nrow(tbl_rewards) # number of time points
@@ -881,13 +888,19 @@ fit_kalman_softmax_choose <- function(x, tbl_results, tbl_rewards, nr_options) {
 }
 
 
-fit_kalman_softmax_no_variance <- function(x, tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq, bds) {
+fit_kalman_softmax_no_variance <- function(
+    x, tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq, 
+    sigma_prior = 1000, mu_prior = 0, bds
+) {
   #'
-  #' @description Kalman soft max fitting wrapper, only optimize one of the
-  #' two available variances, fix the other to the true value
+  #' @description Kalman soft max fitting wrapper, do not optimize any of
+  #' the kalman variances, fix all to the true values
   #'
-  gamma <- upper_and_lower_bounds_revert(x[[1]], bds$lo, bds$hi)
-  tbl_learned <- kalman_learning(tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq)
+  gamma <- upper_and_lower_bounds_revert(x[[1]], bds$gamma$lo, bds$gamma$hi)
+  tbl_learned <- kalman_learning(
+    tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq, 
+    m0 = mu_prior, v0 = sigma_prior
+  )
   p_choices <- softmax_choice_prob(
     tbl_learned[1:nrow(tbl_results), ] %>% select(starts_with("m_")),
     gamma
@@ -1033,14 +1046,17 @@ fit_kalman_thompson_xi_variance_choose <- function(x, tbl_results, tbl_rewards, 
   return(-2 * sllik)
 }
 
-fit_kalman_ucb_no_variance <- function(x, tbl_results, nr_options, sigma_xi_sq = 16, sigma_epsilon_sq = 16, bds) {
+fit_kalman_ucb_no_variance <- function(
+    x, tbl_results, nr_options, sigma_xi_sq = 16, sigma_epsilon_sq = 16, 
+    sigma_prior = 1000, mu_prior = 0, bds
+) {
   #'
   #' @description Kalman soft max with ucb fitting wrapper,
   #' fix Kalman variances to the true value
   #'
   gamma <- upper_and_lower_bounds_revert(x[[1]], bds$gamma$lo, bds$gamma$hi)
   beta <- upper_and_lower_bounds_revert(x[[2]], bds$beta$lo, bds$beta$hi)
-  tbl_learned <- kalman_learning(tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq)
+  tbl_learned <- kalman_learning(tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq, mu_prior, sigma_prior)
   p_choices <- ucb_choice_prob(
     tbl_learned[1:nrow(tbl_results), ] %>% select(starts_with("m_")),
     tbl_learned[1:nrow(tbl_results), ] %>% select(starts_with("v_")),
@@ -1249,25 +1265,37 @@ fit_softmax_one_variance_wrapper <- function(tbl_results, tbl_rewards, condition
 
 fit_softmax_no_variance_wrapper <- function(
     tbl_results, tbl_rewards, condition_on_observed_choices, 
-    sigma_xi_sq = 16, sigma_epsilon_sq = 16, bds, params_init = NULL
+    sigma_xi_sq = 16, sigma_epsilon_sq = 16, sigma_prior = 1000,
+    mu_prior = 0, bds, params_init = NULL
 ) {
   tbl_results <- tbl_results[1:(nrow(tbl_results) - 1), ]
   
   if (is.null(params_init)) {
-    params_init <- c(.5)
+    params_init <- c(.25)
   }
-  params_init_tf <- upper_and_lower_bounds(params_init, bds$lo, bds$hi)
-  param_edges <- map_dbl(c(.0001, .9999), upper_and_lower_bounds, lo = bds$lo, hi = bds$hi)
+  
+  params_init_tf <- pmap_dbl(
+    list(params_init, map_dbl(bds, "lo"), map_dbl(bds, "hi")),
+    upper_and_lower_bounds
+  )
+  param_edges <- pmap_dbl(
+    list(c(.0001, .4999), map_dbl(bds, "lo"), map_dbl(bds, "hi")),
+    upper_and_lower_bounds
+  )
   
   if (condition_on_observed_choices) {
     result_optim <- optimize(
       fit_kalman_softmax_no_variance, param_edges,
       tbl_results = tbl_results, nr_options = 4,
       sigma_xi_sq = sigma_xi_sq, sigma_epsilon_sq = sigma_epsilon_sq,
+      sigma_prior = sigma_prior, mu_prior = mu_prior,
       bds = bds
     )
     r <- c(
-      upper_and_lower_bounds_revert(result_optim$minimum, bds$lo, bds$hi),
+      pmap_dbl(
+        list(result_optim$minimum, map_dbl(bds, "lo"), map_dbl(bds, "hi")),
+        upper_and_lower_bounds_revert
+      ),
       result_optim$objective
     )
   } else if (!condition_on_observed_choices) {
@@ -1291,12 +1319,12 @@ fit_softmax_no_variance_wrapper <- function(
 
 fit_ucb_no_variance_wrapper <- function(
     tbl_results, tbl_rewards, condition_on_observed_choices, 
-    sigma_xi_sq = 16, sigma_epsilon_sq = 16, bds, params_init = NULL
+    sigma_xi_sq = 16, sigma_epsilon_sq = 16, sigma_prior = 1000, mu_prior = 0, bds, params_init = NULL
 ) {
   tbl_results <- tbl_results[1:(nrow(tbl_results) - 1), ]
   
   if (is.null(params_init)) {
-    params_init <- c(.5, .25)
+    params_init <- c(.25, .25)
   }
   params_init_tf <- pmap_dbl(
     list(params_init, map_dbl(bds, "lo"), map_dbl(bds, "hi")),
@@ -1308,6 +1336,7 @@ fit_ucb_no_variance_wrapper <- function(
       params_init_tf, fit_kalman_ucb_no_variance,
       tbl_results = tbl_results, nr_options = 4,
       sigma_xi_sq = sigma_xi_sq, sigma_epsilon_sq = sigma_epsilon_sq,
+      sigma_prior = sigma_prior, mu_prior = mu_prior,
       bds = bds
     )
     
@@ -1453,15 +1482,21 @@ kalman_softmax_experiment <- function(
 }
 
 simulate_and_fit_softmax <- function(
-    tbl_params_participants, nr_vars, cond_on_choices, nr_trials) {
-  # simulate data
-  tbl_rewards <- generate_restless_bandits(
-    sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials
-  ) %>%
-    select(-trial_id)
+    tbl_params_participants, nr_vars, cond_on_choices, nr_trials, bds, tbl_rewards = NULL) {
   
+  if (is.null(tbl_rewards)) {
+    # simulate data
+    tbl_rewards <- generate_restless_bandits(
+      sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials
+    ) %>%
+      select(-trial_id)
+  }
+  list2env(
+    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq")],
+    environment()
+  )
   
-  plan(multisession, workers = availableCores() / 2)
+  plan(multisession, workers = availableCores() - 2)
   l_choices_simulated <- future_pmap(
     tbl_params_participants,
     simulate_kalman,
@@ -1469,6 +1504,7 @@ simulate_and_fit_softmax <- function(
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
+  plan("sequential")
   
   # fit data
   if (nr_vars == 0) {
@@ -1479,15 +1515,21 @@ simulate_and_fit_softmax <- function(
     my_current_wrapper <- fit_softmax_wrapper
   }
   
-  plan(multisession, workers = availableCores() / 2)
+  plan(multisession, workers = availableCores() - 2)
   l_softmax <- future_map2(
     map(l_choices_simulated, "tbl_return"),
     map(l_choices_simulated, "tbl_rewards"),
     safely(my_current_wrapper),
     condition_on_observed_choices = cond_on_choices,
+    sigma_xi_sq = sigma_xi_sq,
+    sigma_epsilon_sq = sigma_epsilon_sq,
+    sigma_prior = sigma_prior,
+    mu_prior = mu_prior,
+    bds = bds,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
+  plan("sequential")
   
   # replace empty results with NAs
   l_results <- map(l_softmax, "result")
@@ -1629,15 +1671,22 @@ kalman_ucb_experiment <- function(
 }
 
 simulate_and_fit_ucb <- function(
-    tbl_params_participants, nr_vars, cond_on_choices, nr_trials) {
-  # simulate fixed data set
-  tbl_rewards <- generate_restless_bandits(
-    sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials
-  ) %>%
-    select(-trial_id)
+    tbl_params_participants, nr_vars, cond_on_choices, nr_trials, bds, tbl_rewards = NULL
+) {
+  list2env(
+    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq")],
+    environment()
+  )  
+  if (is.null(tbl_rewards)) {
+    # simulate fixed data set
+    tbl_rewards <- generate_restless_bandits(
+      sigma_xi_sq, sigma_epsilon_sq, mu_prior, lambda, nr_trials
+    ) %>%
+      select(-trial_id)
+  }
   
   # simulate
-  plan(multisession, workers = availableCores() / 2)
+  plan(multisession, workers = availableCores() - 2)
   l_choices_simulated <- future_pmap(
     tbl_params_participants,
     simulate_kalman,
@@ -1645,17 +1694,21 @@ simulate_and_fit_ucb <- function(
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
+  plan("sequential")
   
   # fit
-  plan(multisession, workers = availableCores() / 2)
+  plan(multisession, workers = availableCores() - 2)
   l_ucb <- future_map2(
     map(l_choices_simulated, "tbl_return"),
     map(l_choices_simulated, "tbl_rewards"),
     safely(fit_ucb_no_variance_wrapper),
     condition_on_observed_choices = cond_on_choices,
+    sigma_xi_sq, sigma_epsilon_sq, sigma_prior, mu_prior,
+    bds,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
+  plan("sequential")
   
   # replace empty results with NAs
   l_results <- map(l_ucb, "result")
@@ -1846,9 +1899,8 @@ simulate_and_fit_delta <- function(
   return(tbl_results_delta)
 }
 
-
-generate_restless_bandits <- function(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials) {
-  #'
+generate_restless_bandits <- function(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials, center_decay = 0) {
+  #' 
   #' @description generate random walk data on bandits with independent means
   #' @param sigma_xi_sq innovation variance
   #' @param sigma_epsilon_sq noise variance
@@ -1860,16 +1912,40 @@ generate_restless_bandits <- function(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda
   mus <- matrix(nrow = nr_trials, ncol = nr_bandits)
   mus[1, ] <- mu1
   for (t in 2:nr_trials) {
-    mus[t, ] <- lambda * mus[t - 1, ] + rnorm(nr_bandits, 0, sqrt(sigma_xi_sq))
+    mus[t, ] <- lambda * mus[t-1, ] + (1 - lambda) * center_decay + rnorm(nr_bandits, 0, sqrt(sigma_xi_sq))
   }
   noise <- matrix(
     rnorm(nr_trials * nr_bandits, 0, sqrt(sigma_epsilon_sq)),
     nrow = nr_trials, ncol = nr_bandits
   )
-  as_tibble(as.data.frame(mus + noise)) %>%
+  as_tibble(as.data.frame(mus + noise)) %>% 
     mutate(trial_id = 1:nr_trials) %>%
     rename("Arm 1" = V1, "Arm 2" = V2, "Arm 3" = V3, "Arm 4" = V4)
 }
+
+#' generate_restless_bandits <- function(sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials) {
+#'   #'
+#'   #' @description generate random walk data on bandits with independent means
+#'   #' @param sigma_xi_sq innovation variance
+#'   #' @param sigma_epsilon_sq noise variance
+#'   #' @param mu1 initial means of different bandits
+#'   #' @param lambda decay parameter to keep bandit means closer to 0
+#'   #' @param nr_trials number of trials to generate
+#'   #' @return a tbl with values for all trials and all bandits
+#'   nr_bandits <- length(mu1)
+#'   mus <- matrix(nrow = nr_trials, ncol = nr_bandits)
+#'   mus[1, ] <- mu1
+#'   for (t in 2:nr_trials) {
+#'     mus[t, ] <- lambda * mus[t - 1, ] + rnorm(nr_bandits, 0, sqrt(sigma_xi_sq))
+#'   }
+#'   noise <- matrix(
+#'     rnorm(nr_trials * nr_bandits, 0, sqrt(sigma_epsilon_sq)),
+#'     nrow = nr_trials, ncol = nr_bandits
+#'   )
+#'   as_tibble(as.data.frame(mus + noise)) %>%
+#'     mutate(trial_id = 1:nr_trials) %>%
+#'     rename("Arm 1" = V1, "Arm 2" = V2, "Arm 3" = V3, "Arm 4" = V4)
+#' }
 
 
 
