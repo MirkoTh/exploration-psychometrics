@@ -3,8 +3,8 @@
 
 library(tidyverse)
 library(ggplot2)
-library(jsonlite)
-library(brms)
+#library(jsonlite)
+#library(brms)
 theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
@@ -130,7 +130,7 @@ ggplot(trueParams, aes(estimate)) + geom_histogram(alpha = 0.5, position = "iden
 ################# Sam's task ########
 
 ## UCB
-res_list1 <- recovery_sam(sam, "hybrid", hierarchical = T, it = 1000)
+res_list1 <- recovery_sam(sam, "UCB", hierarchical = F, it = 1000)
 # get parameters fitted to actual data
 # trueParams <- res_list[[1]]
 # # get parameters fitted to simulated data
@@ -298,9 +298,160 @@ ggplot(cors_sam, aes(cor)) + geom_histogram()
 
 ############### simulate data using predetermined parameters #########
 
-####### UCB Horizon ##########
+############## UCB Horizon 
 
 #### parameters
+
+V = seq(-3, 0, 1)
+RU = seq(-2, 2, 1)
+Horizon = seq(-2,2,1)
+VH = seq(-2,2,1)
+RUH = seq(-2,2,1)
+
+Nsims = 10
+
+pars = data.frame(V = rep(V, each = length(RU)*length(Horizon)*length(VH)* length(RUH)),
+                  RU = rep(RU, each = length(Horizon)*length(VH)*length(RUH)),
+                  Horizon = rep(Horizon, each = length(VH)*length(RUH)),
+                  VH = rep(Horizon, each = length(RUH)),
+                  RUH = RUH,
+                  reward = NA,
+                  se = NA)
+
+pars$ID <- 1:nrow(pars)
+
+for (i in pars$ID){
+  ## little progress bar
+  
+  if(i %% 50 == 0){print(paste(i, "of", length(pars$ID)))}
+  
+  temp <- rep(NA, Nsims)
+  
+  for (k in 1:Nsims){
+    
+    simdat <- subset(horizon, ID == 1 & !is.na(chosen)) # ID does not matter here, everyone observed the same fixed choices anyway
+    
+    
+    simdat$row <- 1:nrow(simdat)
+    
+    # for (j in simdat$row[simdat$trial > 5]){
+    #   simdat[simdat$row == j, grep("bay", colnames(simdat))] <- bayIncrAtOnce(j, simdat)
+    # }
+
+    simdat$V <- scale(getV(simdat$bayMeanL, simdat$bayMeanR))
+    simdat$RU <- scale(getRU(simdat$bayVarL, simdat$bayVarR))
+    
+    simdat$chosen[simdat$trial > 4] <- NA
+    simdat$chosen[simdat$trial == 5] <- pars$V[i] * simdat$V[simdat$trial == 5] + pars$RU[i] * simdat$RU[simdat$trial == 5] + pars$Horizon[i] * simdat$Horizon[simdat$trial == 5] +
+      pars$VH[i] * (simdat$V[simdat$trial == 5] * simdat$Horizon[simdat$trial == 5]) + pars$RUH[i] * (simdat$RU[simdat$trial == 5] * simdat$Horizon[simdat$trial == 5]) # setting intercept to 0 bc used scaled params so should approximately be ok
+    # logistic function
+    simdat$chosen[simdat$trial == 5] <- 1/(1+exp(-simdat$chosen[simdat$trial == 5]))
+    
+    simdat$chosen[simdat$trial == 5] <- ifelse(simdat$chosen[simdat$trial == 5] < runif(nrow(simdat[simdat$trial ==5, ])), 0, 1)
+    
+    simdat$reward[simdat$trial == 5] <- ifelse(simdat$chosen[simdat$trial == 5] == 0, simdat$reward1[simdat$trial == 5], simdat$reward2[simdat$trial == 5])
+    
+    # update baymean and bayvar for trial 6 based on what was chosen on first free choice (5) such that can then exploit based on that outcome
+    for (j in simdat$row[simdat$trial == 6]){
+      simdat[simdat$row == j, grep("bay", colnames(simdat))] <- bayIncrAtOnce(j, simdat)
+    }
+    
+    
+    ## make it choose optimally after trial 5
+    simdat$chosen[simdat$trial  == 6] <- ifelse(simdat$bayMeanL[simdat$trial == 6] > simdat$bayMeanR[simdat$trial == 6], 0, 1)
+    
+    simdat$chosen[simdat$trial > 6] <- rep(simdat$chosen[simdat$trial == 6], each = 4)
+    
+    simdat$best <- ifelse(simdat$reward1 > simdat$reward2, 0,1)
+    simdat$reward <- NA
+    simdat$reward <- ifelse(simdat$chosen == simdat$best, 1, 0)
+
+    temp[k] = mean(simdat$reward[simdat$trial > 4])
+    
+  }
+  
+  pars$reward[i] <- mean(temp)
+  pars$se[i] <- se(temp)
+  
+}
+
+
+
+hist(pars$reward)
+
+df <- pivot_longer(pars, cols = c(1:5), names_to = "parameter", values_to = "estimate")
+
+ggplot(df, aes(estimate, reward)) + facet_wrap(vars(parameter)) +
+  stat_summary(geom = "point", fun.y = mean) + stat_summary(geom = "line", fun.y = mean)
+
+
+ggplot(pars, aes(V,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red", high = "blue")
+
+ggplot(pars, aes(RU,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red",  high = "blue")
+
+ggplot(pars, aes(VH,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red",  high = "blue")
+
+
+############# now for Sam
+
+#### parameters
+
+V = seq(-2, 0.1, 0.4)
+RU = seq(-4, 1, 0.4)
+
+Nsims = 10
+
+pars = data.frame(V = rep(V, each = length(RU)),
+                  RU = rep(RU, length(V)),
+                  reward = NA,
+                  se = NA)
+
+pars$ID <- 1:nrow(pars)
+
+for (i in pars$ID){
+  
+  temp <- rep(NA, Nsims)
+  
+  for (k in 1:Nsims){
+    
+    simdat <- subset(sam, ID == 1, -chosen) # ID does not matter here, everyone observed the same fixed choices anyway
+    
+    simdat <- sim_data_sam(simdat, pars, i, bootstrapped = T, newRewards = F)
+    
+    simdat$best <- ifelse(simdat$reward1 > simdat$reward2, 0, 1)
+    
+    simdat$reward <- ifelse(simdat$chosen == simdat$best, 1, 0)
+    
+    
+   temp[k] <- mean(simdat$reward)
+    
+    
+  }
+  
+  pars$reward[i] <- mean(temp)
+  pars$se[i] <- se(temp)
+  
+}
+
+ggplot(pars, aes(V, RU, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red", high = "blue") + geom_text(aes(label = round(reward, digits = 2)))
+
+df <- pivot_longer(pars, cols = 1:2, values_to = "estimate", names_to = "parameter")
+
+ggplot(df, aes(estimate, reward)) + geom_smooth() + facet_wrap(vars(parameter))
+
+
+################ simulating how to get the best rewards in other data sets #######################
+
+############ Horizon
+
+horizon <- read.csv("/Users/kristinwitte/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/PrelimReliabilities/ZallerEtAl/data.csv")
+
+horizon$chosen <- ifelse(horizon$Choice == 0, 1, 0)
+horizon$trial <- horizon$Trial
+horizon$block <- horizon$Block
+horizon$ID <- horizon$Subject
+horizon$reward <- horizon$Outcome
+
 
 V = seq(-2, 1, 1)
 RU = seq(-2, 2, 1)
@@ -308,18 +459,181 @@ Horizon = seq(-2,2,1)
 VH = seq(-2,2,1)
 RUH = seq(-2,2,1)
 
+Nsim = 10
+
 pars = data.frame(V = rep(V, each = length(RU)*length(Horizon)*length(VH)* length(RUH)),
                   RU = rep(RU, each = length(Horizon)*length(VH)*length(RUH)),
                   Horizon = rep(Horizon, each = length(VH)*length(RUH)),
                   VH = rep(Horizon, each = length(RUH)),
-                  RUH = RUH)
+                  RUH = RUH,
+                  reward = NA,
+                  se = NA)
 
 pars$ID <- 1:nrow(pars)
+
 for (i in pars$ID){
-  simdat <- subset(horizon, trial == 5 & ID == 1, -chosen) # ID does not matter here, everyone observed the same fixed choices anyway
-  simdat$chosen <- pars$V[i] * simdat$V + pars$RU[i] * simdat$RU + pars$Horizon[i] * simdat$Horizon +
-    pars$VH[i] * (simdat$V * simdat$Horizon) + pars$RUH[i] * (simdat$RU * simdat$Horizon) # setting intercept to 0 bc used scaled params so should approximately be ok
   
-  simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
+  ## little progress bar
+  
+  if(i %% 50 == 0){print(paste(i, "of", length(pars$ID)))}
+  
+  temp <- rep(NA, Nsim)
+  
+  for (k in 1:Nsim){
+    simdat <- subset(horizon, ID == sample(horizon$ID, 1) & !is.na(chosen)) 
+    
+    
+    simdat$row <- 1:nrow(simdat)
+    
+    simdat$bayMeanL <- NA
+    simdat$bayMeanR <- NA
+    simdat$bayVarL <- NA
+    simdat$bayVarR <- NA
+    
+    for (j in simdat$row[simdat$trial == 5]){
+      simdat[simdat$row == j, grep("bay", colnames(simdat))] <- bayIncrAtOnce(j, simdat)
+    }
+    
+    simdat$V <- scale(getV(simdat$bayMeanL, simdat$bayMeanR))
+    simdat$RU <- scale(getRU(simdat$bayVarL, simdat$bayVarR))
+    
+
+    simdat$row <- 1:nrow(simdat)
+    
+    # for (j in simdat$row[simdat$trial > 5]){
+    #   simdat[simdat$row == j, grep("bay", colnames(simdat))] <- bayIncrAtOnce(j, simdat)
+    # }
+    
+    simdat$V <- scale(getV(simdat$bayMeanL, simdat$bayMeanR))
+    simdat$RU <- scale(getRU(simdat$bayVarL, simdat$bayVarR))
+    
+    simdat$chosen[simdat$trial > 4] <- NA
+    simdat$chosen[simdat$trial == 5] <- pars$V[i] * simdat$V[simdat$trial == 5] + pars$RU[i] * simdat$RU[simdat$trial == 5] + pars$Horizon[i] * simdat$Horizon[simdat$trial == 5] +
+      pars$VH[i] * (simdat$V[simdat$trial == 5] * simdat$Horizon[simdat$trial == 5]) + pars$RUH[i] * (simdat$RU[simdat$trial == 5] * simdat$Horizon[simdat$trial == 5]) # setting intercept to 0 bc used scaled params so should approximately be ok
+    # logistic function
+    simdat$chosen[simdat$trial == 5] <- 1/(1+exp(-simdat$chosen[simdat$trial == 5]))
+    
+    simdat$chosen[simdat$trial == 5] <- ifelse(simdat$chosen[simdat$trial == 5] < runif(nrow(simdat[simdat$trial ==5, ])), 0, 1)
+    
+    simdat$reward[simdat$trial == 5] <- ifelse(simdat$chosen[simdat$trial == 5] == 0, simdat$mu_L[simdat$trial == 5], simdat$mu_R[simdat$trial == 5])
+    
+    # update baymean and bayvar for trial 6 based on what was chosen on first free choice (5) such that can then exploit based on that outcome
+    for (j in simdat$row[simdat$trial == 6]){
+      simdat[simdat$row == j, grep("bay", colnames(simdat))] <- bayIncrAtOnce(j, simdat)
+    }
+    
+    
+    ## make it choose optimally after trial 5
+    simdat$chosen[simdat$trial  == 6] <- ifelse(simdat$bayMeanL[simdat$trial == 6] > simdat$bayMeanR[simdat$trial == 6], 0, 1)
+    
+    simdat$chosen[simdat$trial > 6] <- rep(simdat$chosen[simdat$trial == 6], each = 4)
+    
+    ## we don't know what is best so let's just compare rewards based on ground truth rewards
+    simdat$best <- ifelse(ifelse(is.na(simdat$bayMeanL), simdat$mu_L, simdat$bayMeanL) > ifelse(is.na(simdat$bayMeanR), simdat$mu_R, simdat$bayMeanR), 0, 1)
+    
+    
+    simdat$reward <- NA
+    simdat$reward <- ifelse(simdat$chosen == simdat$best, 1, 0)
+    
+    temp[k] <- mean(simdat$reward[simdat$trial > 4])
+    
+    
+  }
+  
+  
+  
+  
+  pars$reward[i] <- mean(temp)
+  pars$se[i] <- se(temp)
   
 }
+
+
+
+hist(pars$reward)
+
+df <- pivot_longer(pars, cols = c(1:5), names_to = "parameter", values_to = "estimate")
+
+ggplot(df, aes(estimate, reward))  + facet_wrap(vars(parameter)) +
+  stat_summary(geom = "point", fun.y = mean) + stat_summary(geom = "line", fun.y = mean)
+
+
+ggplot(pars, aes(V,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red", high = "blue")
+
+ggplot(pars, aes(RU,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red",  high = "blue")
+
+ggplot(pars, aes(VH,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red",  high = "blue")
+
+
+
+
+
+##################### Sam's task
+
+sam <- read.csv("/Users/kristinwitte/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/PrelimReliabilities/FanEtAl/exp1_bandit_task_scale.csv")
+
+sam$chosen <- ifelse(sam$C == 0, 1, 0)
+sam$ID <- sam$sub
+
+
+
+V = seq(-1.5, 0.1, 0.1)
+RU = seq(-0.7, 1.5, 0.1)
+
+Nsim = 10
+
+pars = data.frame(V = rep(V, each = length(RU)),
+                  RU = rep(RU, length(V)),
+                  reward = NA)
+
+pars$ID <- 1:nrow(pars)
+
+for (i in pars$ID){
+  temp <- rep(NA, Nsim)
+  
+  for (k in 1:Nsim){
+    simdat <- subset(sam, ID == sample(sam$ID, 1), -chosen) # ID does not matter here, everyone observed the same fixed choices anyway
+    
+    simdat <- sim_data_sam(simdat, pars, i, bootstrapped = T, newRewards = F)
+    
+    simdat$best <- ifelse(simdat$reward1 > simdat$reward2, 0, 1)
+    
+    simdat$reward <- ifelse(simdat$chosen == simdat$best, 1, 0)
+    
+    
+    temp[k] <- mean(simdat$reward)
+    
+    
+  }
+  
+  
+  # simdat <- subset(sam, ID == 1, -chosen ) # ID does not matter here, everyone observed the same fixed choices anyway
+  # 
+  # simdat$chosen <- pars$V[i] * simdat$V + pars$RU[i] * simdat$RU  # setting intercept to 0 bc used scaled params so should approximately be ok
+  # # logistic function
+  # simdat$chosen <- 1/(1+exp(-simdat$chosen))
+  # 
+  # simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
+  # 
+  # simdat$reward <- NA
+  # simdat$reward <- ifelse(simdat$chosen == 0, simdat$reward1, simdat$reward2)
+  # 
+  # simdat$max <- ifelse(simdat$reward1 > simdat$reward2, simdat$reward1, simdat$reward2)
+  # 
+  # simdat$best <- ifelse(simdat$reward == simdat$max, 1, 0)
+  # 
+   pars$reward[i] <- mean(temp)
+  
+  
+  
+}
+
+ggplot(pars, aes(V, RU, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red", high = "blue") + geom_text(aes(label = round(reward, digits = 2)))
+
+df <- pivot_longer(pars, cols = 1:2, values_to = "estimate", names_to = "parameter")
+
+ggplot(df, aes(estimate, reward)) + geom_smooth() + facet_wrap(vars(parameter))
+
+
+
+

@@ -15,7 +15,7 @@ setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
 load("analysis/bandits/banditsWave1.Rda")
 load("analysis/qsWave1.Rda")
-load("data/wave1/bandits/comprehension.Rda")
+load("data/wave1/comprehension.Rda")
 
 ######## plot aspects of comprehension questions ###########
 
@@ -87,7 +87,7 @@ table(qdat$exclude)
 
 # performance on bandit tasks
 
-# horizon
+########### horizon
 
 # when responding by chance, for how many of the choices would we pick the best option?
 # get number of free choices:
@@ -120,7 +120,7 @@ table(overall$optimal <= pchance) # 6 excluded
 qdat$exclude[match(overall$ID[overall$optimal <= pchance], qdat$ID)] <- 1
 table(qdat$exclude) # 3 more than before
 
-## same thing for sam
+############## same thing for sam
 
 sam$optimal <- ifelse(sam$reward1 > sam$reward2, 0, 1)
 sam$chooseBest <- ifelse(sam$chosen == sam$optimal, 1, 0)
