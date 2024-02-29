@@ -320,6 +320,38 @@ pars = data.frame(V = rep(V, each = length(RU)*length(Horizon)*length(VH)* lengt
 
 pars$ID <- 1:nrow(pars)
 
+
+### if this is for wave 2 we don't have data for that yet so load the reward set
+
+load("task/rewardsHorizon2.Rda")
+
+horizon <- rewards
+horizon$ID <- 1
+horizon$chosen <- 99 # need this to be non na
+horizon$chosen[horizon$Horizon == 5 & horizon$trial > 5] <- NA
+horizon$reward <- NA
+
+horizon$Horizon <- ifelse(horizon$Horizon == 5, -0.5, 0.5)
+horizon$info <- horizon$info/2
+
+horizon$bayMeanL <- NA
+horizon$bayMeanR <- NA
+horizon$bayVarL <- NA
+horizon$bayVarR <- NA
+
+
+
+fixed <- jsonlite::fromJSON("task/fixedChoices2.json")# rounds incl practice * fixed choices matrix
+
+for (i in 1:nrow(fixed)){
+  
+  horizon$chosen[horizon$block == i & horizon$trial < 5] <- fixed[i, ] 
+  horizon$reward[horizon$block == i & horizon$trial < 5] <- ifelse(horizon$chosen[horizon$block == i & horizon$trial < 5] == 0, horizon$reward1[horizon$block == i & horizon$trial < 5], horizon$reward2[horizon$block == i& horizon$trial < 5])
+  
+}
+
+########################
+
 for (i in pars$ID){
   ## little progress bar
   
@@ -334,9 +366,9 @@ for (i in pars$ID){
     
     simdat$row <- 1:nrow(simdat)
     
-    # for (j in simdat$row[simdat$trial > 5]){
-    #   simdat[simdat$row == j, grep("bay", colnames(simdat))] <- bayIncrAtOnce(j, simdat)
-    # }
+    for (j in simdat$row[simdat$trial > 4]){
+      simdat[simdat$row == j, grep("bay", colnames(simdat))] <- bayIncrAtOnce(j, simdat)
+    }
 
     simdat$V <- scale(getV(simdat$bayMeanL, simdat$bayMeanR))
     simdat$RU <- scale(getRU(simdat$bayVarL, simdat$bayVarR))
@@ -392,7 +424,7 @@ ggplot(pars, aes(RU,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(l
 ggplot(pars, aes(VH,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red",  high = "blue")
 
 
-############# now for Sam
+####################### now for Sam
 
 #### parameters
 
@@ -407,6 +439,16 @@ pars = data.frame(V = rep(V, each = length(RU)),
                   se = NA)
 
 pars$ID <- 1:nrow(pars)
+
+
+## if this is for wave 2 where we don't have data yet then need to import the reward set
+
+
+load("task/rewardsSam2.Rda")
+sam <- rewards
+sam$ID <- 1
+sam$chosen <- NA
+sam$reward <- NA
 
 for (i in pars$ID){
   
