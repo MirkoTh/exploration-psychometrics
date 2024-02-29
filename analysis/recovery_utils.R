@@ -1,7 +1,7 @@
 ############# parameter recovery functions #######################
 
-library(brms)
-library(docstring)
+#library(brms)
+#library(docstring)
 library(ggplot2)
 theme_set(theme_classic(base_size = 14))
 set.seed(123)
@@ -68,11 +68,11 @@ bayIncrAtOnce <- function(x, horizon){
   left <- horizon$reward[horizon$ID == horizon$ID[x]&
                            horizon$block == horizon$block[x] &
                            horizon$chosen == 0& 
-                           horizon$trial < 5]
+                           horizon$trial < horizon$trial[x]]
   right <- horizon$reward[horizon$ID == horizon$ID[x]&
                             horizon$block == horizon$block[x] &
                             horizon$chosen == 1& 
-                            horizon$trial < 5]
+                            horizon$trial < horizon$trial[x]]
   
   # initialise prior
   muLeft <- 50
@@ -102,7 +102,7 @@ bayIncrAtOnce <- function(x, horizon){
   return(c(muLeft,muRight,sqrt(1/tauLeft), sqrt(1/tauRight)))
 }
 
-sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F) {
+sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F, newRewards = T) {
   
   #' simulate data for sam's task from whatever model
   #' 
@@ -114,37 +114,43 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F)
   #' @return data.frame with simulated data for that subject
   
   id <- ifelse(bootstrapped, 1, i)
-  simdat <- subset(data, ID == id, -c(chosen, V, RU, KLM0, KLM1, KLV0, KLV1, reward, reward1, reward2))
   
   
   blocks <- max(simdat$block)
   trials <- max(simdat$trial)
   
-  ## create rewards
-  simdat$reward1[simdat$trial == 1] <- sample(data$reward1, blocks, replace = T)
-  simdat$reward2[simdat$trial == 1] <- sample(data$reward2, blocks, replace = T)
-  
-  # cond: experiment condition. 1:Fluctuating/Stable; 2:SF; 3:FF; 4:SS
-  # stable condition:
-  # sample a value for each first trial and repeat it for the rest of the trials
-  simdat$reward1[simdat$cond == "SS" | simdat$cond == "SF"] <- rep(sample(data$reward1, nrow(simdat[(simdat$cond == "SS" | simdat$cond == "SF") & simdat$trial == 1, ]), replace = T), each = trials)
-  simdat$reward2[ simdat$cond == "SS" | simdat$cond == "FS"] <- rep(sample(data$reward2, nrow(simdat[(simdat$cond == "FS" | simdat$cond == "SS")& simdat$trial == 1, ]), replace = T), each = trials)
-  
-  # random walk
-  for (j in 2:trials){
-    simdat$reward1[simdat$trial == j & (simdat$cond == "FS" | simdat$cond == "FF")] <- rnorm(1,simdat$reward1[simdat$trial == j-1 & (simdat$cond == "FS" | simdat$cond == "FF")],4)
-    simdat$reward2[simdat$trial == j & (simdat$cond == "SF" | simdat$cond == "FF")] <- rnorm(1,simdat$reward2[simdat$trial == j-1 & (simdat$cond == "SF" | simdat$cond == "FF")],4)
+  if (newRewards){
+    simdat <- subset(data, ID == id, -c(chosen, V, RU, KLM0, KLM1, KLV0, KLV1, reward, reward1, reward2))
+    
+
+    
+    ## create rewards
+    simdat$reward1[simdat$trial == 1] <- sample(data$reward1, blocks, replace = T)
+    simdat$reward2[simdat$trial == 1] <- sample(data$reward2, blocks, replace = T)
+    
+    # cond: experiment condition. 1:Fluctuating/Stable; 2:SF; 3:FF; 4:SS
+    # stable condition:
+    # sample a value for each first trial and repeat it for the rest of the trials
+    simdat$reward1[simdat$cond == "SS" | simdat$cond == "SF"] <- rep(sample(data$reward1, nrow(simdat[(simdat$cond == "SS" | simdat$cond == "SF") & simdat$trial == 1, ]), replace = T), each = trials)
+    simdat$reward2[ simdat$cond == "SS" | simdat$cond == "FS"] <- rep(sample(data$reward2, nrow(simdat[(simdat$cond == "FS" | simdat$cond == "SS")& simdat$trial == 1, ]), replace = T), each = trials)
+    
+    # random walk
+    for (j in 2:trials){
+      simdat$reward1[simdat$trial == j & (simdat$cond == "FS" | simdat$cond == "FF")] <- rnorm(1,simdat$reward1[simdat$trial == j-1 & (simdat$cond == "FS" | simdat$cond == "FF")],4)
+      simdat$reward2[simdat$trial == j & (simdat$cond == "SF" | simdat$cond == "FF")] <- rnorm(1,simdat$reward2[simdat$trial == j-1 & (simdat$cond == "SF" | simdat$cond == "FF")],4)
+    }
+    # add noise
+    noise <- rnorm(trials*blocks, 0, 1)
+    simdat$reward1 <- simdat$reward1 + noise
+    noise <- rnorm(trials*blocks, 0, 1)
+    simdat$reward2 <- simdat$reward2 + noise
   }
-  # add noise
-  noise <- rnorm(trials*blocks, 0, 1)
-  simdat$reward1 <- simdat$reward1 + noise
-  noise <- rnorm(trials*blocks, 0, 1)
-  simdat$reward2 <- simdat$reward2 + noise
+  
   
   
   ## iteratively make choices
   # learning part initialisations
-  m0 <- 0
+  m0 <- 50
   v0 <- 100
   no <- 2
   sigma_epsilon_sq <- 1
@@ -154,7 +160,7 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F)
   sigma_xi_sq[ ,2] <- apply(as.array(simdat$cond[simdat$trial == 1]), 1, function(x) ifelse(x == "SF" | x == "FF", 4, 0))
   
   # get initial posterior mean and variance for each option
-  m <- matrix(0, ncol = no, nrow = nrow(simdat)) # to hold the posterior means
+  m <- matrix(50, ncol = no, nrow = nrow(simdat)) # to hold the posterior means
   v <- matrix(100, ncol = no, nrow = nrow(simdat)) # to hold the posterior variances
   # get initial V and RU
   simdat$V[simdat$trial == 1] <- 0
@@ -164,7 +170,8 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F)
   for(t in 1:trials) {
     # get choice
     if (bootstrapped) {
-      C <- trueModel$V[i] * simdat$V[t] + trueModel$RU[i] * simdat$RU[t]
+      val <- trueModel$V[i] * simdat$V[simdat$trial == t] + trueModel$RU[i] * simdat$RU[simdat$trial == t]
+      C <- 1/(1+exp(-val))
     } else {
       if (hierarchical){
         library(brms)
@@ -195,7 +202,7 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F)
     v[simdat$trial == (t+1), ] <- (1-kt)*(v[simdat$trial == t,]) + sigma_xi_sq
     
     # compute V and RU
-    simdat$V[simdat$trial == (t+1)] <- getV(m[simdat$trial == (t+1),1], m[simdat$trial == (t+1),2])
+    simdat$V[simdat$trial == (t+1)] <- m[simdat$trial == (t+1),1] - m[simdat$trial == (t+1),2]
     simdat$RU[simdat$trial == (t+1)] <- getRU(v[simdat$trial == (t+1),1], v[simdat$trial == (t+1),2])
     simdat$VTU[simdat$trial == (t+1)] <- simdat$V[simdat$trial == (t+1)]/(sqrt(v[simdat$trial == (t+1),1] + v[simdat$trial == (t+1),2]))
     

@@ -5,7 +5,7 @@ library(ggplot2)
 library(jsonlite)
 theme_set(theme_classic(base_size = 14))
 
-setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
 
 # select required directory by setting data_idx index
@@ -456,3 +456,38 @@ lookup$exclude <- ifelse(lookup$totalExclude == 0, 0 , 1)
 table(lookup$exclude)/nrow(lookup)
 
 write.csv(lookup, "data/wave1/exclusions.csv")
+
+
+############### add who should get what bonus
+
+
+# 
+# exclusions <- read.csv("data/wave1/exclusions.csv", stringsAsFactors = F, quote = "") # the file got messed up when saving but redoing takes forever
+# exclusions$X..exclude... <- as.numeric(substr(exclusions$X..exclude..., start = 1, stop = 1))
+# 
+# exclusions$X..PID.. <- substr(exclusions$X..PID.., start = 2, stop = nchar(exclusions$X..PID..)-1)
+# 
+# overview <- readRDS("data/wave1/4arlb-overview.rds")
+# 
+# files = list.files(path = paste(dir, "qs/", sep = ""))
+# 
+# for (i in 1:length(files)){
+#   temp <- fromJSON(paste(dir, "qs/",files[i], sep = ""))
+#   bonus$attention[i] <- temp$attention1
+#   
+# }
+# 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
