@@ -4,7 +4,8 @@
 
 // settings
 
-var quickrunthrough = true // if true, we use placeholder rewards and only 2 blocks per task
+var quickrunthrough = false // if true, we use placeholder rewards and only 2 blocks per task
+var shorter = true // uses true rewards and not extra verbose but only 2 blocks per task
 
 // variables we need
 //var session = 1
@@ -489,6 +490,8 @@ function horizonTask() {
         // had to do it like this so that the preloaded stuff does not get overwritten
         fixedChoicesCollect = fixedChoicesCollectH
         
+        // shorten if short version
+        if (shorter){Nblocks = 2}
 
 
     }
@@ -602,6 +605,9 @@ function samTask() {
     else {
         rewardCollect = samRewards
         Nblocks = rewardCollect.length;
+
+        // shorten if short version
+        if (shorter){Nblocks = 2}
     }
     fixedChoicesCollect = Array(Nblocks).fill(0);
     NtrialsCollect = Array(Nblocks).fill(rewardCollect[1].length); 
@@ -698,6 +704,10 @@ function restlessTask() {
         // number of blocks is length of the list of Ntrials    
         Nblocks = rewardCollect.length;
         NtrialsCollect = [10, 200]
+
+        // shorten if short version
+        if (shorter){NtrialsCollect = [10, 10]}
+
     }
     // rewards here are a list of lists bc the rewards do drift but there is only 1 block so there are Ntrials lists containing 4 rewards (1 for each arm)
     fixedChoicesCollect = Array(Nblocks).fill(0);

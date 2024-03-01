@@ -7,7 +7,7 @@ session_id <- 2
 my_two_seeds <- c(39737632, 8567389)
 
 
-#setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics/wm-tasks")
+#setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics/wm-tasks")
 #source("utils-gen-stim.R")
 
 set.seed(my_two_seeds[session_id])

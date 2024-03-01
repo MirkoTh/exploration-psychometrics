@@ -6,3 +6,5 @@
 *.csv
 *.txt
 data/*
+
+analysis/bandits/recovHorizWilson.Rda
