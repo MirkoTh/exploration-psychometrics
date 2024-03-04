@@ -8,3 +8,6 @@
 data/*
 
 analysis/bandits/recovHorizWilson.Rda
+task/orders.json
+.DS_Store
+data/.DS_Store

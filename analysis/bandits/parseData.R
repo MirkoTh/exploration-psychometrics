@@ -9,9 +9,9 @@ setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
 
 # select required directory by setting data_idx index
-data_idx <- 4
-rel_dir_data_bandits <- c("data/pilot/bandits/", "data/2023-11-lab-pilot/bandits/", "data/pilot4arb/", "data/wave1/bandits/")[data_idx]
-rel_dir_data_qs <- c("data/pilot/qs/", "data/2023-11-lab-pilot/qs/", "_", "data/wave1/qs/")[data_idx]
+data_idx <- 5
+rel_dir_data_bandits <- c("data/pilot/bandits/", "data/2023-11-lab-pilot/bandits/", "data/pilot4arb/", "data/wave1/bandits/", "data/wave2/bandits/")[data_idx]
+rel_dir_data_qs <- c("data/pilot/qs/", "data/2023-11-lab-pilot/qs/", "_", "data/wave1/qs/", "data/wave2/qs/")[data_idx]
 
 json_to_tibble <- function(path_file) {
   js_txt <- read_file(path_file)
@@ -26,7 +26,7 @@ se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
 ### load data ########
 
-session = 1
+session = 2
 
 nBlocksH = 80
 nTrialsH = 10
