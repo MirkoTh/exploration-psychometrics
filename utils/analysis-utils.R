@@ -12,7 +12,8 @@ hash_ids <- function(
     add_gender = FALSE, 
     time_period = NULL, 
     is_considered = c("OS", "SS", "WMU"),
-    random_hashes = TRUE
+    random_hashes = TRUE,
+    session_id = 0
     ) {
   #' hash prolific ids and save data from wm tasks
   #' 
@@ -177,9 +178,9 @@ hash_ids <- function(
     
     
     # save
-    write_csv(tbl_OS_recall, str_c(path_data, "tbl_OS_recall.csv"))
-    write_csv(tbl_OS_processing, str_c(path_data, "tbl_OS_processing.csv"))
-    saveRDS(tbl_OS_recall, str_c(path_data, "tbl_OS_recall.RDS"))
+    write_csv(tbl_OS_recall, str_c(path_data, "tbl_OS_recall_", session_id, ".csv"))
+    write_csv(tbl_OS_processing, str_c(path_data, "tbl_OS_processing_", session_id, ".csv"))
+    saveRDS(tbl_OS_recall, str_c(path_data, "tbl_OS_recall_", session_id, ".rds"))
     #write_csv(tbl_OS_bonus, str_c(path_data, "tbl_OS_bonus.csv"))
   }
   
@@ -194,9 +195,9 @@ hash_ids <- function(
     
     
     # save
-    write_csv(tbl_SS_recall, str_c(path_data, "tbl_SS_recall.csv"))
-    write_csv(tbl_SS_processing, str_c(path_data, "tbl_SS_processing.csv"))
-    saveRDS(tbl_SS_recall, str_c(path_data, "tbl_SS_recall.RDS"))
+    write_csv(tbl_SS_recall, str_c(path_data, "tbl_SS_recall_", session_id, ".csv"))
+    write_csv(tbl_SS_processing, str_c(path_data, "tbl_SS_processing_", session_id, ".csv"))
+    saveRDS(tbl_SS_recall, str_c(path_data, "tbl_SS_recall_", session_id, ".RDS"))
     #write_csv(tbl_SS_bonus, str_c(path_data, "tbl_SS_bonus.csv"))
   }
   
@@ -208,8 +209,8 @@ hash_ids <- function(
     #tbl_WMU_bonus <- replace_prolific_id(tbl_WMU_bonus)
     
     # save
-    write_csv(tbl_WMU_recall, str_c(path_data, "tbl_WMU_recall.csv"))
-    saveRDS(tbl_WMU_recall, str_c(path_data, "tbl_WMU_recall.RDS"))
+    write_csv(tbl_WMU_recall, str_c(path_data, "tbl_WMU_recall_", session_id, ".csv"))
+    saveRDS(tbl_WMU_recall, str_c(path_data, "tbl_WMU_recall_", session_id, ".RDS"))
     #write_csv(tbl_WMU_bonus, str_c(path_data, "tbl_WMU_bonus.csv"))
   }
 }

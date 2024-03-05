@@ -14,7 +14,7 @@ tbl_trials_administered <- tibble(
   os_recall = 15,
   ss_recall = 12,
   os_processing = 90,
-  ss_processing = 50, #54,
+  ss_processing = 50, #54, # would actually be 54, but accept a few missing responses
   wmu_recall = 20
 ) %>% pivot_longer(colnames(.))
 colnames(tbl_trials_administered) <- c("task", "n_administered")
@@ -89,24 +89,32 @@ time_out_exclude <- c(
   "5f7f18137488a50407d729e6"
 )
 
+
+# Insert Time Range and Session ID ----------------------------------------
+
+
 # select the time range for the data to be loaded
 time_period <- c(
-  make_datetime(2024, 1, 22, 11, tz = "CET"), 
-  make_datetime(2024, 1, 24, 23, tz = "CET")
+  make_datetime(2024, 3, 4, 13, tz = "CET"), 
+  make_datetime(2024, 3, 5, 16, tz = "CET")
 ) # 10 prolific pilot participant range
+session_id <- 1
+
+
 hash_ids(
   path_data, 
   c(participants_returned, time_out_exclude), 
   time_period = time_period,
-  random_hashes = FALSE
+  random_hashes = FALSE, session_id = session_id
 )
+
 
 tbl_ids_lookup <- read_csv(str_c(path_data, "participant-lookup.csv"))
 
 # exclude practice trials
-tbl_os_recall <- readRDS(str_c(path_data, "tbl_OS_recall.RDS")) %>%
+tbl_os_recall <- readRDS(str_c(path_data, "tbl_OS_recall_", session_id, ".RDS")) %>%
   filter(is_practice == 0)#read_csv(str_c(path_data, "tbl_OS_recall.csv"))
-tbl_os_processing <- read_csv(str_c(path_data, "tbl_OS_processing.csv")) %>%
+tbl_os_processing <- read_csv(str_c(path_data, "tbl_OS_processing_", session_id, ".csv")) %>%
   filter(is_practice == 0)
 
 
@@ -121,9 +129,9 @@ tbl_os_processing <- read_csv(str_c(path_data, "tbl_OS_processing.csv")) %>%
 
 
 # exclude practice trials and add missing variables
-tbl_ss_recall <- readRDS(str_c(path_data, "tbl_SS_recall.RDS")) %>%
+tbl_ss_recall <- readRDS(str_c(path_data, "tbl_SS_recall_", session_id, ".RDS")) %>%
   filter(is_practice == 0)#read_csv(str_c(path_data, "tbl_SS_recall.csv"))
-tbl_ss_processing <- read_csv(str_c(path_data, "tbl_SS_processing.csv")) %>%
+tbl_ss_processing <- read_csv(str_c(path_data, "tbl_SS_processing_", session_id, ".csv")) %>%
   filter(is_practice == 0)
 
 tbl_os_setsize <- tbl_os_recall %>%
@@ -134,6 +142,11 @@ tbl_os_setsize <- tbl_os_recall %>%
 tbl_os_processing <- tbl_os_processing %>%
   left_join(tbl_os_setsize, by = "trial_id_recall") %>%
   mutate(processing_position = processing_position + 1) %>%
+  group_by(participant_id, trial_id_recall, processing_position) %>%
+  mutate(
+    rwn = row_number()
+  ) %>%
+  filter(rwn == 1) %>%
   group_by(participant_id, trial_id_recall) %>%
   mutate(
     n_correct = sum(accuracy)
@@ -147,6 +160,11 @@ tbl_ss_setsize <- tbl_ss_recall %>%
 tbl_ss_processing <- tbl_ss_processing %>%
   left_join(tbl_ss_setsize, by = c("trial_id_recall")) %>%
   mutate(processing_position = processing_position + 1) %>%
+  group_by(participant_id, trial_id_recall, processing_position) %>%
+  mutate(
+    rwn = row_number()
+  ) %>%
+  filter(rwn == 1) %>%
   group_by(participant_id, trial_id_recall) %>%
   mutate(
     # fill processing_position according to saving history
@@ -167,7 +185,7 @@ tbl_ss_processing <- tbl_ss_processing %>%
 
 
 # exclude practice trials
-tbl_WMU_recall <- readRDS(str_c(path_data, "tbl_WMU_recall.rds")) %>%
+tbl_WMU_recall <- readRDS(str_c(path_data, "tbl_WMU_recall_", session_id, ".rds")) %>%
   filter(is_practice == 0 & trial_type == "update")
 
 
@@ -278,7 +296,9 @@ tbl_trials_overview <- tbl_os_recall %>%
   mutate(n_total_datapoints = sum(n)) %>%
   ungroup()
 tbl_trials_overview2 <- tbl_trials_overview %>%
-  group_by(participant_id, p_id_short) %>% summarize(n = max(n_total_datapoints)) %>% ungroup() %>%
+  group_by(participant_id, p_id_short) %>%
+  summarize(n = max(n_total_datapoints)) %>%
+  ungroup() %>%
   mutate(task = "All Tasks", set_size = 4)
 #select(-c(set_size)) %>%
 #pivot_wider(names_from = task, values_from = n) %>%
@@ -306,7 +326,7 @@ ggplot(tbl_trials_all %>% arrange(desc(n)) %>% mutate(p_id_short = fct_inorder(f
 # if there is any task with too few trials (as above)
 # if n_thx < 191
 
-n_thx <- sum(tbl_trials_administered$n_administered) # keep data set of participants with only one data point missing
+n_thx <- sum(tbl_trials_administered$n_administered) # keep data set of participants with only few data points missing
 tbl_complete <- tbl_trials_all %>% filter(task == "All Tasks" & n >= n_thx)
 tbl_complete_p <- tbl_complete %>% select(participant_id)
 tbl_os_recall <- tbl_os_recall %>% inner_join(tbl_complete_p, "participant_id")
@@ -476,9 +496,9 @@ tbl_exclusions <- tbl_ids_lookup %>% select(participant_id, participant_id_rando
   rename(prolific_pid = participant_id, participant_id = participant_id_randomized) %>%
   select(prolific_pid, participant_id, exclude_bandits, all_tasks_too_few, proc_below_thx) %>%
   mutate(excl_subject = pmax(all_tasks_too_few, proc_below_thx, exclude_bandits))
-  
 
-saveRDS(tbl_exclusions, file = "analysis/wm/subjects-excl-wm.rds")
+
+saveRDS(tbl_exclusions, file = str_c("analysis/wm/subjects-excl-wm-", session_id, ".rds"))
 
 tbl_performance_all <- tbl_performance_all %>% left_join(tbl_exclusions[, c("participant_id", "excl_subject")], by = "participant_id")
 
