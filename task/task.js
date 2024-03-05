@@ -5,7 +5,7 @@
 // settings
 
 var quickrunthrough = false // if true, we use placeholder rewards and only 2 blocks per task
-var shorter = true // uses true rewards and not extra verbose but only 2 blocks per task
+var shorter = false // uses true rewards but not extra verbose but only 2 blocks per task
 
 // variables we need
 //var session = 1
@@ -57,8 +57,14 @@ data["restless"]["time"] = {}
 data["horizon"]["taskReward"] = 0
 data["sam"]["taskReward"] = 0
 data["restless"]["taskReward"] = 0
-
-
+//var orders
+var tasks
+data["unknownOrder"] = 0
+// // preload who had what taskOrder in sesssion 1
+// $.getJSON("orders.json", function(data) {
+//     orders = data;
+//     //console.log("orders done "+orders)
+// })
 
 // slot machines (image + button)
 var machine1 = document.getElementById('mach_div1');
@@ -86,6 +92,7 @@ var slot_machines = document.getElementById('slot_machines');
 //     $.post("./results_data.php", {postresult: filedata + "\n", postfile: filename })
   
 // }
+
 
 function saveData(filedata) {
     var filename = "bandits/"+subjectID+"_data_task_bonus_" + bonusPayment+ "_session_"+ session + ".txt"
@@ -174,26 +181,22 @@ async function handle_operation_keypress(e) {
 
     }
 
-// randomly select which order the tasks are in
+// randomly select which order the tasks are in in session 1
 var order = Math.floor(Math.random() * 6) + 1;
-//order = 1
-var tasks
-if (order == 1) {
-    tasks = [horizonTask, samTask, restlessTask]
-} else if (order == 2) {
-    tasks = [horizonTask, restlessTask, samTask]
-} else if (order == 3) {
-    tasks = [samTask, horizonTask, restlessTask]
-} else if (order == 4) {
-    tasks = [samTask, restlessTask, horizonTask]
-} else if (order == 5) {
-    tasks = [restlessTask, horizonTask, samTask]
-} else if (order == 6) {
-    tasks = [restlessTask, samTask, horizonTask]
+
+// in session 2 we try to parse the order from the JSON
+var task_ind = 0
+
+// find index of subjectID in orders[0]
+var index = orders[0].indexOf(subjectID)
+
+if (index > -1) {
+    order = orders[1][index]
+} else {
+    order = 1
+    data["unknownOrder"] = 1
 }
 
-var task_ind = 0
-data["taskOrder"] = order
 
 var session = getQueryVariable('session');
 // turn session into integer and add 1
@@ -217,6 +220,8 @@ $.getJSON("rewardsSam"+ s+".json", function(data) {
 $.getJSON("rewards4ARB"+ s+".json", function(data) {
     restlessRewards = data;
   })
+
+
 
 // click function
 var clickMachine = function(machine, task) {
@@ -1169,14 +1174,7 @@ nextTaskButton.style.display = 'none';
 endTaskButton.style.display = 'none';
 startTaskButton.style.display = 'none';
 
-startPracticeButton.onclick = function(){
-    // Hide instructions and show practice trials
-    
-    startPracticeButton.style.display = 'none';
-    tasks[task_ind]()
 
-    // Call a function to display practice trials
-}
 
 startTaskButton.addEventListener('click', () => {
     // Hide practice trials and show task trials
@@ -1201,3 +1199,37 @@ compButton.addEventListener('click', () => {
     if (task == "horizon") {comprehensionAttemptsH +=1} else if (task == "sam") {comprehensionAttemptsS += 1} else {comprehensionAttemptsR += 1}
     startComprehension(task)
 })
+
+
+//order = 1
+
+
+if (order == 1) {
+    tasks = [horizonTask, samTask, restlessTask]
+} else if (order == 2) {
+    tasks = [horizonTask, restlessTask, samTask]
+} else if (order == 3) {
+    tasks = [samTask, horizonTask, restlessTask]
+} else if (order == 4) {
+    tasks = [samTask, restlessTask, horizonTask]
+} else if (order == 5) {
+    tasks = [restlessTask, horizonTask, samTask]
+} else if (order == 6) {
+    tasks = [restlessTask, samTask, horizonTask]
+}
+
+
+data["taskOrder"] = order
+
+startPracticeButton.onclick = function(){
+    // Hide instructions and show practice trials
+    
+    startPracticeButton.style.display = 'none';
+    tasks[task_ind]()
+
+    // Call a function to display practice trials
+}
+
+
+
+
