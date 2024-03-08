@@ -6,13 +6,13 @@ library(jsonlite)
 theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
-session = 1
+session = 2
 s = session-1
 load(paste("task/maxRewards", session,".Rda", sep = ""))
 
-dir = "data/wave1/"
+dir = "data/wave2/"
 
-load("data/wave1/bandits.Rda")
+#load("data/wave2/bandits.Rda")
 
 #######################################
 
@@ -59,6 +59,19 @@ for (i in 1:length(PIDs)){
   
   if (i %% 20 == 0){print(paste(i, "of", length(PIDs)))}
   
+  
+  ### bandits
+  temp <- try(fromJSON(paste(dir, "bandits/",PIDs[i],"_data_task_bonus_undefined_session_", s,".txt", sep = "")))
+  if(is.element("try-error", class(temp))){print(PIDs[i])}
+  else{
+    horizonPoints <- temp$horizon$taskReward/maxHorizon
+    bonus$Horizon[i] <- horizonPoints
+    samPoints <- temp$sam$taskReward/maxSam
+    bonus$Sam[i] <- samPoints
+    restlessPoints <- temp$restless$taskReward/maxRestless
+    bonus$Restless[i] <- restlessPoints
+  }
+  
   ### OS
   
   OS <- try(json_to_tibble(paste(dir, "OS/OS_recall_",s,"_", PIDs[i], ".json", sep = "")))
@@ -99,17 +112,17 @@ for (i in 1:length(files)){
 }
 
 ###### bandits #########
-
-horizonrew <- ddply(horizon, ~ID,summarise, reward = sum(reward, na.rm = T))
-
-horizonrew$reward[horizonrew$reward == 0] <- NA# somehow NA turned into 0 so fix that
-samrew <- ddply(sam, ~ID, summarise, reward = sum(reward, na.rm = T))
-samrew$reward[samrew$reward == 0] <- NA
-restlessrew <- ddply(restless, ~ID, summarise, reward = sum(reward, na.rm = T))
-restlessrew$reward[restlessrew$reward == 0] <- NA
-bonus$Horizon[match(horizonrew$ID, bonus$ID)] <- horizonrew$reward/maxHorizon
-bonus$Sam[match(samrew$ID, bonus$ID)] <- samrew$reward/maxSam
-bonus$Restless[match(restlessrew$ID, bonus$ID)] <- restlessrew$reward/maxRestless
+# 
+# horizonrew <- ddply(horizon, ~ID,summarise, reward = sum(reward, na.rm = T))
+# 
+# horizonrew$reward[horizonrew$reward == 0] <- NA# somehow NA turned into 0 so fix that
+# samrew <- ddply(sam, ~ID, summarise, reward = sum(reward, na.rm = T))
+# samrew$reward[samrew$reward == 0] <- NA
+# restlessrew <- ddply(restless, ~ID, summarise, reward = sum(reward, na.rm = T))
+# restlessrew$reward[restlessrew$reward == 0] <- NA
+# bonus$Horizon[match(horizonrew$ID, bonus$ID)] <- horizonrew$reward/maxHorizon
+# bonus$Sam[match(samrew$ID, bonus$ID)] <- samrew$reward/maxSam
+# bonus$Restless[match(restlessrew$ID, bonus$ID)] <- restlessrew$reward/maxRestless
 
 ########## total bonus ########
 
@@ -125,6 +138,33 @@ bonus$TotalBonus[bonus$attention < 1] <- 0
 
 hist(bonus$TotalBonus, breaks = 100)
 
+############# add bonus from wave 1 ##########
+wave1 <- read.csv("data/wave1/bonus.csv")
+
+bonus$wave1 <- wave1$TotalBonus[match(bonus$PID, wave1$PID)]
+
+bonus$GrandTotalBonus <- bonus$TotalBonus + bonus$wave1
+table(is.na(bonus$GrandTotalBonus))
+
+hist(bonus$GrandTotalBonus)
+
+################## out of the ones in here, who participated manually, without prolific ###############
+
+# import prolific data
+
+prolific <- read.csv("data/wave2/prolific_export.csv")
+
+externals <- bonus$PID[!is.element(bonus$PID, prolific$Participant.id)]
+
+externals
+
+bonus$GrandTotalBonus[bonus$PID == externals]
+
+bonus$GrandTotalBonus[bonus$PID == externals] + 9
+
+bonus <- subset(bonus, !is.element(PID, externals))
+
+write.csv(bonus, "data/wave2/bonus.csv")
 ############## add exclusions #############
 
 exclusions <- read.csv("data/wave1/exclusions.csv", stringsAsFactors = F, quote = "") # the file got messed up when saving but redoing takes forever
