@@ -158,7 +158,7 @@ hash_ids <- function(
     tbl_ids_lookup <- tbl_ids_lookup %>% 
       left_join(tmp, by = c("participant_id"))
   }
-  write_csv(tbl_ids_lookup, str_c(path_data, "participant-lookup.csv"))
+  write_csv(tbl_ids_lookup, str_c(path_data, "participant-lookup-", session_id, ".csv"))
   
   
   # replace prolific ids with random ids
@@ -221,7 +221,7 @@ agg_by_ss <- function(my_tbl, tbl_ids_lookup, taskname) {
     mutate(
       prop_correct = n_correct / set_size
     ) %>%
-    group_by(participant_id, set_size) %>%
+    group_by(participant_id, session_id, set_size) %>%
     summarize(
       n_trials = n(),
       n_items = sum(set_size),

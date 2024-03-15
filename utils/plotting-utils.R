@@ -1,11 +1,11 @@
 plot_pc_against_ss <- function(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci, tbl_wmu_ss_agg_ci, is_recall = TRUE) {
-  pl <- ggplot(rbind(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci), aes(set_size, prop_correct, group = 1)) +
+  pl <- ggplot(rbind(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci), aes(set_size, prop_correct, group = session_id)) +
     geom_hline(yintercept = 1, linetype = "dotdash", alpha = .2) +
-    geom_errorbar(aes(x = set_size, y = prop_correct, ymin = prop_correct - ci, ymax = prop_correct + ci), width = .5) +
-    geom_line() +
+    geom_errorbar(aes(x = set_size, y = prop_correct, ymin = prop_correct - ci, ymax = prop_correct + ci, color = session_id), width = .5) +
+    geom_line(aes(color = session_id)) +
     geom_point(color = "white", size = 4) +
-    geom_point() +
-    facet_wrap(~ task) +
+    geom_point(aes(color = session_id)) +
+    facet_wrap( ~ task) +
     scale_color_brewer(palette = "Set1") +
     theme_bw() +
     scale_x_continuous(expand = c(0.01, 0.01)) +
@@ -20,10 +20,10 @@ plot_pc_against_ss <- function(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci, tbl_wmu_ss_ag
     pl <- pl +
       geom_errorbar(
         data = tbl_wmu_ss_agg_ci, aes(
-          x = set_size, y = prop_correct, ymin = prop_correct - ci, ymax = prop_correct + ci
+          x = set_size, y = prop_correct, ymin = prop_correct - ci, ymax = prop_correct + ci, color = session_id
         ), width = .5
       ) +
-      geom_point(data = tbl_wmu_ss_agg_ci, aes(set_size, prop_correct, group = 1)) 
+      geom_point(data = tbl_wmu_ss_agg_ci, aes(set_size, prop_correct, color = session_id)) 
   }
   
   return(pl)
