@@ -3,6 +3,7 @@ rm(list = ls())
 library(tidyverse)
 library(ids)
 library(rutils)
+library(grid)
 
 path_utils <- c("utils/analysis-utils.R", "utils/plotting-utils.R")
 walk(path_utils, source)
@@ -523,23 +524,29 @@ pl_ss_processing <- plot_pc_against_ss(
 
 # Both --------------------------------------------------------------------
 
+add_word_cols <- function(my_tbl, my_word) {
+  old_colnames <- colnames(my_tbl)
+  s_id <- str_match(colnames(my_tbl), "[0-1]$")[, 1]
+  colnames_cut <- str_remove(old_colnames, "_[0-1]$")
+  to_consider <- (1:length(old_colnames))[str_detect(old_colnames, "[0-1]$")]
+  colnames_cut[to_consider] <- str_c(colnames_cut[to_consider], "_", my_word, "_", s_id[!is.na(s_id)])
+  return(colnames_cut)
+}
+colnames(tbl_recall_performance_participants) <- add_word_cols(tbl_recall_performance_participants, "recall")
+colnames(tbl_proc_performance_participants) <- add_word_cols(tbl_proc_performance_participants, "processing")
+
+
 tbl_performance_all <- tbl_recall_performance_participants %>%
   left_join(
     tbl_proc_performance_participants, 
-    by = c("participant_id"), suffix = c("_recall", "_processing")
+    by = c("participant_id")
   ) %>%
   left_join(os_rts %>% select(participant_id, rt_os_0, rt_os_1), by = c("participant_id")) %>%
   left_join(ss_rts %>% select(participant_id, rt_ss_0, rt_ss_1), by = c("participant_id"))
 
-str_replace(colnames(tbl_performance_all), "_._[a-z]*", "_recall_1")
-
-fill_session <- str_match(colnames(tbl_performance_all), "_([0-1])_[a-z]*")[,2]
-fill_task <- str_match(colnames(tbl_performance_all), "_([a-z])$")[,2]
-
-
 
 tbl_thx_0 <- tibble(
-  name = c("OS_recall_0", "SS_recall_0", "WMU_0", "OS_processing_0", "SS_processing_0"),
+  name = c("OS_recall_0", "SS_recall_0", "WMU_recall_0", "OS_processing_0", "SS_processing_0"),
   thx = c(
     0, 0, 0, 
     tbl_proc_performance_participants$thx_lo_os[1],
@@ -547,7 +554,7 @@ tbl_thx_0 <- tibble(
   )
 )
 tbl_thx_1 <- tibble(
-  name = c("OS_recall_1", "SS_recall_1", "WMU_1", "OS_processing_1", "SS_processing_1"),
+  name = c("OS_recall_1", "SS_recall_1", "WMU_recall_1", "OS_processing_1", "SS_processing_1"),
   thx = c(
     0, 0, 0, 
     tbl_proc_performance_participants$thx_lo_os[1],
@@ -566,50 +573,36 @@ tbl_exclusions <- tbl_ids_lookup %>% select(participant_id, participant_id_rando
 
 saveRDS(tbl_exclusions, file = str_c("analysis/wm/subjects-excl-wm.rds"))
 
-tbl_performance_all <- tbl_performance_all %>% left_join(tbl_exclusions[, c("participant_id", "excl_subject")], by = "participant_id")
+tbl_performance_all <- tbl_performance_all %>%
+  left_join(tbl_exclusions[, c("participant_id", "excl_subject")], by = "participant_id")
 
-ggplot() +
-  geom_histogram(
-    data = tbl_performance_all %>% filter(!excl_subject) %>%
-      pivot_longer(
-        c(OS_recall_0, SS_recall_0, WMU_0, OS_processing_0, SS_processing_0)
-      ), aes(value),
-    color = "black", fill = "skyblue2") +
-  geom_vline(data = tbl_thx_0, aes(xintercept = thx), color = "red", linetype = "dotdash", linewidth = 1) +
-  facet_wrap(~ name, scales = "free_y") +
+
+hist_wm_performance <- tbl_performance_all %>% filter(!excl_subject) %>%
+  pivot_longer(cols = contains("recall") | contains("processing") & !contains("timeout")) %>%
+  mutate(
+    Session = str_c("Wave ", str_extract(name, "[0-1]$")),
+    name = str_remove(name, "[0-1]$"),
+    name = str_replace_all(name, "_", " ")
+         ) %>%
+  ggplot(aes(value)) +
+  geom_histogram(color = "black", fill = "skyblue2") +
+  facet_grid(name ~ Session, scales = "free_y") +
   theme_bw() +
   scale_x_continuous(expand = c(.01, 0)) +
   scale_y_continuous(expand = c(.01, 0)) +
-  labs(x = "Prop. Correct", y = "Nr Participants", title = "Wave I") + 
+  labs(x = "Prop. Correct", y = "Nr Participants") + 
   theme(
     strip.background = element_rect(fill = "white"),
     text = element_text(size = 22),
     axis.text.x = element_text(angle = 90, vjust = .3)
   )
 
+save_my_pdf_and_tiff(
+  hist_wm_performance,
+  "figures/histograms-wm-performance",
+  7, 12
+)
 
-ggplot() +
-  geom_histogram(
-    data = tbl_performance_all %>% filter(!excl_subject) %>%
-      pivot_longer(
-        c(OS_1_recall, SS_1_recall, WMU_1, OS_1_processing, SS_1_processing)
-      ), aes(value),
-    color = "black", fill = "skyblue2") +
-  geom_vline(data = tbl_thx_1, aes(xintercept = thx), color = "red", linetype = "dotdash", linewidth = 1) +
-  facet_wrap(~ name, scales = "free_y") +
-  theme_bw() +
-  scale_x_continuous(expand = c(.01, 0)) +
-  scale_y_continuous(expand = c(.01, 0)) +
-  labs(x = "Prop. Correct", y = "Nr Participants", title = "Wave II") + 
-  theme(
-    strip.background = element_rect(fill = "white"),
-    text = element_text(size = 22),
-    axis.text.x = element_text(angle = 90, vjust = .3)
-  )
-
-
-
-grid::grid.draw(gridExtra::arrangeGrob(pl_ss_recall, pl_ss_processing, nrow = 1))
 
 tbl_cor <- cor(
   tbl_performance_all %>% 
