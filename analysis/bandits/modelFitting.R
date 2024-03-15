@@ -9,7 +9,7 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-session <- 1
+session <- 2
 
 load(paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
 
@@ -144,7 +144,8 @@ trueParams$estimate[trueParams$predictor == "RU*Horizon"] <- trueParams$`colMean
 trueParams$estimate[trueParams$predictor == "V*Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "V*Horizon"] +
   fixed$Estimate[rownames(fixed) == "V:Horizon"]
 
-write.csv(trueParams, file = paste("data/HorizonParamsWave", session, ".csv", sep = ""))
+#write.csv(trueParams, file = paste("data/HorizonParamsWave", session, ".csv", sep = ""))
+save(trueParams, out, file = paste("analysis/bandits/modelFitHorizon", session, ".Rda", sep = ""))
 
 res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 2000)
 res_list
@@ -179,7 +180,7 @@ modelfit <- fit_model_sam(sam, "UCB", hierarchical = T, it = 1000)
 estims <- modelfit[[2]]
 ggplot(estims, aes(estimate)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
 
-save(modelfit, file = "analysis/bandits/modelFitSamWave2.Rda")
+save(modelfit, file = paste("analysis/bandits/modelFitSamWave", session, ".Rda", sep = ""))
 
 ## UCB
 res_list1 <- recovery_sam(sam, "UCB", hierarchical = T, it = 500)
