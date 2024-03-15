@@ -205,7 +205,7 @@ tbl_ss_processing <- tbl_ss_processing %>%
   ) %>%
   filter(processing_position <= set_size) %>%
   ungroup()
-  
+
 
 # this is only for pilot data where processing position was not correctly stored
 # tbl_ss_processing <- tbl_ss_processing %>% group_by(participant_id, trial_id_recall, processing_position) %>%
@@ -531,8 +531,15 @@ tbl_performance_all <- tbl_recall_performance_participants %>%
   left_join(os_rts %>% select(participant_id, rt_os_0, rt_os_1), by = c("participant_id")) %>%
   left_join(ss_rts %>% select(participant_id, rt_ss_0, rt_ss_1), by = c("participant_id"))
 
+str_replace(colnames(tbl_performance_all), "_._[a-z]*", "_recall_1")
+
+fill_session <- str_match(colnames(tbl_performance_all), "_([0-1])_[a-z]*")[,2]
+fill_task <- str_match(colnames(tbl_performance_all), "_([a-z])$")[,2]
+
+
+
 tbl_thx_0 <- tibble(
-  name = c("OS_0_recall", "SS_0_recall", "WMU_0", "OS_0_processing", "SS_0_processing"),
+  name = c("OS_recall_0", "SS_recall_0", "WMU_0", "OS_processing_0", "SS_processing_0"),
   thx = c(
     0, 0, 0, 
     tbl_proc_performance_participants$thx_lo_os[1],
@@ -540,7 +547,7 @@ tbl_thx_0 <- tibble(
   )
 )
 tbl_thx_1 <- tibble(
-  name = c("OS_1_recall", "SS_1_recall", "WMU_1", "OS_1_processing", "SS_1_processing"),
+  name = c("OS_recall_1", "SS_recall_1", "WMU_1", "OS_processing_1", "SS_processing_1"),
   thx = c(
     0, 0, 0, 
     tbl_proc_performance_participants$thx_lo_os[1],
@@ -565,7 +572,7 @@ ggplot() +
   geom_histogram(
     data = tbl_performance_all %>% filter(!excl_subject) %>%
       pivot_longer(
-        c(OS_0_recall, SS_0_recall, WMU_0, OS_0_processing, SS_0_processing)
+        c(OS_recall_0, SS_recall_0, WMU_0, OS_processing_0, SS_processing_0)
       ), aes(value),
     color = "black", fill = "skyblue2") +
   geom_vline(data = tbl_thx_0, aes(xintercept = thx), color = "red", linetype = "dotdash", linewidth = 1) +
@@ -606,60 +613,68 @@ grid::grid.draw(gridExtra::arrangeGrob(pl_ss_recall, pl_ss_processing, nrow = 1)
 
 tbl_cor <- cor(
   tbl_performance_all %>% 
-     filter(!is.na(WMU_0) & !excl_subject) %>%
-    select(ends_with("0_recall"), ends_with("0_processing"), "WMU_0")) %>%
+    filter(!is.na(WMU_0) & !is.na(WMU_1) & !excl_subject) %>%
+    select(contains("recall"), contains("processing"), contains("WMU"))
+) %>%
   as.data.frame() %>%
-  mutate(task = c("OS Recall", "SS Recall", "OS Processing", "SS Processing", "WMU")) %>%
-  pivot_longer(- task) 
-tbl_cor$name <- factor(tbl_cor$name)
-levels(tbl_cor$name) <- c("OS Processing", "OS Recall", "SS Processing", "SS Recall", "WMU")
-tbl_cor$task <- factor(tbl_cor$task)
-levels(tbl_cor$task) <- c("OS Processing", "OS Recall", "SS Processing", "SS Recall", "WMU")
+  mutate(
+    task_in = str_remove(str_remove(colnames(.), "_"), "[0-1]"),
+    session_id_in = str_extract(colnames(.), "[0-1]")
+  ) %>%
+  pivot_longer(cols = -c(session_id_in, task_in), names_to = "task_out") %>%
+  mutate(
+    session_id_out = str_extract(task_out, "[0-1]"),
+    task_out = str_replace(task_out, "_[0-1]_", "_"),
+    task_out = str_replace(task_out, "_[0-1]$", "")
+  )
+tbl_cor$task_in <- factor(tbl_cor$task_in)
+levels(tbl_cor$task_in) <- c("OS Processing", "OS Recall", "SS Processing", "SS Recall", "WMU")
+tbl_cor$task_out <- factor(tbl_cor$task_out)
+levels(tbl_cor$task_out) <- c("OS Processing", "OS Recall", "SS Processing", "SS Recall", "WMU")
 
-
+# between-task correlations per session
 tbl_cor %>%
-  ggplot(aes(task, name)) +
+  filter(session_id_in == session_id_out) %>%
+  ggplot(aes(task_in, task_out)) +
   geom_tile(aes(fill = value)) +
   geom_text(aes(label = round(value, 2)), color = "darkgrey", size = 5) +
   scale_fill_viridis_c(name = "Correlation", guide = "none") +
+  facet_wrap(~ session_id_in) +
   theme_bw() +
   scale_x_discrete(expand = c(0, 0)) +
   scale_y_discrete(expand = c(0, 0)) +
-  labs(x = "", y = "", title = "Wave I") + 
+  labs(x = "", y = "", title = "Within-Session Correlations") + 
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
     axis.text.x = element_text(angle = 90)
   )
 
+# task correlations between sessions with reliabilities highlighted
+tbl_between <- tbl_cor %>%
+  filter(session_id_in != session_id_out & session_id_in == 0)
 
-tbl_cor <- cor(
-  tbl_performance_all %>% 
-    filter(!is.na(WMU_1) & !excl_subject) %>%
-    select(ends_with("1_recall"), ends_with("1_processing"), "WMU_1")) %>%
-  as.data.frame() %>%
-  mutate(task = c("OS Recall", "SS Recall", "OS Processing", "SS Processing", "WMU")) %>%
-  pivot_longer(- task) 
-tbl_cor$name <- factor(tbl_cor$name)
-levels(tbl_cor$name) <- c("OS Processing", "OS Recall", "SS Processing", "SS Recall", "WMU")
-tbl_cor$task <- factor(tbl_cor$task)
-levels(tbl_cor$task) <- c("OS Processing", "OS Recall", "SS Processing", "SS Recall", "WMU")
-
-
-tbl_cor %>%
-  ggplot(aes(task, name)) +
+ggplot(tbl_between, aes(task_in, task_out)) +
   geom_tile(aes(fill = value)) +
-  geom_text(aes(label = round(value, 2)), color = "darkgrey", size = 5) +
+  # highlight diagonal
+  geom_tile(data = tbl_between %>% filter(task_in == task_out), aes(task_in, task_out), color = "grey30", alpha = 0, linewidth = 1.5) +
+  geom_text(aes(label = round(value, 2)), color = "grey40", size = 5) +
   scale_fill_viridis_c(name = "Correlation", guide = "none") +
   theme_bw() +
   scale_x_discrete(expand = c(0, 0)) +
   scale_y_discrete(expand = c(0, 0)) +
-  labs(x = "", y = "", title = "Wave II") + 
+  labs(
+    x = "Session 1", y = "Session 2", 
+    title = "Between-Session Correlations",
+    caption = "Reliabilities on the diagonal are highlighted"
+  ) + 
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
-    axis.text.x = element_text(angle = 90)
+    axis.text.x = element_text(angle = 90),
+    plot.caption = element_text(size = 10)
   )
+
 
 # Save recall, and processing files of included participants --------------
 
