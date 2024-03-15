@@ -4,19 +4,21 @@
 library(tidyverse)
 library(ggplot2)
 #library(jsonlite)
-#library(brms)
+library(brms)
 theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-load("analysis/bandits/banditsWave1.Rda")
+session <- 1
+
+load(paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
 
 source("analysis/recovery_utils.R")
 
 if (!is.element("KLM0", colnames(sam))) {
   sam <- get_KL_into_df(sam) 
   
-  save(horizon, sam, restless, file = "analysis/bandits/banditsWave1.Rda")
+  save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
 }
 
 if (!is.element("bayMeanL", colnames(horizon))) {
@@ -34,7 +36,7 @@ if (!is.element("bayMeanL", colnames(horizon))) {
   horizon$RU <- scale(getRU(horizon$bayVarL, horizon$bayVarR))
   
   
-  save(horizon, sam, restless, file = "analysis/bandits/banditsWave1.Rda")
+  save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
   
   
 }
@@ -42,13 +44,22 @@ if (!is.element("bayMeanL", colnames(horizon))) {
 se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
 
+### remove the person that has no data
+
+horizon <- subset(horizon,!is.na(info))
+sam <- subset(sam, !is.na(chosen))
 
 
 
 ############### Horizon task ############
 
+unique(horizon$Horizon)
+unique(horizon$info)
+
 horizon$Horizon <- ifelse(horizon$Horizon == 5, -0.5, 0.5)
 horizon$info <- horizon$info/2
+
+
 
 
 ###### Hierachical Bayesian Implementation of Standard Wilson model 
@@ -66,7 +77,7 @@ ggplot(pars, aes(estimate, fill = source)) + geom_histogram(alpha = 0.5, positio
 
 ###### UCB subject-level GLMs
 
-res_list <- recovery_horizon(horizon, "UCB", bayesian = F)
+res_list <- recovery_horizon(horizon, "UCB", bayesian = T)
 res_list
 
 trueParams <- res_list[[1]]
@@ -103,11 +114,43 @@ ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_f
 
 #####  UCB but bayesian model
 
-res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = T)
-res_list
-save(res_list, file = "analysis/bandits/recovHorizonFull.Rda")
+out <- fit_model_horizon(horizon, "UCB", full = T, it = 2000)
 
-load("analysis/bandits/recovHorizonReduced.Rda")
+trueParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(out))))
+trueParams$predictor <- NA
+fixed <- data.frame(summary(out)$fixed)
+
+  trueParams$predictor[grepl("RU", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "RU"
+  trueParams$predictor[grepl("V", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "V"
+  trueParams$predictor[grepl("Horizon", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "Horizon"
+  
+trueParams$predictor[grepl("Intercept", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "Intercept"
+trueParams$predictor[grepl("RU:Horizon", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "RU*Horizon"
+trueParams$predictor[grepl("Horizon:V", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "V*Horizon"
+trueParams <- subset(trueParams, !is.na(predictor)& !grepl("ID__", rownames(trueParams)))
+
+## transform random effects into subject-level slopes
+  trueParams$estimate[trueParams$predictor == "RU"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "RU"] +
+    fixed$Estimate[rownames(fixed) == "RU"]
+  trueParams$estimate[trueParams$predictor == "V"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "V"] +
+    fixed$Estimate[rownames(fixed) == "V"]
+  trueParams$estimate[trueParams$predictor == "Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "Horizon"] +
+    fixed$Estimate[rownames(fixed) == "Horizon"]
+  
+trueParams$estimate[trueParams$predictor == "Intercept"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "Intercept"] +
+  fixed$Estimate[rownames(fixed) == "Intercept"]
+trueParams$estimate[trueParams$predictor == "RU*Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "RU*Horizon"] +
+  fixed$Estimate[rownames(fixed) == "Horizon:RU"]
+trueParams$estimate[trueParams$predictor == "V*Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "V*Horizon"] +
+  fixed$Estimate[rownames(fixed) == "V:Horizon"]
+
+write.csv(trueParams, file = paste("data/HorizonParamsWave", session, ".csv", sep = ""))
+
+res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 2000)
+res_list
+save(res_list, file = paste("analysis/bandits/recovHorizonFullWave", session, ".Rda", sep = ""))
+
+#load("analysis/bandits/recovHorizonReduced.Rda")
 
 
 trueParams <- res_list[[1]]
@@ -129,8 +172,17 @@ ggplot(trueParams, aes(estimate)) + geom_histogram(alpha = 0.5, position = "iden
 
 ################# Sam's task ########
 
+## just fitting the model
+
+modelfit <- fit_model_sam(sam, "UCB", hierarchical = T, it = 1000)
+
+estims <- modelfit[[2]]
+ggplot(estims, aes(estimate)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
+
+save(modelfit, file = "analysis/bandits/modelFitSamWave2.Rda")
+
 ## UCB
-res_list1 <- recovery_sam(sam, "UCB", hierarchical = F, it = 1000)
+res_list1 <- recovery_sam(sam, "UCB", hierarchical = T, it = 500)
 # get parameters fitted to actual data
 # trueParams <- res_list[[1]]
 # # get parameters fitted to simulated data

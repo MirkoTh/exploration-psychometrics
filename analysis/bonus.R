@@ -143,7 +143,7 @@ wave1 <- read.csv("data/wave1/bonus.csv")
 
 bonus$wave1 <- wave1$TotalBonus[match(bonus$PID, wave1$PID)]
 
-bonus$GrandTotalBonus <- bonus$TotalBonus + bonus$wave1
+bonus$GrandTotalBonus <- round(bonus$TotalBonus + bonus$wave1, digits = 2)
 table(is.na(bonus$GrandTotalBonus))
 
 hist(bonus$GrandTotalBonus)
@@ -165,6 +165,31 @@ bonus$GrandTotalBonus[bonus$PID == externals] + 9
 bonus <- subset(bonus, !is.element(PID, externals))
 
 write.csv(bonus, "data/wave2/bonus.csv")
+
+########## who should do the study but hasn't? ########
+exclusions <- read.csv("data/wave1/exclusions.csv", stringsAsFactors = F, quote = "") # the file got messed up when saving but redoing takes forever
+
+# remove excess quotation marks on the variables where it matters
+exclusions$X..exclude... <- as.numeric(substr(exclusions$X..exclude..., start = 1, stop = 1))
+exclusions$X..PID.. <- substr(exclusions$X..PID.., start = 3, stop = nchar(exclusions$X..PID..)-2)
+
+exclusions <- subset(exclusions, X..exclude... == 0)
+
+leftToParticipate <- exclusions$X..PID..[!is.element(exclusions$X..PID.., prolific$Participant.id)]
+leftToParticipate
+
+write.csv(leftToParticipate, "data/wave2/leftToParticipate.csv")
+
+########### fix my mistake #########
+
+mirkoMailedExtra <- read.csv("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics/data/wave2/2024-03-08-leftovers-msg.csv")
+
+gotAnEmail <- c(oldLTP$x, mirkoMailedExtra$PID)
+
+shouldNotHave <- c(gotAnEmail[!is.element(gotAnEmail, exclusions$X..PID..)], gotAnEmail[is.element(gotAnEmail, prolific$Participant.id)])
+
+write.csv(shouldNotHave, "data/wave2/shouldNotHaveReceived.csv", row.names = F)
+
 ############## add exclusions #############
 
 exclusions <- read.csv("data/wave1/exclusions.csv", stringsAsFactors = F, quote = "") # the file got messed up when saving but redoing takes forever
@@ -175,4 +200,4 @@ exclusions$X..PID.. <- substr(exclusions$X..PID.., start = 3, stop = nchar(exclu
 
 bonus$exclude[match(exclusions$X..PID.., bonus$PID)] <- exclusions$X..exclude...
 
-write.csv(bonus, paste(dir, "bonus.csv", sep = ""))
+#write.csv(bonus, paste(dir, "bonus.csv", sep = ""))
