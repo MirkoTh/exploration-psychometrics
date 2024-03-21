@@ -3,14 +3,16 @@
 
 library(tidyverse)
 library(ggplot2)
-library(jsonlite)
+#library(jsonlite)
 library(brms)
 library(ggridges)
 theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-load("analysis/bandits/banditsWave1.Rda")
+session <- 2
+
+load(sprintf("analysis/bandits/banditsWave%i.Rda", session))
 source("analysis/recovery_utils.R")
 
 
@@ -20,7 +22,7 @@ meann <- function(x){mean(x, na.rm = T)}
 
 ########## prep questionnaire data #######
 
-load("analysis/qsWave1.Rda")
+load(sprintf("analysis/qswave%i.Rda", session))
 
 qs <- read.csv("task/questionnaires.csv", sep = ";")
 
@@ -279,26 +281,34 @@ ggplot(cors, aes(x = task, y = wm, fill = cor)) + geom_raster() + scale_fill_gra
 
 ####### horizon
 
-load("analysis/bandits/recovHorizonFull.Rda")
+#load("analysis/bandits/recovHorizonFull.Rda")
 
-trueParams <- res_list[[1]]
-trueParams$estimate <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`
+load(sprintf("analysis/bandits/modelFitHorizon%i.Rda", session))
 
-params <- unique(trueParams$predictor)
+if (session == 1){
+  HParams <- trueParams1
+  HParams$ID <- readr::parse_number(HParams$X)
+  
+}else {
+  HParams <- trueParams
+  HParams$X <- rownames(HParams)
+  HParams$ID <- readr::parse_number(HParams$X)
+  
+}
 
-ids <- 1:334
-ids <- ids[-c(168)]
 
-trueParams$ID <- ids
+params <- unique(HParams$predictor)
 
-IDs <- intersect(unique(avg$ID), unique(trueParams$ID))
+IDs <- intersect(unique(avg$ID), unique(HParams$ID))
+
+questionnaires <- unique(qs$Measure)
 
 cors <- data.frame(parameter = rep(params, length(questionnaires)),
                    questionnaire = rep(questionnaires, each = length(params)),
                    cor = NA)
 
 
-cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate[trueParams$predictor == cors$parameter[x] & is.element(trueParams$ID, IDs)],
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(HParams$estimate[HParams$predictor == cors$parameter[x] & is.element(HParams$ID, IDs)],
                                                              avg$score[avg$measure == cors$questionnaire[x] & is.element(avg$ID, IDs)]))
 
 
@@ -307,7 +317,8 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate
 # plot them
 
 ggplot(cors, aes(x = parameter, y = questionnaire, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of proportion of high variance choices between different tasks",
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation Horizon task parameters with questionnaire items",
+                                                        subtitle = sprintf("Session %i", session),
                                                         x = element_blank(), y = element_blank())+
   scale_y_discrete(labels = c("openness", "exploration", "neg. mood","pos. mood", "depression", "anxiety"))
 
@@ -339,26 +350,22 @@ ggplot(cors, aes(x = parameter, y = wm, fill = cor)) + geom_raster() + scale_fil
 ######### sams task
 
 
-load("analysis/bandits/recovSam.Rda")
+#load("analysis/bandits/recovSam.Rda")
+load(sprintf("analysis/bandits/modelFitSamWave%i.Rda", session))
+Sparams <- modelfit[[2]]
 
-trueParams <- res_list1[[1]]
-trueParams$estimate <- trueParams$`colMeans(as.data.frame(posterior_samples(trueModel)))`
+Sparams$ID <- readr::parse_number(rownames(Sparams))
 
-params <- unique(trueParams$predictor)
+params <- unique(Sparams$predictor)
 
-ids <- 1:334
-ids <- ids[-c(168)]
-
-trueParams$ID <- ids
-
-IDs <- intersect(unique(avg$ID), unique(trueParams$ID))
+IDs <- intersect(unique(avg$ID), unique(Sparams$ID))
 
 cors <- data.frame(parameter = rep(params, length(questionnaires)),
                    questionnaire = rep(questionnaires, each = length(params)),
                    cor = NA)
 
 
-cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate[trueParams$predictor == cors$parameter[x] & is.element(trueParams$ID, IDs)],
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Sparams$estimate[Sparams$predictor == cors$parameter[x] & is.element(Sparams$ID, IDs)],
                                                              avg$score[avg$measure == cors$questionnaire[x] & is.element(avg$ID, IDs)]))
 
 

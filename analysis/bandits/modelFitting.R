@@ -114,7 +114,7 @@ ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_f
 
 #####  UCB but bayesian model
 
-out <- fit_model_horizon(horizon, "UCB", full = T, it = 2000)
+out <- fit_model_horizon(horizon, "UCB", full = F, it = 1000)
 
 trueParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(out))))
 trueParams$predictor <- NA
@@ -147,7 +147,7 @@ trueParams$estimate[trueParams$predictor == "V*Horizon"] <- trueParams$`colMeans
 #write.csv(trueParams, file = paste("data/HorizonParamsWave", session, ".csv", sep = ""))
 save(trueParams, out, file = paste("analysis/bandits/modelFitHorizon", session, ".Rda", sep = ""))
 
-res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 2000)
+res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = F, it = 1000)
 res_list
 save(res_list, file = paste("analysis/bandits/recovHorizonFullWave", session, ".Rda", sep = ""))
 

@@ -357,9 +357,9 @@ save(qdat, file = str_c(str_remove(rel_dir_data_qs, "[a-z]*/$"),  "qsFull.Rda"))
 
 ########## make table of exclusions #############
 
-load("data/wave2/banditsWave2.Rda")
-load("data/wave2/qsFull.Rda")
-
+load(sprintf("analysis/bandits/banditsWave%ifull.Rda", session))
+load(sprintf("analysis/qswave%iFull.Rda", session))
+load(sprintf("analysis/comprehensionWave%i.Rda", session))
 ##### WM
 
 if (session == 2) {
@@ -479,7 +479,7 @@ table(lookup$attention)
 lookup$totalExclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(lookup[x, c(grep("perfWM", colnames(lookup)): ncol(lookup))])), na.rm = T))
 
 hist(lookup$totalExclude, breaks = max(lookup$totalExclude))
-
+  
 lookup$exclude <- ifelse(lookup$totalExclude == 0, 0 , 1)
 table(lookup$exclude)
 
@@ -493,7 +493,7 @@ restless <- subset(restless, !is.element(ID, excludeWave2))
 qdat <- subset(qdat, !is.element(ID, excludeWave2))
 
 save(horizon, sam, restless, file ="analysis/bandits/banditsWave2.Rda")
-save(qdat, file = "analysis/qdatWave2.Rda")
+save(qdat, file = "analysis/qswave2.Rda")
 
 ############### add who should get what bonus
 
