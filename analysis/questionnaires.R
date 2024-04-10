@@ -6,14 +6,21 @@ library(jsonlite)
 library(brms)
 theme_set(theme_classic(base_size = 14))
 
-setwd("/Users/kwitte/Documents/GitHub/exploration-psychometrics")
+setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-load("data/pilot/qs.Rda")
+load("analysis/qsWave1Full.Rda")
+qdat1 <- qdat
+load("analysis/qsWave2.Rda")
+qdat2 <- qdat
 
-dat <- data.frame(qdat)
+qdat1 <- subset(qdat1, is.element(ID, qdat2$ID))
+qdat1$session <- 1
+qdat2$session <- 2
+
+qdat <- rbind(qdat1, qdat2)
 
 
-ggplot(dat, aes(as.numeric(motiv_mem_0))) + geom_histogram() + ggtitle("How motivated were you to do well in the memory games?")+ xlim(c(-0,100.1))
+ggplot(dat, aes(as.numeric(motiv_mem_0))) + geom_histogram() + ggtitle("How motivated were you to do well in the memory games?")+ coord_cartesian(xlim(c(-0,100.1)))
 
 
 ggplot(dat, aes(as.numeric(motiv_slot_0))) + geom_histogram() + ggtitle("How motivated were you to do well in the slot machine games?")+ xlim(c(-0.1,100.1))

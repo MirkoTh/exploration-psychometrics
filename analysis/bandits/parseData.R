@@ -360,6 +360,7 @@ save(qdat, file = str_c(str_remove(rel_dir_data_qs, "[a-z]*/$"),  "qsFull.Rda"))
 load(sprintf("analysis/bandits/banditsWave%ifull.Rda", session))
 load(sprintf("analysis/qswave%iFull.Rda", session))
 load(sprintf("analysis/comprehensionWave%i.Rda", session))
+
 ##### WM
 
 if (session == 2) {

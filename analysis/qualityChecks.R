@@ -13,8 +13,8 @@ meann <- function(x){mean(x, na.rm = T)}
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-load("analysis/bandits/banditsWave1.Rda")
-load("analysis/qsWave1.Rda")
+load("analysis/bandits/banditsWave1Full.Rda")
+load("analysis/qsWave1Full.Rda")
 load("data/wave1/comprehension.Rda")
 
 ######## plot aspects of comprehension questions ###########
@@ -304,7 +304,7 @@ ggplot(best, aes(optimal)) + geom_density(alpha = 0.6, fill = "grey") + xlim(c(0
 data <- horizon
 
 
-
+data <- subset(data, !is.na(info))
 ## get mean difference
 
 data$mean_L <- NA
@@ -333,16 +333,28 @@ data$info <- abs(data$info)
 
 
 # bin mean differences
+sort(unique(data$delta_mean))
+hist(data$delta_mean)
 
-data$diffBin <- round(data$delta_mean / 10) * 10
+data <- subset(data, trial == 5)
+data$diffBin <- NA
+data$diffBin[data$delta_mean < 20 & data$delta_mean > -20] <- round(data$delta_mean[data$delta_mean < 20 & data$delta_mean > -20] / 4) * 4
+data$diffBin[data$delta_mean > 20 | data$delta_mean < -20] <- round(data$delta_mean[data$delta_mean > 20 | data$delta_mean < -20] / 10) * 10
 
-unique(data$diffBin)
+sort(unique(data$diffBin))
 
-df <- ddply(data[!is.na(data$diffBin), ], ~diffBin+ Horizon,summarise, chooseUncertain = meann(chosen), n = length(na.omit(chosen))) 
+df <- ddply(data[!is.na(data$diffBin), ], ~diffBin+ Horizon+info,summarise, chooseUncertain = meann(chosen), n = length(na.omit(chosen))) 
 
-df <- subset(df, n >= 999)
-ggplot(df, aes(diffBin, chooseUncertain, fill = as.factor(Horizon), color = as.factor(Horizon))) + geom_point(aes(size = n)) + geom_line()
+#df <- subset(df, n >= 999)
+ggplot(df, aes(diffBin, chooseUncertain, fill = as.factor(Horizon), color = as.factor(Horizon))) +
+  geom_point(aes(size = n)) + geom_line() +
+  facet_wrap(vars(info))+
+  geom_vline(aes(xintercept = 0), color = "grey")+
+  geom_hline(aes(yintercept = 0.5), color = "grey")
 
+############### this is not working out so let's do the regression 
+
+summary(glm(chosen ~info*Horizon, data = horizon[horizon$trial == 5, ], family = binomial(link = "logit")))
 
 
 ############# do participants have a general bias towards one side in sam's task? #############
