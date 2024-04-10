@@ -14,7 +14,7 @@ hash_ids <- function(
     is_considered = c("OS", "SS", "WMU"),
     random_hashes = TRUE,
     session_id = 0
-    ) {
+) {
   #' hash prolific ids and save data from wm tasks
   #' 
   #' @description loads data from json files and writes to csv with
@@ -147,10 +147,10 @@ hash_ids <- function(
   # create a lookup table mapping prolific ids to random ids
   tbl_ids_lookup <- tibble(participant_id = unique(tbl_WMU_recall$participant_id))
   if (random_hashes) {
-      tbl_ids_lookup <- tbl_ids_lookup %>%
-    filter(!(participant_id %in% participants_returned)) %>% 
-    group_by(participant_id) %>%
-    mutate(participant_id_randomized = random_id(1)) %>% ungroup()
+    tbl_ids_lookup <- tbl_ids_lookup %>%
+      filter(!(participant_id %in% participants_returned)) %>% 
+      group_by(participant_id) %>%
+      mutate(participant_id_randomized = random_id(1)) %>% ungroup()
   } else {
     tmp <- read_csv("analysis/bandits/exclusions-session-i.csv") %>%
       rename(participant_id = PID, participant_id_randomized = ID) %>%
@@ -234,3 +234,177 @@ agg_by_ss <- function(my_tbl, tbl_ids_lookup, taskname) {
     )
 }
 
+return_n_timeout <- function() {
+  participants_returned <- c(
+    "6525b562b415d2f7ed82196e", 
+    "612f689ce22db566d4f2a0bb", 
+    "615db68d9d021708b6e64603",
+    "60ed9d18c82ef5b5aba49371",
+    "616c026cadd0c9c23c911037",
+    "611f5fca1c852d6d56e5bf8d",
+    "615a2a654f4be71b8bfa94c8",
+    "6127547b385c9d9bc30d476f",
+    "5f2d4939e1b8742bba60a1e4",
+    "656a03afacfc5f79e06bca80",
+    "647e147c2a007061f5689965",
+    "616a94b54cf4a5cde4d9c015",
+    "60cc4cbfd6bdf9ee88cdd2f6",
+    "611e480c5772542ccce1a22f",
+    "64eb650fbf222d6e2ec9cff9",
+    "62d1326fee93c50ea5638e9f",
+    "5d20b0157e17470001e1c635",
+    "62b182ba39468032223841bb",
+    "5d4986318fe73e0001569573",
+    "59f1d43d24d7bf00012f17f2",
+    "61222038c2048b50449284a1",
+    "63d8074daa40629318ada75f",
+    "65905ceb2330f2dae2ddca37",
+    "65957cbb286733b37b46dfa4",
+    "5a538952f6c517000194916e",
+    "60455b1578f6f36a3e8ea81c",
+    "6310c063bd0cce86b0289d20",
+    "5bcfde8c8301810001a33bea",
+    "6090755b3aebf491674a5e86",
+    "60b0f62eb8e276ae78fd6180",
+    "60e10e95d56310858005f994",
+    "5e299d8c2e9dc4000be0fde0",
+    "5b258c9ba7cee100011d8aad",
+    "63ced717cb553d29a3beac43",
+    "5fb6b4fee395490d9f90d513",
+    "5e9607da6b866106f5666075",
+    "61193d8ce8940db66d5d632e",
+    "57dd186e6598aa0001992616",
+    "60fd666391dc3d42dc1b1827",
+    "62fe6312269d0e4ae894297b",
+    "63d152b604e8c21933a58a66",
+    "62e1581acad06eee3b6509dc",
+    "5fe9284c2c2ee63925e41e5d",
+    "6361bfe81e0da4a406b33f1e",
+    "57619c099fce230007797320",
+    "5f276d8f38b9f857f5cebf21",
+    "55b2d3f2fdf99b525bc839aa",
+    "600db78b56935a5dd8c759b3",
+    "5c01d3c509e9c70001500b10",
+    "5e06ecd524f9390991997bb7",
+    "5d1a69d8f97a18001977e0d7",
+    "648af2818c1b1e60ed0ff001",
+    "63d7bea144b8a11f63c2a763",
+    "6141f62294ff9bf9d89e8897",
+    "5e77a65dcce2a2319f9e8849",
+    "5c92f797803bff0017fef8dd",
+    "6127c5e5db9bf1a49993c300",
+    "6173240b98f6e6f48d97880a",
+    "5df3c82961b48a2907204173",
+    "5eb6d09db2c9c85dd30dc94e",
+    "55eb04337480920010aa9e0d",
+    "659f2da91adc00ba10f77f55",
+    "5eb8c284ab41e18278ccf247",
+    "5dfdc45e617219a8e2e05c26",
+    "62bb42e2f21cfdb280cc975f",
+    "613dd5fb512aabe8d5d32393",
+    "6073048f6aaf87a50bfa9787"
+    
+  )
+  time_out_exclude <- c(
+    "56b6e2fcf2fc70000c32f9d5",
+    "571a78f06a1c6300114b8d80",
+    "5f7f18137488a50407d729e6"
+  )
+  
+  return(list(
+    participants_returned = participants_returned,
+    participants_timeout = time_out_exclude
+  ))
+  
+}
+
+load_wm_data <- function() {
+  #' load data from three wm tasks
+  #' 
+  #' @description loads data from csv files, excludes practice trials, and
+  #' adds processing position to processing task file
+  # OS
+  tbl_os_recall <- readRDS(str_c(path_data, "tbl_OS_recall_0.RDS")) %>%
+    filter(is_practice == 0) %>% rbind(
+      readRDS(str_c(path_data, "tbl_OS_recall_1.RDS")) %>%
+        filter(is_practice == 0)
+    ) %>% mutate(session_id = as.numeric(session_id))
+  tbl_os_processing <- read_csv(str_c(path_data, "tbl_OS_processing_0.csv")) %>%
+    filter(is_practice == 0) %>% rbind(
+      read_csv(str_c(path_data, "tbl_OS_processing_1.csv")) %>%
+        filter(is_practice == 0)
+    )
+  
+  # SS
+  # exclude practice trials and add missing variables
+  tbl_ss_recall <- readRDS(str_c(path_data, "tbl_SS_recall_0.RDS")) %>%
+    filter(is_practice == 0) %>% rbind(
+      readRDS(str_c(path_data, "tbl_SS_recall_1.RDS")) %>%
+        filter(is_practice == 0) 
+    ) %>% mutate(session_id = as.numeric(session_id))
+  tbl_ss_processing <- read_csv(str_c(path_data, "tbl_SS_processing_0.csv")) %>%
+    filter(is_practice == 0) %>% rbind(
+      read_csv(str_c(path_data, "tbl_SS_processing_1.csv")) %>%
+        filter(is_practice == 0)
+    )
+  
+  tbl_os_setsize <- tbl_os_recall %>%
+    group_by(trial_id_recall, session_id, set_size) %>%
+    count() %>% ungroup() %>% select(-n) %>%
+    arrange(set_size, session_id)
+  
+  
+  tbl_os_processing <- tbl_os_processing %>%
+    left_join(tbl_os_setsize, by = c("trial_id_recall", "session_id")) %>%
+    mutate(processing_position = processing_position + 1) %>%
+    group_by(participant_id, session_id, trial_id_recall, processing_position) %>%
+    mutate(
+      rwn = row_number()
+    ) %>%
+    filter(rwn == 1) %>%
+    group_by(participant_id, session_id, trial_id_recall) %>%
+    mutate(
+      n_correct = sum(accuracy)
+    ) %>%
+    filter(processing_position <= set_size) %>%
+    ungroup()
+  
+  tbl_ss_setsize <- tbl_ss_recall %>%
+    group_by(trial_id_recall, session_id, set_size) %>%
+    count() %>% ungroup() %>% select(-n)
+  
+  tbl_ss_processing <- tbl_ss_processing %>%
+    left_join(tbl_ss_setsize, by = c("trial_id_recall", "session_id")) %>%
+    mutate(processing_position = processing_position + 1) %>%
+    group_by(participant_id, session_id, trial_id_recall, processing_position) %>%
+    mutate(
+      rwn = row_number()
+    ) %>%
+    filter(rwn == 1) %>%
+    group_by(participant_id, session_id, trial_id_recall) %>%
+    mutate(
+      # fill processing_position according to saving history
+      # i.e., take the first entry, if several have been stored
+      # (e.g., the person started twice)
+      processing_position = row_number(trial_id_recall),
+      n_correct = sum(accuracy)
+    ) %>%
+    filter(processing_position <= set_size) %>%
+    ungroup()
+  
+  tbl_WMU_recall <- readRDS(str_c(path_data, "tbl_WMU_recall_0.rds")) %>%
+    filter(is_practice == 0 & trial_type == "update") %>% 
+    rbind(
+      readRDS(str_c(path_data, "tbl_WMU_recall_1.rds")) %>%
+        filter(is_practice == 0 & trial_type == "update")
+    )
+  
+  return(list(
+    tbl_os_recall = tbl_os_recall,
+    tbl_os_processing = tbl_os_processing,
+    tbl_ss_recall = tbl_ss_recall,
+    tbl_ss_processing = tbl_ss_processing,
+    tbl_wmu_recall = tbl_WMU_recall
+  ))
+  
+}
