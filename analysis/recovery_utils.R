@@ -1,7 +1,7 @@
 ############# parameter recovery functions #######################
 
-#library(brms)
-#library(docstring)
+library(brms)
+library(docstring)
 library(ggplot2)
 theme_set(theme_classic(base_size = 14))
 set.seed(123)
@@ -257,6 +257,22 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000){
     }
     trueParams <- subset(trueParams, !is.na(predictor)& !grepl("ID__", rownames(trueParams)))
     
+    ## transform random effects into subject-level slopes
+    fixed <- data.frame(summary(trueModel)$fixed)
+    
+    trueParams$estimate[trueParams$predictor == "RU"] <- trueParams$`colMeans(as.data.frame(posterior_samples(trueModel)))`[trueParams$predictor == "RU"] +
+      fixed$Estimate[rownames(fixed) == "RU"]
+    trueParams$estimate[trueParams$predictor == "V"] <- trueParams$`colMeans(as.data.frame(posterior_samples(trueModel)))`[trueParams$predictor == "V"] +
+      fixed$Estimate[rownames(fixed) == "V"]
+    
+    if (model == "hybrid"){
+      trueParams$estimate[trueParams$predictor == "VTU"] <- trueParams$`colMeans(as.data.frame(posterior_samples(trueModel)))`[trueParams$predictor == "VTU"] +
+        fixed$Estimate[rownames(fixed) == "VTU"]
+    }
+    
+    ## turn random slopes into subject level slopes!!
+    
+    
   } else {
     if (model == "hybrid"){
       trueModel <- glm(chosen ~ V+ RU + VTU,
@@ -409,8 +425,8 @@ recovery_sam <- function(data, model, hierarchical, it = 2000){
                          recovered =  rep(params, each = length(params)),
                          cor = NA)
       
-      cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$`colMeans(as.data.frame(posterior_samples(trueModel)))`[trueParams$predictor == cors$true[x]],
-                                                                   simParams$`colMeans(as.data.frame(posterior_samples(trueModel)))`[simParams$predictor == cors$recovered[x]]))
+      cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate[trueParams$predictor == cors$true[x]],
+                                                                   simParams$estimate[simParams$predictor == cors$recovered[x]]))
       
     } else {
       
@@ -496,13 +512,13 @@ fit_model_horizon <- function(data, model, full = T, it = 2000){
                          data = data[data$trial == 5, ],
                          chains = 2,
                          cores = 2,
-                         iter = 1000)
+                         iter = it)
     } else {
       baymodelUCB <- brm(chosen ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| ID), family = "bernoulli",
                          data = data[data$trial == 5, ],
                          chains = 2,
                          cores = 2,
-                         iter = 1000)
+                         iter = it)
     }
     
     
@@ -686,41 +702,83 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000){
       ##### bayesian implementation
     } else {
 
-     baymodelUCB <- fit_model_horizon(data, model, full, it)
+     baymodelUCB <- fit_model_horizon(data[data$trial == 5, ], model, full, it)
       
       # simulate data
       simdat <- subset(data, trial == 5, -chosen)
       simdat$chosen <- predict(baymodelUCB)[ ,1]
       simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
       
-      recovModelUCB <- fit_model_horizon(data, model, full, it)
+      recovModelUCB <- fit_model_horizon(simdat, model, full, it)
       
       # get posterior estimates from both models
       
       trueParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(baymodelUCB))))
       trueParams$predictor <- NA
+      fixed <- data.frame(summary(baymodelUCB)$fixed)
       if (full == T){
         trueParams$predictor[grepl("RU", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "RU"
         trueParams$predictor[grepl("V", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "V"
         trueParams$predictor[grepl("Horizon", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "Horizon"
+  
       }
       trueParams$predictor[grepl("Intercept", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "Intercept"
       trueParams$predictor[grepl("RU:Horizon", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "RU*Horizon"
       trueParams$predictor[grepl("Horizon:V", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "V*Horizon"
       trueParams <- subset(trueParams, !is.na(predictor)& !grepl("ID__", rownames(trueParams)))
       
+      ## transform random effects into subject-level slopes
+      if (full){
+        trueParams$estimate[trueParams$predictor == "RU"] <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`[trueParams$predictor == "RU"] +
+          fixed$Estimate[rownames(fixed) == "RU"]
+        trueParams$estimate[trueParams$predictor == "V"] <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`[trueParams$predictor == "V"] +
+          fixed$Estimate[rownames(fixed) == "V"]
+        trueParams$estimate[trueParams$predictor == "Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`[trueParams$predictor == "Horizon"] +
+          fixed$Estimate[rownames(fixed) == "Horizon"]
+        
+      }
+            trueParams$estimate[trueParams$predictor == "Intercept"] <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`[trueParams$predictor == "Intercept"] +
+        fixed$Estimate[rownames(fixed) == "Intercept"]
+      trueParams$estimate[trueParams$predictor == "RU*Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`[trueParams$predictor == "RU*Horizon"] +
+        fixed$Estimate[rownames(fixed) == "Horizon:RU"]
+      trueParams$estimate[trueParams$predictor == "V*Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`[trueParams$predictor == "V*Horizon"] +
+        fixed$Estimate[rownames(fixed) == "V:Horizon"]
+      
+      
       
       recoveredParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(recovModelUCB))))
+      recoveredParams$estimate <-  recoveredParams$`colMeans(as.data.frame(posterior_samples(recovModelUCB)))`
       recoveredParams$predictor <- NA
+      fixed <- data.frame(summary(recovModelUCB)$fixed)
       if (full == T){
         recoveredParams$predictor[grepl("RU", rownames(recoveredParams))& grepl("r_ID", rownames(recoveredParams))] <- "RU"
         recoveredParams$predictor[grepl("V", rownames(recoveredParams))& grepl("r_ID", rownames(recoveredParams))] <- "V"
         recoveredParams$predictor[grepl("Horizon", rownames(recoveredParams))& grepl("r_ID", rownames(recoveredParams))] <- "Horizon"
-      }
+     
+        
+         }
       recoveredParams$predictor[grepl("Intercept", rownames(recoveredParams))& grepl("r_ID", rownames(recoveredParams))] <- "Intercept"
       recoveredParams$predictor[grepl("RU:Horizon", rownames(recoveredParams))& grepl("r_ID", rownames(recoveredParams))] <- "RU*Horizon"
       recoveredParams$predictor[grepl("Horizon:V", rownames(recoveredParams))& grepl("r_ID", rownames(recoveredParams))] <- "V*Horizon"
       recoveredParams <- subset(recoveredParams, !is.na(predictor)& !grepl("ID__", rownames(recoveredParams)))
+      
+      # transform random effects into subject-level slopes
+      if (full){
+        recoveredParams$estimate[recoveredParams$predictor == "RU"] <- recoveredParams$estimate[recoveredParams$predictor == "RU"] +
+          fixed$Estimate[rownames(fixed) == "RU"]
+        recoveredParams$estimate[recoveredParams$predictor == "V"] <- recoveredParams$estimate[recoveredParams$predictor == "V"] +
+          fixed$Estimate[rownames(fixed) == "V"]
+        recoveredParams$estimate[recoveredParams$predictor == "Horizon"] <- recoveredParams$estimate[recoveredParams$predictor == "Horizon"] +
+          fixed$Estimate[rownames(fixed) == "Horizon"]
+      }
+      
+      recoveredParams$estimate[recoveredParams$predictor == "Intercept"] <- recoveredParams$estimate[recoveredParams$predictor == "Intercept"] +
+        fixed$Estimate[rownames(fixed) == "Intercept"]
+      recoveredParams$estimate[recoveredParams$predictor == "RU*Horizon"] <- recoveredParams$estimate[recoveredParams$predictor == "RU*Horizon"] +
+        fixed$Estimate[rownames(fixed) == "Horizon:RU"]
+      recoveredParams$estimate[recoveredParams$predictor == "V*Horizon"] <- recoveredParams$estimate[recoveredParams$predictor == "V*Horizon"] +
+        fixed$Estimate[rownames(fixed) == "V:Horizon"]
+      
       
       # get correlations
       params <- c("Intercept", "RU*Horizon", "V*Horizon")
@@ -732,8 +790,8 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000){
                          recovered =  rep(params, each = length(params)),
                          cor = NA)
       
-      cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`[trueParams$predictor == cors$true[x]],
-                                                                   recoveredParams$`colMeans(as.data.frame(posterior_samples(recovModelUCB)))`[recoveredParams$predictor == cors$recovered[x]]))
+      cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate[trueParams$predictor == cors$true[x]],
+                                                                   recoveredParams$estimate[recoveredParams$predictor == cors$recovered[x]]))
       
       
       

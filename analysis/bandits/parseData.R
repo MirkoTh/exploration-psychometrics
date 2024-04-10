@@ -52,8 +52,10 @@ bPIDs = apply(as.array(files), 1, function(x) substr(x, 1, gregexpr("_", x)[[1]]
 PIDs = unique(c(qPIDs, bPIDs))
 
 # make lookup table with anonymised IDs
-lookup <- data.frame(PID = PIDs,
-                     ID = 1:length(PIDs))
+
+  lookup <- data.frame(PID = PIDs,
+                       ID = 1:length(PIDs))
+
 
 bonus <- data.frame(ID = rep(NA, length(PIDs)),
                     TotalBonus = NA,
@@ -122,6 +124,8 @@ for (i in 1:nrow(lookup)){
   ### Sam's task
   for (block in 2:(nBlocksS+1)){# bc block 1 is practice
     for (trial in 1:nTrialsS){
+      test <- try(temp$sam$choice[[block]][[trial]])
+      if(is.element("try-error", class(test))){print(paste(pid, trial, block)); next}
       sam$chosen[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$choice[[block]][[trial]]
       sam$reward[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$reward[[block]][[trial]]
       sam$rt[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$time[[block]][[trial]]
@@ -169,6 +173,17 @@ horizon$info <- horizon$info/2
 #write.csv(lookup, file = "/Users/kwitte/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/BanditLookup.csv")
 write.csv(lookup, file = str_c(str_remove(rel_dir_data_bandits, "[a-z]*/$"),  "BanditLookup.csv"))
 
+####### make lookup that transforms IDs from session 2 into IDs from session 1
+
+session1 <- read.csv("data/wave1/BanditLookup.csv")
+session2 <- read.csv("data/wave2/BanditLookup.csv")
+
+session2$wave1ID <- session1$ID[match(session2$PID, session1$PID)]
+
+sam$ID <- session2$wave1ID[match(sam$ID, session2$ID)]
+horizon$ID <- session2$wave1ID[match(horizon$ID, session2$ID)]
+restless$ID <- session2$wave1ID[match(restless$ID, session2$ID)]
+comprehension$ID <- session2$wave1ID[match(comprehension$ID, session2$ID)]
 
 save(comprehension, file = paste(rel_dir_data_bandits, "comprehension.Rda", sep = ""))
 ############### calculate max rewards #########
@@ -302,7 +317,7 @@ restless$reward3 <- rep(temp$X3, length(unique(restless$ID)))
 restless$reward4 <- rep(temp$X4, length(unique(restless$ID)))
 
 save(horizon, sam, restless, file = str_c(str_remove(rel_dir_data_bandits, "[a-z]*/$"),  "bandits.Rda"))
-
+save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, "full.Rda", sep = ""))
 
 #################### questionnaires ###############
 
@@ -332,19 +347,32 @@ for (i in 1:nrow(lookup)){
   }
 }
 
+## recode IDs to be based on wave1 IDs
+
+qdat$ID <- session2$wave1ID[match(qdat$ID, session2$ID)]
+
 ## save it
 
-save(qdat, file = str_c(str_remove(rel_dir_data_qs, "[a-z]*/$"),  "qs.Rda"))
+save(qdat, file = str_c(str_remove(rel_dir_data_qs, "[a-z]*/$"),  "qsFull.Rda"))
 
 ########## make table of exclusions #############
 
+load(sprintf("analysis/bandits/banditsWave%ifull.Rda", session))
+load(sprintf("analysis/qswave%iFull.Rda", session))
+load(sprintf("analysis/comprehensionWave%i.Rda", session))
 ##### WM
 
+if (session == 2) {
+  lookup <- session2
+  lookup$wave2ID <- lookup$ID
+  lookup$ID <- lookup$wave1ID
+}
+
 #load what mirko did here
-wm <- readRDS("data/wave1/subjects-excl-wm.rds")
+wm <- readRDS("data/wave2/subjects-excl-wm.rds")
 wm <- subset(wm, is.element(prolific_pid, lookup$PID))
 lookup$perfWM <- NA
-lookup$perfWM[match(wm$prolific_pid, lookup$PID)] <- wm$excl_subject
+lookup$perfWM <- wm$excl_subject[match(lookup$PID, wm$prolific_pid)]
 
 #### used external aids
 lookup$WMaid <- NA
@@ -448,25 +476,35 @@ table(lookup$attention)
 
 ##### total
 
-lookup$totalExclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(lookup[x, -c(1:2)])), na.rm = T))
+lookup$totalExclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(lookup[x, c(grep("perfWM", colnames(lookup)): ncol(lookup))])), na.rm = T))
 
 hist(lookup$totalExclude, breaks = max(lookup$totalExclude))
-
+  
 lookup$exclude <- ifelse(lookup$totalExclude == 0, 0 , 1)
-table(lookup$exclude)/nrow(lookup)
+table(lookup$exclude)
 
-write.csv(lookup, "data/wave1/exclusions.csv")
+write.csv(lookup, "data/wave2/exclusions.csv")
 
+excludeWave2 <- lookup$ID[lookup$exclude == 1]
+
+horizon <- subset(horizon, !is.element(ID, excludeWave2))
+sam <- subset(sam, !is.element(ID, excludeWave2))
+restless <- subset(restless, !is.element(ID, excludeWave2))
+qdat <- subset(qdat, !is.element(ID, excludeWave2))
+
+save(horizon, sam, restless, file ="analysis/bandits/banditsWave2.Rda")
+save(qdat, file = "analysis/qswave2.Rda")
 
 ############### add who should get what bonus
 
 
-# 
-# exclusions <- read.csv("data/wave1/exclusions.csv", stringsAsFactors = F, quote = "") # the file got messed up when saving but redoing takes forever
-# exclusions$X..exclude... <- as.numeric(substr(exclusions$X..exclude..., start = 1, stop = 1))
-# 
-# exclusions$X..PID.. <- substr(exclusions$X..PID.., start = 2, stop = nchar(exclusions$X..PID..)-1)
-# 
+
+exclusions <- read.csv("data/wave1/exclusions.csv", stringsAsFactors = F, quote = "") # the file got messed up when saving but redoing takes forever
+exclusions$X..exclude... <- as.numeric(substr(exclusions$X..exclude..., start = 1, stop = 1))
+
+exclusions$X..PID.. <- substr(exclusions$X..PID.., start = 2, stop = nchar(exclusions$X..PID..)-1)
+
+excludeWave1 <- exclusions$X..PID..[exclusions$X..exclude... == 1]
 # overview <- readRDS("data/wave1/4arlb-overview.rds")
 # 
 # files = list.files(path = paste(dir, "qs/", sep = ""))
