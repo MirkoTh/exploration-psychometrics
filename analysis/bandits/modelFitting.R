@@ -112,44 +112,18 @@ ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_f
   geom_text(aes(label = round(cor, digits = 2)))
 
 
-#####  UCB but bayesian model
+#####  UCB but bayesian model ########
 
-out <- fit_model_horizon(horizon, "UCB", full = F, it = 1000)
+## version with just the long horizon
+horiz <- subset(horizon, Horizon == 0.5)
 
-trueParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(out))))
-trueParams$predictor <- NA
-fixed <- data.frame(summary(out)$fixed)
-
-  trueParams$predictor[grepl("RU", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "RU"
-  trueParams$predictor[grepl("V", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "V"
-  trueParams$predictor[grepl("Horizon", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "Horizon"
-  
-trueParams$predictor[grepl("Intercept", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "Intercept"
-trueParams$predictor[grepl("RU:Horizon", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "RU*Horizon"
-trueParams$predictor[grepl("Horizon:V", rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- "V*Horizon"
-trueParams <- subset(trueParams, !is.na(predictor)& !grepl("ID__", rownames(trueParams)))
-
-## transform random effects into subject-level slopes
-  trueParams$estimate[trueParams$predictor == "RU"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "RU"] +
-    fixed$Estimate[rownames(fixed) == "RU"]
-  trueParams$estimate[trueParams$predictor == "V"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "V"] +
-    fixed$Estimate[rownames(fixed) == "V"]
-  trueParams$estimate[trueParams$predictor == "Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "Horizon"] +
-    fixed$Estimate[rownames(fixed) == "Horizon"]
-  
-trueParams$estimate[trueParams$predictor == "Intercept"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "Intercept"] +
-  fixed$Estimate[rownames(fixed) == "Intercept"]
-trueParams$estimate[trueParams$predictor == "RU*Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "RU*Horizon"] +
-  fixed$Estimate[rownames(fixed) == "Horizon:RU"]
-trueParams$estimate[trueParams$predictor == "V*Horizon"] <- trueParams$`colMeans(as.data.frame(posterior_samples(out)))`[trueParams$predictor == "V*Horizon"] +
-  fixed$Estimate[rownames(fixed) == "V:Horizon"]
-
-#write.csv(trueParams, file = paste("data/HorizonParamsWave", session, ".csv", sep = ""))
-save(trueParams, out, file = paste("analysis/bandits/modelFitHorizon", session, ".Rda", sep = ""))
-
-res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = F, it = 1000)
+res_list <- recovery_horizon(horiz, "UCB", bayesian = T, full = T, it = 4000, no_horizon = T) # this should save the output as .Rda as well
 res_list
-save(res_list, file = paste("analysis/bandits/recovHorizonFullWave", session, ".Rda", sep = ""))
+
+res_list2 <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 4000)
+res_list2
+
+
 
 #load("analysis/bandits/recovHorizonReduced.Rda")
 

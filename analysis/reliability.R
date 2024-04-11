@@ -40,6 +40,13 @@ se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
 
 
+rel_collect <- data.frame(task = c("horizon", "sam", "restless"),
+                          Poptimal = NA,
+                          regret = NA,
+                          Pswitch = NA,
+                          V = NA,
+                          RU = NA) 
+
 ############### performance reliability ###########
 
 ############# P (optimal)
@@ -87,6 +94,11 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$Poptim[Perfs$
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
   geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between session 1 and 2"
                                                         )
+# save this for the final big plot
+
+rel_collect$Poptimal <- cors$cor[cors$session1 == cors$session2]
+
+
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$Poptim[Perfs$model == cors$session1[x] & Perfs$session == 1],
                                                              Perfs$Poptim[Perfs$model == cors$session2[x] & Perfs$session == 1], use = "pairwise.complete.obs"))
 
@@ -138,6 +150,11 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$regret[Perfs$
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
   geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between session 1 and 2"
                                                         )
+
+# save this for the final big plot
+
+rel_collect$regret <- cors$cor[cors$session1 == cors$session2]
+
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$regret[Perfs$model == cors$session1[x] & Perfs$session == 1],
                                                              Perfs$regret[Perfs$model == cors$session2[x] & Perfs$session == 1], use = "pairwise.complete.obs"))
 
@@ -190,7 +207,26 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(switch$Pswitch[swit
 
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
   geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of switch probability between session 1 and 2")
+
+# save this for the final big plot
+
+rel_collect$Pswitch <- cors$cor[cors$session1 == cors$session2]
+
+### look at agreement within a session
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(switch$Pswitch[switch$model == cors$session1[x] & switch$session == 1],
+                                                             switch$Pswitch[switch$model == cors$session2[x] & switch$session == 1], use = "pairwise.complete.obs"))
+
+ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of switch probability within session 1")
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(switch$Pswitch[switch$model == cors$session1[x] & switch$session == 2],
+                                                             switch$Pswitch[switch$model == cors$session2[x] & switch$session == 2], use = "pairwise.complete.obs"))
+
+ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of switch probability within session 2")
                                                         
+
 ############ what does the switch probabilitiy actually look like across tasks and time points? 
 restless$trialBin <- round(restless$trial/10) *10
 
@@ -218,8 +254,11 @@ ggplot(switch, aes(trial, Pswitch, color = as.factor(session))) + geom_line() +
 
 ################ Horizon
 
-load("analysis/bandits/modelFitHorizon1.Rda")
-load("analysis/bandits/modelFitHorizon2.Rda")
+load("analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda") ## change to session 1 once I have it!!!!
+
+
+
+load("analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda")
 
 HParams1 <- trueParams1
 HParams1$ID <- readr::parse_number(HParams1$X)
@@ -303,8 +342,118 @@ ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scal
   geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between session 1 and 2")
 
 
+################### reliability of questionnaire scores ############
+
+load("analysis/qsWave1Full.Rda")
+qdat1 <- qdat
+load("analysis/qsWave2.Rda")
+qdat2 <- qdat
+
+qdat1 <- subset(qdat1, is.element(ID, qdat2$ID))
+qdat2 <- subset(qdat2, is.element(ID, qdat1$ID))
+qdat1$session <- 1
+qdat2$session <- 2
+
+qdat <- rbind(qdat1, qdat2)
+
+qs <- read.csv("task/questionnaires.csv", sep = ";")
+
+qs$Qnum <- NA
+for (i in unique(qs$Measure)){
+  
+  qs$Qnum[qs$Measure == i] <- 0:(nrow(qs[qs$Measure == i, ])-1)
+  
+}
+
+qs$Q <- paste(qs$Measure, qs$Qnum, sep = "_")
 
 
 
-                                                        
+responses <- tidyr::pivot_longer(qdat, cols = c(10:71), names_to = "Q", values_to = "response")
+
+responses$attention_check <- qs$Attention.check[match(responses$Q, qs$Q)]
+responses$reversed <- qs$Reverse.coded[match(responses$Q, qs$Q)]
+
+responses <- subset(responses, attention_check == 0)
+
+# distinguish panas positive and negative
+PANASpos <- c(1,3,5,9,10,12,14,16,17,19)
+PANASneg <- c(2,4,6,7,8,11,13,15,18,20)
+
+qs$Measure[qs$Measure == "PANAS" & is.element((qs$Qnum+1), PANASpos)] <- "PANASpos"
+qs$Measure[qs$Measure == "PANAS" & is.element((qs$Qnum+1), PANASneg)] <- "PANASneg"
+
+responses$measure <- qs$Measure[match(responses$Q, qs$Q)]
+
+library(plyr)
+
+maxval <- ddply(responses, ~measure, summarise, max = max(response) )
+
+responses$max <- maxval$max[match(responses$measure, maxval$measure)]
+responses$response <- ifelse(responses$reversed == 1, as.numeric(responses$max) - as.numeric(responses$response), as.numeric(responses$response))
+
+avg <- ddply(responses, ~ID+measure+session, summarise, score = mean(response))
+
+measures <- unique(avg$measure)
+
+cors <- data.frame(session1 = rep(measures, length(measures)),
+                   session2 = rep(measures, each = length(measures)),
+                   cor = NA)
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(avg$score[avg$measure == cors$session1[x] & avg$session == 1],
+                                                             avg$score[avg$measure == cors$session2[x] & avg$session == 2], use = "pairwise.complete.obs"))
+
+ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of questionnaires between session 1 and 2")
+
+save(cors, file = "analysis/reliabilityResults/questionnaires.Rda")
+
+rel_questionnaires <- data.frame(measure = measures,
+                                 rel = cors$cor[cors$session1 == cors$session2])
+
+
+##################### big reliability plot(s) #################
+
+######### questionnaires
+
+ggplot(rel_questionnaires, aes(rel, measure)) + 
+  geom_vline(aes(xintercept = 0.6), color = "grey") +
+  geom_vline(aes(xintercept = 0.8), color = "grey", linetype = "dotted") +
+  geom_point(color = "#B40F20", size = 5) +
+  coord_cartesian(xlim = c(0,1))+
+  labs(title = "Reliability of the questionnaire measures",
+       x = "correlation between session 1 and session2",
+       y = element_blank()) +
+  scale_y_discrete(labels = c("openness", "exploration", "negative mood", "positive mood", "depression", "anxiety"))
+
+
+######### tasks
+
+df <- tidyr::pivot_longer(rel_collect, cols = 2:6, names_to = "measure", values_to = "reliability")
+df$color <- NA
+df$color[df$measure == "Poptimal" | df$measure == "regret"] <- "#DD8D29"
+df$color[df$measure == "Pswitch"] <- "#E2D200"
+df$color[is.na(df$color)] <- "#46ACC8"
+
+df$measure <- factor(df$measure, levels = df$measure, labels = df$measure)
+
+ggplot(df, aes(reliability, measure)) + 
+  geom_vline(aes(xintercept = 0.6), color = "grey") +
+  geom_vline(aes(xintercept = 0.8), color = "grey", linetype = "dotted") +
+  geom_point(aes(color = color), size = 5) +
+  coord_cartesian(xlim = c(0,1))+
+  labs(title = "Reliability of the questionnaire measures",
+       x = "correlation between session 1 and session2",
+       y = element_blank()) +
+ scale_color_manual(values = df$color)+
+  facet_wrap(vars(task))+
+  theme(legend.position = "none")
+
+  
+
+
+
+
+
+
 
