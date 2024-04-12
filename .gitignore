@@ -11,3 +11,14 @@ analysis/bandits/recovHorizWilson.Rda
 task/orders.json
 .DS_Store
 data/.DS_Store
+analysis/bandits/modellingResults/fitHorizonSession2UCBfull.Rda
+analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda
+analysis/bandits/modellingResults/recoveryHorizonSession2UCBbayesianfull.Rda
+analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda
+analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda
+analysis/bandits/modellingResults/recoveryHorizonSession2UCBbayesianfullno_horizon.Rda
+analysis/bandits/modellingResults/recovHorizonFull.Rda
+analysis/bandits/modellingResults/recovHorizonFullWave2.Rda
+analysis/bandits/modellingResults/recoveryHorizonSession2UCBbayesianfullno_horizon.Rda
+analysis/bandits/modellingResults/recovHorizWilson.Rda
+analysis/bandits/modellingResults/recoveryHorizonSession2UCBbayesianfullno_horizon.Rda

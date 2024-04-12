@@ -9,7 +9,7 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-session <- 2
+session <- 1
 
 load(paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
 
@@ -149,15 +149,17 @@ ggplot(trueParams, aes(estimate)) + geom_histogram(alpha = 0.5, position = "iden
 
 ## just fitting the model
 
-modelfit <- fit_model_sam(sam, "UCB", hierarchical = T, it = 1000)
+# modelfit <- fit_model_sam(sam, "UCB", hierarchical = T, it = 4000)
+# 
+# estims <- modelfit[[2]]
+# ggplot(estims, aes(estimate)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
+# 
+# save(modelfit, file = paste("analysis/bandits/modelFitSamWave", session, ".Rda", sep = ""))
 
-estims <- modelfit[[2]]
-ggplot(estims, aes(estimate)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
-
-save(modelfit, file = paste("analysis/bandits/modelFitSamWave", session, ".Rda", sep = ""))
 
 ## UCB
-res_list1 <- recovery_sam(sam, "UCB", hierarchical = T, it = 500)
+res_list1 <- recovery_sam(sam, "UCB", hierarchical = T, it = 4000)
+res_list1
 # get parameters fitted to actual data
 # trueParams <- res_list[[1]]
 # # get parameters fitted to simulated data

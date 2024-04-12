@@ -45,7 +45,8 @@ rel_collect <- data.frame(task = c("horizon", "sam", "restless"),
                           regret = NA,
                           Pswitch = NA,
                           V = NA,
-                          RU = NA) 
+                          RU = NA,
+                          Intercept = NA) 
 
 ############### performance reliability ###########
 
@@ -254,17 +255,16 @@ ggplot(switch, aes(trial, Pswitch, color = as.factor(session))) + geom_line() +
 
 ################ Horizon
 
-load("analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda") ## change to session 1 once I have it!!!!
+load("analysis/bandits/modellingResults/fitHorizonSession1UCBfullno_horizon.Rda") ## change to session 1 once I have it!!!!
 
-
+HParams1 <- trueParams
 
 load("analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda")
-
-HParams1 <- trueParams1
-HParams1$ID <- readr::parse_number(HParams1$X)
 Hparams2 <- trueParams
-Hparams2$X <- rownames(Hparams2)
-Hparams2$ID <- readr::parse_number(Hparams2$X)
+
+
+HParams1$ID <- readr::parse_number(rownames(HParams1))
+Hparams2$ID <- readr::parse_number(rownames(Hparams2))
 
 HParams1 <- subset(HParams1, is.element(ID, Hparams2$ID))
 
@@ -288,6 +288,10 @@ ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scal
   geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between session 1 and 2")
 
 
+rel_collect$V[rel_collect$task == "horizon"] <- cors$cor[cors$session1 == "V" & cors$session2 == "V"]
+rel_collect$RU[rel_collect$task == "horizon"] <- cors$cor[cors$session1 == "RU" & cors$session2 == "RU"]
+rel_collect$Intercept[rel_collect$task == "horizon"] <- cors$cor[cors$session1 == "Intercept" & cors$session2 == "Intercept"]
+
 ## within a session
 
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(HParams$estimate[HParams$predictor == cors$session1[x] & HParams$session == 2],
@@ -298,14 +302,57 @@ ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scal
   geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between session 1 and 2")
 
 
+######### horizon task full model
+
+
+load("analysis/bandits/modellingResults/fitHorizonSession1UCBfull.Rda") 
+
+HParams1 <- trueParams
+
+load("analysis/bandits/modellingResults/fitHorizonSession2UCBfull.Rda")
+Hparams2 <- trueParams
+
+
+HParams1$ID <- readr::parse_number(rownames(HParams1))
+Hparams2$ID <- readr::parse_number(rownames(Hparams2))
+
+HParams1 <- subset(HParams1, is.element(ID, Hparams2$ID))
+
+HParams1$session <- 1
+Hparams2$session <- 2
+HParams <- rbind(HParams1[ ,!grepl("colMeans", colnames(HParams1))], Hparams2[ ,!grepl("colMeans", colnames(Hparams2))])
+
+table(unique(HParams1$ID) == unique(Hparams2$ID))
+
+params <- unique(HParams$predictor)
+
+cors <- data.frame(session1 = rep(params, length(params)),
+                   session2 = rep(params, each = length(params)),
+                   cor = NA)
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(HParams$estimate[HParams$predictor == cors$session1[x] & HParams$session == 1],
+                                                             HParams$estimate[HParams$predictor == cors$session2[x] & HParams$session == 2], use = "pairwise.complete.obs"))
+
+
+ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between session 1 and 2")
+
+
+
+rel_collect$Horizon <- NA
+rel_collect$VH <- NA
+rel_collect$RUH <- NA
+rel_collect$V[rel_collect$task == "horizon"] <- cors$cor[cors$session1 == "V" & cors$session2 == "V"]
+rel_collect$RU[rel_collect$task == "horizon"] <- cors$cor[cors$session1 == "RU" & cors$session2 == "RU"]
+rel_collect$Horizon[rel_collect$task == "horizon"] <- cors$cor[cors$session1 == "Horizon" & cors$session2 == "Horizon"]
+rel_collect$VH[rel_collect$task == "horizon"] <- cors$cor[cors$session1 == "Horizon:V" & cors$session2 == "Horizon:V"]
+rel_collect$RUH[rel_collect$task == "horizon"] <- cors$cor[cors$session1 == "RU:Horizon" & cors$session2 == "RU:Horizon"]
 ###################### Sam's task
 
-
-
-load("analysis/bandits/modelFitSamWave1.Rda")
-Sparams1 <- modelfit[[2]]
-load("analysis/bandits/modelFitSamWave2.Rda")
-Sparams2 <- modelfit[[2]]
+load("analysis/bandits/modellingResults/fitSamSession1UCBhierarchical.Rda") 
+Sparams1 <- trueParams
+load("analysis/bandits/modellingResults/fitSamSession2UCBhierarchical.Rda")
+Sparams2 <- trueParams
 
 Sparams1$ID <- readr::parse_number(rownames(Sparams1))
 Sparams2$ID <- readr::parse_number(rownames(Sparams2))
@@ -331,6 +378,9 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(SParams$estimate[SP
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
   geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between session 1 and 2")
 
+rel_collect$V[rel_collect$task == "sam"] <- cors$cor[cors$session1 == "V" & cors$session2 == "V"]
+rel_collect$RU[rel_collect$task == "sam"] <- cors$cor[cors$session1 == "RU" & cors$session2 == "RU"]
+rel_collect$Intercept[rel_collect$task == "sam"] <- cors$cor[cors$session1 == "Intercept" & cors$session2 == "Intercept"]
 
 ## within a session
 
@@ -416,7 +466,7 @@ rel_questionnaires <- data.frame(measure = measures,
 
 ######### questionnaires
 
-ggplot(rel_questionnaires, aes(rel, measure)) + 
+p1 <- ggplot(rel_questionnaires, aes(rel, measure)) + 
   geom_vline(aes(xintercept = 0.6), color = "grey") +
   geom_vline(aes(xintercept = 0.8), color = "grey", linetype = "dotted") +
   geom_point(color = "#B40F20", size = 5) +
@@ -426,10 +476,15 @@ ggplot(rel_questionnaires, aes(rel, measure)) +
        y = element_blank()) +
   scale_y_discrete(labels = c("openness", "exploration", "negative mood", "positive mood", "depression", "anxiety"))
 
-
+p1
 ######### tasks
 
-df <- tidyr::pivot_longer(rel_collect, cols = 2:6, names_to = "measure", values_to = "reliability")
+## for the restless bandit I only have the stats from the plots Mirko sent so I go with this for now
+rel_collect$V[rel_collect$task == "restless"] <- 0.4
+rel_collect$RU[rel_collect$task == "restless"] <- 0.21
+
+
+df <- tidyr::pivot_longer(rel_collect, cols = 2:ncol(rel_collect), names_to = "measure", values_to = "reliability")
 df$color <- NA
 df$color[df$measure == "Poptimal" | df$measure == "regret"] <- "#DD8D29"
 df$color[df$measure == "Pswitch"] <- "#E2D200"
@@ -437,23 +492,24 @@ df$color[is.na(df$color)] <- "#46ACC8"
 
 df$measure <- factor(df$measure, levels = df$measure, labels = df$measure)
 
-ggplot(df, aes(reliability, measure)) + 
+p2 <- ggplot(df, aes(reliability, measure)) + 
   geom_vline(aes(xintercept = 0.6), color = "grey") +
   geom_vline(aes(xintercept = 0.8), color = "grey", linetype = "dotted") +
   geom_point(aes(color = color), size = 5) +
   coord_cartesian(xlim = c(0,1))+
-  labs(title = "Reliability of the questionnaire measures",
+  labs(title = "Reliability of the task measures",
        x = "correlation between session 1 and session2",
        y = element_blank()) +
- scale_color_manual(values = df$color)+
+ scale_color_manual(values = unique(df$color))+
   facet_wrap(vars(task))+
   theme(legend.position = "none")
 
   
+p2
+save(rel_collect, file ="analysis/reliabilityResults/reliability_tasks_Horizonfull.Rda")
 
 
-
-
+ggpubr::ggarrange(p1, p2, ncol = 2)
 
 
 

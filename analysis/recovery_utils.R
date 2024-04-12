@@ -115,6 +115,7 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F,
   
   id <- ifelse(bootstrapped, 1, i)
   
+  simdat <- subset(data, ID == id, -c(chosen, V, RU, KLM0, KLM1, KLV0, KLV1, reward))
   
   blocks <- max(simdat$block)
   trials <- max(simdat$trial)
@@ -216,7 +217,7 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F,
   return(simdat)
 }
 
-fit_model_sam <- function(data, model, hierarchical, it = 2000){
+fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T){
   #' fit model to data from Sam's task
   #' 
   #' @description fits the type of model described by input to function to the data given to function
@@ -224,7 +225,17 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000){
   #' @param model string: UCB vs hybrid
   #' @param hierarchical boolean; bayesian fitting or subject-level glm
   #' @param it number of iterations, optional, only relevant if hierarchical = T
+  #' @param save whether or not to save the output
   #' @return list containing model object and if hierarchical == F also a data.frame with coefficients
+  
+  # preparing data saving
+  h <- ifelse(hierarchical, "hierarchical", "subject-level")
+  session <- data$session[1]
+  path <- paste("analysis/bandits/modellingResults/fitSamSession", session, model, h, ".Rda", sep = "")
+  if (save){
+    print(paste("save location: ", path, sep = ""))
+  }
+  
   
   predictors <- c("Intercept", "V", "RU")
   if (model == "hybrid"){
@@ -293,6 +304,9 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000){
   
   }
   output <- list(trueModel, trueParams)
+  if (save){
+    save(trueModel, trueParams, file = path)
+  }
   return(output)
   
 }
@@ -338,7 +352,7 @@ get_KL_into_df <- function(data){
 }
 
 
-recovery_sam <- function(data, model, hierarchical, it = 2000){
+recovery_sam <- function(data, model, hierarchical, it = 2000, save = T){
   #' parameter recovery for data from Sam's task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
@@ -346,7 +360,17 @@ recovery_sam <- function(data, model, hierarchical, it = 2000){
   #' @param model UCB, hybrid
   #' @param hierarchical boolean; whether data are fit using brms or subject-level glms
   #' @param it iterations, option, only relevant if hierarchical = T
+  #' @param save whether or not to save the output
   #' @return a list containing a data.frame with subject-level estimates fitted to the observed data, a data.frame with the recovered estimates, a ggplot element plotting the recovery
+  
+  # preparing data saving
+  h <- ifelse(hierarchical, "hierarchical", "subject-level")
+  session <- data$session[1]
+  path <- paste("analysis/bandits/modellingResults/recoverySamSession", session, model, h, ".Rda", sep = "")
+  if (save){
+    print(paste("save location: ", path, sep = ""))
+  }
+  
   
   predictors <- c("Intercept", "V", "RU")
   if (model == "hybrid"){
@@ -386,7 +410,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000){
       
       ### fit model
       if (!hierarchical){
-        out <- fit_model_sam(data[data$ID == i, ], model, F)
+        out <- fit_model_sam(data[data$ID == i, ], model, F, save = save)
         
         trueParams[trueParams$ID == i, ] <- out[[2]]
         trueModel <- out[[1]]
@@ -399,7 +423,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000){
       simdat <- sim_data_sam(data, trueModel, i, hierarchical= hierarchical)
       
       if (!hierarchical) { # if it's not hierarchical then we do this for every subject separately, otherwise only in end
-        simParams[simParams$ID == i, ] <- fit_model_sam(simdat, model, F)[[2]]
+        simParams[simParams$ID == i, ] <- fit_model_sam(simdat, model, F, save = save)[[2]]
       } else {simdatCollect <- rbind(simdatCollect, simdat)} # collect simdat for later for hierarchical model
       
 
@@ -409,7 +433,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000){
     
     ## extract parameters for hierarchical
     if (hierarchical){
-      simParams <- fit_model_sam(simdatCollect, model, T, it)[[2]]
+      simParams <- fit_model_sam(simdatCollect, model, T, it, save = F)[[2]]
       
       ### get correlations for hierarchical
       
@@ -443,6 +467,9 @@ recovery_sam <- function(data, model, hierarchical, it = 2000){
     p <- ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
       geom_text(aes(label = round(cor, digits = 2))) + ggtitle(paste("Recovery of Sam's task using ", model))
     
+    if (save){
+      save(trueParams, simParams, cors, file = path)
+    }
     
     return(list(trueParams, simParams, p))
   

@@ -370,7 +370,7 @@ if (session == 2) {
 }
 
 #load what mirko did here
-wm <- readRDS("data/wave2/subjects-excl-wm.rds")
+wm <- readRDS("data/wave1/subjects-excl-wm.rds")
 wm <- subset(wm, is.element(prolific_pid, lookup$PID))
 lookup$perfWM <- NA
 lookup$perfWM <- wm$excl_subject[match(lookup$PID, wm$prolific_pid)]
