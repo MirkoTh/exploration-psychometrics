@@ -114,13 +114,15 @@ ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_f
 
 #####  UCB but bayesian model ########
 
+#test <- recovery_horizon(horizon, model = "UCB",bayesian = T, full = T, it = 200, no_horizon = T, save = F, no_intercept = T)
+
 ## version with just the long horizon
 horiz <- subset(horizon, Horizon == 0.5)
 
-res_list <- recovery_horizon(horiz, "UCB", bayesian = T, full = T, it = 4000, no_horizon = T) # this should save the output as .Rda as well
+res_list <- recovery_horizon(horiz, "UCB", bayesian = T, full = T, it = 4000, no_horizon = T, no_intercept = T) # this should save the output as .Rda as well
 res_list
 
-res_list2 <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 4000)
+res_list2 <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 4000, no_intercept = T)
 res_list2
 
 

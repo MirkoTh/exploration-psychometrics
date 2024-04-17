@@ -444,6 +444,9 @@ responses$response <- ifelse(responses$reversed == 1, as.numeric(responses$max) 
 
 avg <- ddply(responses, ~ID+measure+session, summarise, score = mean(response))
 
+write.csv(avg, "analysis/questionnaireScores.csv")
+
+
 measures <- unique(avg$measure)
 
 cors <- data.frame(session1 = rep(measures, length(measures)),

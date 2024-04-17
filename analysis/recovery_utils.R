@@ -476,7 +476,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T){
   
 }
 
-fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, save = T){
+fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, save = T, no_intercept = F){
   #' parameter recovery for data from Horizon task
   #' 
   #' @description fits model to data
@@ -493,8 +493,9 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   
   f <- ifelse(full, "full", "reduced")
   h <- ifelse(no_horizon, "no_horizon", "")
+  i <- ifelse(no_intercept, "no_intercept", "")
   session <- data$session[1]
-  path <- paste("analysis/bandits/modellingResults/fitHorizonSession", session, model, f, h, ".Rda", sep = "")
+  path <- paste("analysis/bandits/modellingResults/fitHorizonSession", session, model, f, h, i, ".Rda", sep = "")
   if (save){
     print(paste("save location: ", path, sep = ""))
   }
@@ -514,6 +515,7 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   }
   
   if (no_horizon) {predictors <- subset(predictors, !grepl("Horizon", predictors))}
+  if(no_intercept) {predictors <- subset(predictors, !grepl("Intercept", predictors))}
   
   
   ### Wilson model
@@ -538,18 +540,11 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
       
       if (full == T){
         
-        baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID), family = "bernoulli", 
-                        data = data[data$trial == 5, ],
-                        chains = 2,
-                        cores = 2,
-                        iter = it)
+        formula <- "chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID)"
         
       } else {
-        baymodel <- brm(chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID), family = "bernoulli",
-                        data = data[data$trial == 5, ],
-                        chains = 2,
-                        cores = 2,
-                        iter = it)
+        
+        formula <- "chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID)"
         
       }
       
@@ -558,40 +553,36 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
       
     if (full == T){
       
-      if (no_horizon){
-        baymodel <- brm(chosen ~ V + RU + (RU + V | ID), family = "bernoulli",
-                           data = data[data$trial == 5, ],
-                           chains = 2,
-                           cores = 2,
-                           iter = it)
-      } else {
-        baymodel <- brm(chosen ~ V*Horizon + RU*Horizon + (RU*Horizon + V*Horizon| ID), family = "bernoulli",
-                           data = data[data$trial == 5, ],
-                           chains = 2,
-                           cores = 2,
-                           iter = it)
-      }
+      formula <- "chosen ~ V*Horizon + RU*Horizon + (RU*Horizon + V*Horizon| ID)"
+    
       
       
     } else {
-      if (no_horizon){
-        baymodel <- brm(chosen ~ V + RU + (RU + V| ID), family = "bernoulli",
-                           data = data[data$trial == 5, ],
-                           chains = 2,
-                           cores = 2,
-                           iter = it)
-      } else {
-        baymodel <- brm(chosen ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| ID), family = "bernoulli",
-                           data = data[data$trial == 5, ],
-                           chains = 2,
-                           cores = 2,
-                           iter = it)
-      }
+      
+        formula <- "chosen ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| ID)"
 
     }
-    
-    
+  
   }
+  
+  if (no_horizon){
+    formula <- gsub("\\*Horizon", "", formula)
+    formula <- gsub("\\:Horizon", "", formula)
+  }
+  
+  if (no_intercept) {
+    f_temp <- strsplit(formula, "~|\\(")
+    formula <- as.formula(paste(f_temp[[1]][1], "~-1+", f_temp[[1]][2], "(-1+", f_temp[[1]][3], collapse = " "))
+  }
+  print(formula)
+  
+  formula <- as.formula(formula)
+  
+  baymodel <- brm(formula, family = "bernoulli", 
+                  data = data[data$trial == 5, ],
+                  chains = 2,
+                  cores = 2,
+                  iter = it)
   
   ## get posterior estimates of subject-level parameters
   
@@ -626,7 +617,7 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
 }
   
   
-recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_horizon = F, save = T){
+recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_horizon = F, save = T, no_intercept = F){
   #' parameter recovery for data from Horizon task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
@@ -647,9 +638,10 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
   b <- ifelse(bayesian, "bayesian", "")
   f <- ifelse(full, "full", "reduced")
   h <- ifelse(no_horizon, "no_horizon", "")
+  i <- ifelse(no_intercept, "no_intercept", "")
   
   session <- data$session[1]
-  path <- paste("analysis/bandits/modellingResults/recoveryHorizonSession", session, model,b, f, h, ".Rda", sep = "")
+  path <- paste("analysis/bandits/modellingResults/recoveryHorizonSession", session, model,b, f, h, i, ".Rda", sep = "")
   if (save){
     print(paste("save path:", path))
   }
@@ -670,6 +662,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
   }
   
   if (no_horizon) {predictors <- subset(predictors, !grepl("Horizon", predictors))}
+  if (no_intercept) {predictors <- subset(predictors, !grepl("Intercept", predictors))}
   
   
   if (model == "UCB"){
@@ -697,7 +690,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
     
     if (bayesian == T){
       
-      out <- fit_model_horizon(data = data, model = model, full = full, it = it, no_horizon = no_horizon, save = save)
+      out <- fit_model_horizon(data = data, model = model, full = full, it = it, no_horizon = no_horizon, save = save, no_intercept = no_intercept)
       baymodel <- out[[1]]
       trueParams <- out[[2]]
       # simulate data
@@ -706,7 +699,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
       simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
       
     
-      out <- fit_model_horizon(data, model, full, it, no_horizon, save = F)
+      out <- fit_model_horizon(data, model, full, it, no_horizon, save = F, no_intercept = no_intercept)
       recovModel <- out[[1]]
       recoveredParams <- out[[2]]
       
