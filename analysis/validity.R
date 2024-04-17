@@ -25,10 +25,15 @@ tbl_exclude <- tbl_excl_wm %>%
 
 
 
-load("analysis/bandits/modellingResults/fitHorizonSession1UCBfullno_horizon.Rda")
+load("analysis/bandits/modellingResults/fitHorizonSession1UCBfullno_horizonno_intercept.Rda")
 tbl_horizon_1 <- rename_and_add_id(trueParams, "baymodel")
-load("analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda")
+load("analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizonno_intercept.Rda")
 tbl_horizon_2 <- rename_and_add_id(trueParams, "baymodel")
+
+# load("analysis/bandits/modellingResults/fitHorizonSession1UCBfullno_horizon.Rda")
+# tbl_horizon_1 <- rename_and_add_id(trueParams, "baymodel")
+# load("analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_horizon.Rda")
+# tbl_horizon_2 <- rename_and_add_id(trueParams, "baymodel")
 
 tbl_horizon <- tbl_horizon_1 %>% 
   inner_join(tbl_horizon_2, by = c("id", "predictor"), suffix = c("_1", "_2")) %>%
@@ -36,9 +41,9 @@ tbl_horizon <- tbl_horizon_1 %>%
   pivot_wider(names_from = predictor, values_from = c(estimate_1, estimate_2))
 
 
-load("analysis/bandits/modellingResults/fitSamSession1UCBhierarchical.Rda")
+load("analysis/bandits/modellingResults/fitSamSession1UCBhierarchicalno_intercept.Rda")
 tbl_sam_1 <- rename_and_add_id(trueParams, "trueModel")
-load("analysis/bandits/modellingResults/fitSamSession2UCBhierarchical.Rda")
+load("analysis/bandits/modellingResults/fitSamSession2UCBhierarchicalno_intercept.Rda")
 tbl_sam_2 <- rename_and_add_id(trueParams, "trueModel")
 
 tbl_sam <- tbl_sam_1 %>% 
@@ -62,12 +67,24 @@ tbl_bandits <- tbl_restless %>%
   filter(!is.na(estimate_1_V_sam)) %>%
   mutate(id = as.numeric(id))
 
+tbl_bandits <- tbl_bandits %>%
+  mutate(
+    estimate_1_V_sam = -1 * estimate_1_V_sam,
+    estimate_1_RU_sam = -1 * estimate_1_RU_sam,
+    estimate_2_V_sam = -1 * estimate_2_V_sam,
+    estimate_2_RU_sam = -1 * estimate_2_RU_sam,
+    estimate_1_V_horizon = -1 * estimate_1_V_horizon,
+    estimate_1_RU_horizon = -1 * estimate_1_RU_horizon,
+    estimate_2_V_horizon = -1 * estimate_2_V_horizon,
+    estimate_2_RU_horizon = -1 * estimate_2_RU_horizon
+  )
+
 tbl_bandits_1 <- tbl_bandits %>%
   select(contains("1"))
-colnames(tbl_bandits_1) <- c("V Restless", "RU Restless", "IC Sam", "V Sam", "RU Sam", "IC Horizon", "RU Horizon", "V Horizon")
+colnames(tbl_bandits_1) <- c("V Restless", "RU Restless", "V Sam", "RU Sam", "RU Horizon", "V Horizon")
 tbl_bandits_2 <- tbl_bandits %>%
   select(contains("2"))
-colnames(tbl_bandits_2) <- c("V Restless", "RU Restless", "IC Sam", "V Sam", "RU Sam", "IC Horizon", "RU Horizon", "V Horizon")
+colnames(tbl_bandits_2) <- c("V Restless", "RU Restless", "V Sam", "RU Sam", "RU Horizon", "V Horizon")
 
 my_corr_plot <- function(cortable, x_lab, y_lab) {
   as.data.frame(cortable) %>%
@@ -93,28 +110,6 @@ pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2), "Parameter 1", "Parameter 2")
 
 grid.draw(arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1))
 
-tbl_restless %>% 
-  filter(!is.na(beta_1)) %>% 
-  summarize(r_gamma = cor(gamma_ucb_1, gamma_ucb_2), r_beta = cor(beta_1, beta_2))
-
-%>%
-  group_by(predictor) %>% summarize(r = cor(estimate_1, estimate_2))
-
-tbl_sam_1 %>% 
-  inner_join(tbl_sam_2, by = c("id", "predictor"), suffix = c("_1", "_2")) %>%
-  group_by(predictor) %>% summarize(r = cor(estimate_1, estimate_2))
-
-tbl_restless
-tbl
-
-
-
-load("analysis/reliabilityResults/reliability_tasks_Horizon10only.Rda")
-rel_collect
-
-
-
-
 
 
 # Working Memory ----------------------------------------------------------
@@ -134,11 +129,11 @@ l_tbl_wm <- split(tbl_wm, tbl_wm$session)
 
 
 pl_cors_wm_s1 <- my_corr_plot(
-  cor(l_tbl_wm[[1]] %>% select(-c(participant_id, session, processing_OS, processing_SS))),
+  cor(l_tbl_wm[[1]] %>% select(-c(participant_id, session, processing_OS, processing_SS)) %>% rename("OS" = "recall_OS", "SS" = "recall_SS", "WMU" = "recall_WMU")),
   "Measure 1", "Measure 2"
 )
 pl_cors_wm_s2 <- my_corr_plot(
-  cor(l_tbl_wm[[2]] %>% select(-c(participant_id, session, processing_OS, processing_SS))),
+  cor(l_tbl_wm[[2]] %>% select(-c(participant_id, session, processing_OS, processing_SS)) %>% rename("OS" = "recall_OS", "SS" = "recall_SS", "WMU" = "recall_WMU")),
   "Measure 1", "Measure 2"
 )
 grid.draw(arrangeGrob(pl_cors_wm_s1, pl_cors_wm_s2, nrow = 1))
@@ -188,17 +183,6 @@ colnames(tbl_wm_bandits) <- str_remove(colnames(tbl_wm_bandits), "^[1-2]_")
 colnames(tbl_wm_bandits)[!is.na(suffixes)] <- str_c(colnames(tbl_wm_bandits), suffixes)[!is.na(suffixes)]
 
 
-tbl_wm_bandits <- tbl_wm_bandits %>%
-  mutate(
-    V_sam_1 = -1 * V_sam_1,
-    RU_sam_1 = -1 * RU_sam_1,
-    V_sam_2 = -1 * V_sam_2,
-    RU_sam_2 = -1 * RU_sam_2,
-    V_horizon_1 = -1 * V_horizon_1,
-    RU_horizon_1 = -1 * RU_horizon_1,
-    V_horizon_2 = -1 * V_horizon_2,
-    RU_horizon_2 = -1 * RU_horizon_2
-  )
 my_cols <- colnames(tbl_wm_bandits)[!str_detect(colnames(tbl_wm_bandits), "id$")]
 tbl_wm_bandits[, my_cols] <- map(tbl_wm_bandits[, my_cols], ~ scale(.x, center = TRUE, scale = TRUE)[, 1])
 
@@ -210,13 +194,6 @@ colnames(tbl_wm_bandits_2) <- str_remove(colnames(tbl_wm_bandits_1), "_2")
 
 
 # specify the model
-value_guided_model_1_session <- ' 
-  g_v  =~ estimate_V_sam + estimate_V_horizon + gamma_ucb  
-
-  g_wm =~ recall_WMU + recall_OS + recall_SS 
-  
-
-'
 
 value_guided_model_2_sessions <- ' 
   g_v_1  =~ V_sam_1 + V_horizon_1 + gamma_ucb_1
@@ -230,12 +207,6 @@ value_guided_model_2_sessions <- '
   recall_SS_1 ~~  recall_SS_2
   recall_OS_1 ~~  recall_OS_2
   
-  CEI_1 ~~ g_v_1
-  CEI_2 ~~ g_v_2
-  BIG_5_1 ~~ g_v_1
-  BIG_5_2 ~~ g_v_2
-  CEI_1 ~~ BIG_5_1
-  CEI_2 ~~ BIG_5_2
 
 '
 
@@ -253,9 +224,26 @@ lavaanPlot(
 
 
 
+# specify the model
+value_guided_model_1_session <- ' 
+  g_v  =~ V_sam_1 + V_horizon_1 + gamma_ucb_1
 
+  g_wm =~ recall_WMU_1 + recall_OS_1 + recall_SS_1
+  
+  CEI_1 ~~ g_v
+  CEI_1 ~~ g_wm
+  BIG_5_1 ~~ g_v
+  BIG_5_1 ~~ g_wm
 
+'
 
+fit_c <- cfa(value_guided_model_1_session, data = tbl_wm_bandits)
+summary(fit_l, fit.measures = TRUE)
 
-
+# plot results
+lavaanPlot(
+  fit_c, coefs = TRUE, covs = TRUE, sig = TRUE, stars = "covs",
+  edge_options = list(color = "grey"), 
+  node_options = list(shape = "box", fontname = "Helvetica")
+)
 
