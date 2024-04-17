@@ -9,7 +9,7 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-session <- 1
+session <- 2
 
 load(paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
 
@@ -112,7 +112,7 @@ ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_f
   geom_text(aes(label = round(cor, digits = 2)))
 
 
-#####  UCB but bayesian model ########
+############  UCB but bayesian model ########
 
 #test <- recovery_horizon(horizon, model = "UCB",bayesian = T, full = T, it = 200, no_horizon = T, save = F, no_intercept = T)
 
@@ -128,10 +128,6 @@ res_list2
 
 
 #load("analysis/bandits/recovHorizonReduced.Rda")
-
-
-trueParams <- res_list[[1]]
-trueParams$estimate <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodelUCB)))`
 
 # distribution of fitted and recovered parameters
 # 
@@ -158,9 +154,10 @@ ggplot(trueParams, aes(estimate)) + geom_histogram(alpha = 0.5, position = "iden
 # 
 # save(modelfit, file = paste("analysis/bandits/modelFitSamWave", session, ".Rda", sep = ""))
 
+#test <- recovery_sam(sam, "UCB", hierarchical = T, it = 200, save = F, no_intercept = T)
 
 ## UCB
-res_list1 <- recovery_sam(sam, "UCB", hierarchical = T, it = 4000)
+res_list1 <- recovery_sam(sam, "UCB", hierarchical = T, it = 4000, no_intercept = T)
 res_list1
 # get parameters fitted to actual data
 # trueParams <- res_list[[1]]

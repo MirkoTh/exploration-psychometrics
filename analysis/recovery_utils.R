@@ -217,7 +217,7 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F,
   return(simdat)
 }
 
-fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T){
+fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T, no_intercept = F){
   #' fit model to data from Sam's task
   #' 
   #' @description fits the type of model described by input to function to the data given to function
@@ -230,8 +230,9 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T){
   
   # preparing data saving
   h <- ifelse(hierarchical, "hierarchical", "subject-level")
+  i <- ifelse(no_intercept, "no_intercept", "")
   session <- data$session[1]
-  path <- paste("analysis/bandits/modellingResults/fitSamSession", session, model, h, ".Rda", sep = "")
+  path <- paste("analysis/bandits/modellingResults/fitSamSession", session, model, h, i, ".Rda", sep = "")
   if (save){
     print(paste("save location: ", path, sep = ""))
   }
@@ -242,25 +243,34 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T){
     predictors <- c(predictors, "VTU")
   }
   
+  if (no_intercept){predictors <- subset(predictors, !grepl("Intercept", predictors))}
+  
   if (hierarchical){
+    
     if (model == "hybrid"){
-      
-      trueModel <- brm(chosen ~ V+ RU + VTU + (V+ RU + VTU| ID), 
-                      family = "bernoulli", 
-                      data = data,
-                      chains = 2,
-                      cores = 2,
-                      iter = it)
+      formula <- "chosen ~ V+ RU + VTU + (V+ RU + VTU| ID)"
       
     } else if (model == "UCB") {
       
-      trueModel <- brm(chosen ~ V+ RU + (V+ RU | ID), 
-                       family = "bernoulli", # has to be bernoulli, crashes otherwise
-                       data = data,
-                       chains = 2,
-                       cores = 2,
-                       iter = it)
+      formula <- "chosen ~ V+ RU + (V+ RU | ID)"
+      
+
     }
+    
+    if (no_intercept) {
+      f_temp <- strsplit(formula, "~|\\(")
+      formula <- as.formula(paste(f_temp[[1]][1], "~-1+", f_temp[[1]][2], "(-1+", f_temp[[1]][3], collapse = " "))
+    }
+    print(formula)
+    
+    formula <- as.formula(formula)
+    
+    trueModel <- brm(formula, 
+                     family = "bernoulli", # has to be bernoulli, crashes otherwise
+                     data = data,
+                     chains = 2,
+                     cores = 2,
+                     iter = it)
     
     ## get posterior estimates of subject-level parameters
     
@@ -278,6 +288,8 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T){
     
     
   } else {
+    if (no_intercept){warning("no intercept version is not implemented yet for the subject-level glms.")}
+    
     if (model == "hybrid"){
       trueModel <- glm(chosen ~ V+ RU + VTU,
                        data = data,
@@ -352,7 +364,7 @@ get_KL_into_df <- function(data){
 }
 
 
-recovery_sam <- function(data, model, hierarchical, it = 2000, save = T){
+recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_intercept = F){
   #' parameter recovery for data from Sam's task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
@@ -365,8 +377,9 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T){
   
   # preparing data saving
   h <- ifelse(hierarchical, "hierarchical", "subject-level")
+  i <- ifelse(no_intercept, "no_intercept", "")
   session <- data$session[1]
-  path <- paste("analysis/bandits/modellingResults/recoverySamSession", session, model, h, ".Rda", sep = "")
+  path <- paste("analysis/bandits/modellingResults/recoverySamSession", session, model, h,i, ".Rda", sep = "")
   if (save){
     print(paste("save location: ", path, sep = ""))
   }
@@ -376,6 +389,8 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T){
   if (model == "hybrid"){
     predictors <- c(predictors, "VTU")
   }
+  
+  if(no_intercept) {predictors <- subset(predictors, !grepl("Intercept", predictors))}
    
     
     # prep dataframe
@@ -397,7 +412,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T){
     
     ### fit model
     if (hierarchical){
-      out <- fit_model_sam(data, model, T, it)
+      out <- fit_model_sam(data, model, T, it, no_intercept = no_intercept, save = save)
       trueModel <- out[[1]]
       trueParams <- out[[2]]
     }
@@ -410,7 +425,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T){
       
       ### fit model
       if (!hierarchical){
-        out <- fit_model_sam(data[data$ID == i, ], model, F, save = save)
+        out <- fit_model_sam(data[data$ID == i, ], model, F, save = save, no_intercept = no_intercept)
         
         trueParams[trueParams$ID == i, ] <- out[[2]]
         trueModel <- out[[1]]
@@ -423,7 +438,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T){
       simdat <- sim_data_sam(data, trueModel, i, hierarchical= hierarchical)
       
       if (!hierarchical) { # if it's not hierarchical then we do this for every subject separately, otherwise only in end
-        simParams[simParams$ID == i, ] <- fit_model_sam(simdat, model, F, save = save)[[2]]
+        simParams[simParams$ID == i, ] <- fit_model_sam(simdat, model, F, save = F)[[2]]
       } else {simdatCollect <- rbind(simdatCollect, simdat)} # collect simdat for later for hierarchical model
       
 

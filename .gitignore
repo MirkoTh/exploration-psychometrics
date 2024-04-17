@@ -24,3 +24,4 @@ analysis/bandits/modellingResults/recovHorizWilson.Rda
 analysis/bandits/modellingResults/recoveryHorizonSession2UCBbayesianfullno_horizon.Rda
 analysis/bandits/modellingResults/fitHorizonSession1UCBfull.Rda
 analysis/bandits/modellingResults/fitHorizonSession1UCBfullno_intercept.Rda
+analysis/bandits/modellingResults/fitHorizonSession2UCBfullno_intercept.Rda
