@@ -405,7 +405,7 @@ repeat_tibble <- function(tbl_df, n_reps) {
 }
 
 
-kalman_learning <- function(tbl_df, no, sigma_xi_sq, sigma_epsilon_sq, m0 = NULL, v0 = NULL) {
+kalman_learning <- function(tbl_df, no, sigma_xi_sq, sigma_epsilon_sq, m0 = NULL, v0 = NULL, lambda = .9836, decay_center = 0) {
   #' Kalman filter without choice model given chosen options by participants
   #'
   #' @description applies Kalman filter equations for a given bandit task with existing choices by participants
@@ -435,7 +435,11 @@ kalman_learning <- function(tbl_df, no, sigma_xi_sq, sigma_epsilon_sq, m0 = NULL
     m[t + 1, ] <- m[t, ] + kt * (rewards[t] - m[t, ])
     # compute the posterior variances
     v[t + 1, ] <- (1 - kt) * (v[t, ] + sigma_xi_sq)
+    # decay towards decay center
+    m[t + 1, ] <- lambda * m[t + 1, ] + (1 - lambda) * decay_center
+    v[t + 1, ] <- lambda^2 * v[t + 1, ] + sigma_xi_sq
   }
+
   tbl_m <- as.data.frame(m)
   # prevent v from becoming too small
   v <- t(apply(v, 1, function(x) pmax(x, .0001)))
@@ -1048,7 +1052,7 @@ fit_kalman_thompson_xi_variance_choose <- function(x, tbl_results, tbl_rewards, 
 
 fit_kalman_ucb_no_variance <- function(
     x, tbl_results, nr_options, sigma_xi_sq = 16, sigma_epsilon_sq = 16, 
-    sigma_prior = 1000, mu_prior = 0, bds
+    sigma_prior = 1000, mu_prior = 0, bds, lambda = .9836, decay_center = 0
 ) {
   #'
   #' @description Kalman soft max with ucb fitting wrapper,
@@ -1056,7 +1060,7 @@ fit_kalman_ucb_no_variance <- function(
   #'
   gamma <- upper_and_lower_bounds_revert(x[[1]], bds$gamma$lo, bds$gamma$hi)
   beta <- upper_and_lower_bounds_revert(x[[2]], bds$beta$lo, bds$beta$hi)
-  tbl_learned <- kalman_learning(tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq, mu_prior, sigma_prior)
+  tbl_learned <- kalman_learning(tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq, mu_prior, sigma_prior, lambda = lambda, decay_center = decay_center)
   p_choices <- ucb_choice_prob(
     tbl_learned[1:nrow(tbl_results), ] %>% select(starts_with("m_")),
     tbl_learned[1:nrow(tbl_results), ] %>% select(starts_with("v_")),
@@ -1319,7 +1323,7 @@ fit_softmax_no_variance_wrapper <- function(
 
 fit_ucb_no_variance_wrapper <- function(
     tbl_results, tbl_rewards, condition_on_observed_choices, 
-    sigma_xi_sq = 16, sigma_epsilon_sq = 16, sigma_prior = 1000, mu_prior = 0, bds, params_init = NULL
+    sigma_xi_sq = 16, sigma_epsilon_sq = 16, sigma_prior = 1000, mu_prior = 0, bds, params_init = NULL, lambda = .9836, decay_center = 0
 ) {
   tbl_results <- tbl_results[1:(nrow(tbl_results) - 1), ]
   
@@ -1337,7 +1341,7 @@ fit_ucb_no_variance_wrapper <- function(
       tbl_results = tbl_results, nr_options = 4,
       sigma_xi_sq = sigma_xi_sq, sigma_epsilon_sq = sigma_epsilon_sq,
       sigma_prior = sigma_prior, mu_prior = mu_prior,
-      bds = bds
+      bds = bds, lambda = lambda, decay_center = decay_center
     )
     
     r <- c(
