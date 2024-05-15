@@ -92,12 +92,14 @@ if (is_fit) {
     l_results_w1[[i]] <- future_map(1:n_iter, ~ simulate_kalman(
       sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
       lambda, nr_trials, l_params_decision, simulate_data = FALSE,
-      seed = .x, tbl_rewards = tbl_rewards_w1 %>% select(-trial_id)
+      seed = .x, tbl_rewards = tbl_rewards_w1 %>% select(-trial_id),
+      decay_center = decay_center
     ), seed = NULL)
     l_results_w2[[i]] <- future_map(1:n_iter, ~ simulate_kalman(
       sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
       lambda, nr_trials, l_params_decision, simulate_data = FALSE,
-      seed = .x, tbl_rewards = tbl_rewards_w2 %>% select(-trial_id)
+      seed = .x, tbl_rewards = tbl_rewards_w2 %>% select(-trial_id),
+      decay_center = decay_center
     ), seed = NULL)
     pb$tick()
   }
@@ -147,7 +149,7 @@ if (is_fit) {
       sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
       lambda, nr_trials, l_params_decision, simulate_data = TRUE,
       seed = .x, tbl_rewards = tbl_rewards_w1 %>% select(-trial_id),
-      mu_init = "sample"
+      mu_init = "sample", decay_center = decay_center
     ))
     pb$tick()
   }

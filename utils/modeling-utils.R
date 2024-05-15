@@ -599,7 +599,7 @@ choice_probs_e2 <- function(l_results_by_id) {
 
 simulate_kalman <- function(
     sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, lambda, nr_trials,
-    params_decision, simulate_data, seed, tbl_rewards, mu_init = NULL) {
+    params_decision, simulate_data, seed, tbl_rewards, mu_init = NULL, decay_center = 0) {
   #'
   #' @description simulate choices from a Kalman filter with some choice model
   #' @param sigma_prior prior variance
@@ -612,6 +612,7 @@ simulate_kalman <- function(
   #' @param simulate_data should new data be generated for every participant
   #' @param seed seed value of iteration
   #' @param tbl_rewards if data are not simulated, take this tbl instead
+  #' @param decay_center decay_center of the random walk
   #' @return a tbl with by-trial posterior means and variances for the chosen bandits
   #'
   set.seed(seed)
@@ -648,6 +649,10 @@ simulate_kalman <- function(
     m[t + 1, ] <- m[t, ] + kt * (tbl_rewards[t, ] - m[t, ]) %>% as_vector()
     # compute the posterior variances
     v[t + 1, ] <- (1 - kt) * (v[t, ] + sigma_xi_sq)
+    
+    # decay towards decay center
+    m[t + 1, ] <- lambda * m[t + 1, ] + (1 - lambda) * decay_center
+    v[t + 1, ] <- lambda^2 * v[t + 1, ] + sigma_xi_sq
   }
   
   tbl_m <- as.data.frame(m)
@@ -894,7 +899,7 @@ fit_kalman_softmax_choose <- function(x, tbl_results, tbl_rewards, nr_options) {
 
 fit_kalman_softmax_no_variance <- function(
     x, tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq, 
-    sigma_prior = 1000, mu_prior = 0, bds
+    sigma_prior = 1000, mu_prior = 0, bds, lambda = .9836, decay_center = 0
 ) {
   #'
   #' @description Kalman soft max fitting wrapper, do not optimize any of
@@ -903,7 +908,7 @@ fit_kalman_softmax_no_variance <- function(
   gamma <- upper_and_lower_bounds_revert(x[[1]], bds$gamma$lo, bds$gamma$hi)
   tbl_learned <- kalman_learning(
     tbl_results, nr_options, sigma_xi_sq, sigma_epsilon_sq, 
-    m0 = mu_prior, v0 = sigma_prior
+    m0 = mu_prior, v0 = sigma_prior, lambda = lambda, decay_center = decay_center
   )
   p_choices <- softmax_choice_prob(
     tbl_learned[1:nrow(tbl_results), ] %>% select(starts_with("m_")),
@@ -1270,7 +1275,7 @@ fit_softmax_one_variance_wrapper <- function(tbl_results, tbl_rewards, condition
 fit_softmax_no_variance_wrapper <- function(
     tbl_results, tbl_rewards, condition_on_observed_choices, 
     sigma_xi_sq = 16, sigma_epsilon_sq = 16, sigma_prior = 1000,
-    mu_prior = 0, bds, params_init = NULL
+    mu_prior = 0, bds, params_init = NULL, lambda = .9836, decay_center = 0
 ) {
   tbl_results <- tbl_results[1:(nrow(tbl_results) - 1), ]
   
@@ -1293,7 +1298,7 @@ fit_softmax_no_variance_wrapper <- function(
       tbl_results = tbl_results, nr_options = 4,
       sigma_xi_sq = sigma_xi_sq, sigma_epsilon_sq = sigma_epsilon_sq,
       sigma_prior = sigma_prior, mu_prior = mu_prior,
-      bds = bds
+      bds = bds, lambda = lambda, decay_center = decay_center
     )
     r <- c(
       pmap_dbl(
@@ -2583,24 +2588,25 @@ ucb_stan <- function() {
         var_mean = rep_vector(var_mean_prior, 4);
         for (t in 1:nTrials) {        
         
-        if (choice[s,t] != 0) {
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            eb = beta[s] * sqrt(var_mean + var_xi);
+            choice[s,t] ~ categorical_logit(tau[s] * (m + eb));
+            
+            // learning model
+            pe = reward[s,t] - m[choice[s,t]];  // prediction error 
+            Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
+            m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;  // value/mu updating (learning)
+            var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
+          }
           
-          // choice model
-          eb = beta[s] * sqrt(var_mean + var_xi);
-          choice[s,t] ~ categorical_logit(tau[s] * (m + eb));
-          
-          // learning model
-          pe = reward[s,t] - m[choice[s,t]];  // prediction error 
-          Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
-          m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;  // value/mu updating (learning)
-          var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
-        }
-        
-        m = decay * m + (1 - decay) * decay_center;  
-        for (j in 1:4) 
-          var_mean[j] = decay^2 * var_mean[j] + var_xi;
-        }
-      }  
+          m = decay * m + (1 - decay) * decay_center;  
+          for (j in 1:4) {
+            var_mean[j] = decay^2 * var_mean[j] + var_xi;
+          }
+        }  
+      }
     }
     generated quantities{
       vector [nSubjects] log_lik;        
@@ -2627,12 +2633,13 @@ ucb_stan <- function() {
             Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
             m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;
             var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
-         }
+          }
           
-        m = decay * m + (1 - decay) * decay_center;  
-        for (j in 1:4) 
-          var_mean[j] = decay^2 * var_mean[j] + var_xi;
-        }  
+          m = decay * m + (1 - decay) * decay_center;  
+          for (j in 1:4) {
+            var_mean[j] = decay^2 * var_mean[j] + var_xi;
+          }  
+        }
       }
     }
   ")
