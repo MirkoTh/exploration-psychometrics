@@ -13,7 +13,10 @@ path_data <- c("data/2023-11-lab-pilot/", "data/all-data/")[2]
 
 
 # lookup table from first session contains all ids
-tbl_ids_lookup <- read_csv(str_c(path_data, "participant-lookup-0.csv"))
+#tbl_ids_lookup <- read_csv(str_c(path_data, "participant-lookup-0.csv"))
+
+tbl_ids_lookup <- read_csv(str_c("data/exclusions2.csv"))
+tbl_ids_lookup <- tbl_ids_lookup %>% rename("participant_id" = "PID", "participant_id_randomized" = "ID")
 # load data from all wm tasks
 l_tbl_wm_data <- load_wm_data()
 
@@ -85,7 +88,7 @@ tbl_n_trials <- tbl_design %>%
 tbl_n_trials <- tbl_n_trials %>%
   left_join(tbl_trials_administered, by = "task") %>%
   mutate(
-    too_few = n < 2*n_administered - 5 # - 5 seems reasonable given distribution of nr responses per task
+    too_few = n < (2*n_administered - 5) # - 5 seems reasonable given distribution of nr responses per task
   )
 
 tbl_ids_lookup <- tbl_ids_lookup %>%
@@ -490,4 +493,4 @@ save_my_pdf(pl_between_session_cors, "figures/EDA/cors-between-session.pdf", 6, 
 # Save recall, and processing files of included participants --------------
 
 
-saveRDS(tbl_performance_all, file = "data/all-data/tbl-performance-wm.rds")
+saveRDS(tbl_performance_all, file = "data/all-data/tbl-performance-wm-all-s2.rds")
