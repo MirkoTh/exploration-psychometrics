@@ -5,6 +5,8 @@ rm(list = ls())
 library(tidyverse)
 library(rutils)
 library(gridExtra)
+library(grid)
+library(gridExtra)
 
 
 is_fit <- FALSE#TRUE#
@@ -215,7 +217,7 @@ tbl_learned %>%
 
 if (is_fit) {
   t_start <- Sys.time()
-  future::plan(future::multisession, workers = 2)#future::availableCores() - 2)
+  future::plan(future::multisession, workers = future::availableCores() - 2)
   
   for (i in 1:n_init_vals) {
     params_init <- c(runif(1, bds_ucb$gamma$lo, bds_ucb$gamma$hi), runif(1, bds_ucb$beta$lo/2, bds_ucb$beta$hi/2))
@@ -244,6 +246,8 @@ if (is_fit) {
       mu_prior = 50,
       bds = bds_sm, 
       params_init = params_init[1],
+      lambda = lambda,
+      decay_center = decay_center,
       .progress = TRUE
     )
     saveRDS(l_fit_sm, file = str_c("data/4arlb-sm-fits-it-", i, ".rds"))

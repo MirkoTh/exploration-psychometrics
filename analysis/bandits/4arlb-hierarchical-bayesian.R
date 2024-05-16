@@ -85,9 +85,7 @@ tbl_restless <- as_tibble(rbind(restless1, restless2)) %>%
   rename(
     choices = chosen,
     rewards = reward
-  ) %>% ungroup()
-
-
+  )
 
 
 
@@ -96,13 +94,14 @@ tbl_restless <- as_tibble(rbind(restless1, restless2)) %>%
 # to be changed:
 ## add xi variance in kalman gain calculation
 ## add xi variance in variance (of the mean) calculation
-## add the weighting of the compuated value with regression to the baseline
+## add the weighting of the computed value with regression to the baseline
 
 
 ucb_stan_txt <- ucb_stan()
 mod_ucb_stan <- cmdstan_model(ucb_stan_txt)
 
-file_loc <- "data/restless-hierarchical-model-posterior.RDS"
+file_loc_s1 <- "data/restless-hierarchical-model-posterior-s1.RDS"
+file_loc_s2 <- "data/restless-hierarchical-model-posterior-s2.RDS"
 pars_interest <- c("beta", "tau")
 
 
@@ -112,66 +111,115 @@ pars_interest <- c("beta", "tau")
 ## array[nSubjects, nTrials] int choice;     
 ## matrix[nSubjects, nTrials] reward; 
 
-tbl_restless_sample <- tbl_restless %>% 
-  filter(
-    ID %in% sort(unique(tbl_restless$ID))[1:10],
-    session == 1
-  )
+tbl_restless_s1 <- tbl_restless %>% 
+  filter(session == 1) %>%
+  arrange(ID, trial)
+tbl_restless_s2 <- tbl_restless %>% 
+  filter(session == 2) %>%
+  arrange(ID, trial)
 
-l_data <- list(
-  nSubjects = length(unique(tbl_restless_sample$ID)),
-  nTrials = max(tbl_restless_sample$trial),
-  choice = pivot_wider(tbl_restless_sample[, c("ID", "trial", "choices")], names_from = "trial", values_from = "choices") %>% select(-ID) %>% as.matrix(),
-  reward = pivot_wider(tbl_restless_sample[, c("ID", "trial", "rewards")], names_from = "trial", values_from = "rewards") %>% select(-ID) %>% as.matrix()
+
+l_data_s1 <- list(
+  nSubjects = length(unique(tbl_restless_s1$ID)),
+  nTrials = max(tbl_restless_s1$trial),
+  choice = pivot_wider(tbl_restless_s1[, c("ID", "trial", "choices")], names_from = "trial", values_from = "choices") %>% select(-ID) %>% as.matrix(),
+  reward = pivot_wider(tbl_restless_s1[, c("ID", "trial", "rewards")], names_from = "trial", values_from = "rewards") %>% select(-ID) %>% as.matrix()
+)
+l_data_s2 <- list(
+  nSubjects = length(unique(tbl_restless_s2$ID)),
+  nTrials = max(tbl_restless_s2$trial),
+  choice = pivot_wider(tbl_restless_s2[, c("ID", "trial", "choices")], names_from = "trial", values_from = "choices") %>% select(-ID) %>% as.matrix(),
+  reward = pivot_wider(tbl_restless_s2[, c("ID", "trial", "rewards")], names_from = "trial", values_from = "rewards") %>% select(-ID) %>% as.matrix()
 )
 
 if (is_fit) {
   
-  fit_restless_ucb <- mod_ucb_stan$sample(
-    data = l_data, iter_sampling = 1000, iter_warmup = 500, chains = 3, parallel_chains = 3
+  # session 1
+  fit_restless_ucb_s1 <- mod_ucb_stan$sample(
+    data = l_data_s1, iter_sampling = 300, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
-  tbl_draws <- fit_restless_ucb$draws(variables = pars_interest, format = "df")
-  tbl_summary <- fit_restless_ucb$summary(variables = pars_interest)
-  tbl_summary %>% arrange(desc(rhat))
-  saveRDS(tbl_draws, file_loc)
+  tbl_draws_s1 <- fit_restless_ucb_s1$draws(variables = pars_interest, format = "df")
+  tbl_summary_s1 <- fit_restless_ucb_s1$summary(variables = pars_interest)
+  tbl_summary_s1 %>% arrange(desc(rhat))
+  saveRDS(tbl_draws_s1, file_loc_s1)
+  
+  
+  # session 2
+  fit_restless_ucb_s2 <- mod_ucb_stan$sample(
+    data = l_data_s2, iter_sampling = 300, iter_warmup = 200, chains = 3, parallel_chains = 3
+  )
+  
+  tbl_draws_s2 <- fit_restless_ucb_s2$draws(variables = pars_interest, format = "df")
+  tbl_summary_s2 <- fit_restless_ucb_s2$summary(variables = pars_interest)
+  tbl_summary_s2 %>% arrange(desc(rhat))
+  saveRDS(tbl_draws_s2, file_loc_s2)
   
 } else if (!is_fit) {
-  tbl_draws <- readRDS(file_loc)
+  tbl_draws_s1 <- readRDS(file_loc_s1)
+  tbl_draws_s2 <- readRDS(file_loc_s2)
 }
 
-ids_sample <- unique(tbl_restless_sample$ID)
+ids_sample <- tibble(
+  ID = unique(tbl_restless$ID),
+  id_stan = 1:length(unique(tbl_restless$ID))
+)
 
-par_lbls <- str_c(rep(c("ru", "v"), each = length(ids_sample)), "[", rep(ids_sample, 2), "]")
-
-tbl_posterior <- tbl_draws %>% 
-  dplyr::select(starts_with(pars_interest), .chain) %>%
-  rename(chain = .chain) %>%
-  pivot_longer(starts_with(pars_interest), names_to = "parameter", values_to = "value") %>%
-  mutate(
-    parameter_id = factor(parameter, labels = par_lbls),
-    ID = as.integer(str_extract(parameter_id, "[0-9]+")),
-    parameter = str_extract(parameter_id, "^[a-z]+")
+posteriors_and_maps <- function(tbl_draws, s) {
+  
+  tbl_posterior <- tbl_draws %>% 
+    dplyr::select(starts_with(pars_interest), .chain) %>%
+    rename(chain = .chain) %>%
+    pivot_longer(starts_with(pars_interest), names_to = "parameter", values_to = "value") %>%
+    mutate(
+      id_stan = as.integer(str_extract(parameter, "[0-9]+")),
+      parameter = str_extract(parameter, "^[a-z]+")
     ) %>%
-  relocate(ID, .before = parameter) %>%
-  select(-parameter_id)
+    left_join(ids_sample, by = "id_stan") %>%
+    relocate(ID, .before = parameter) %>%
+    select(-c(id_stan))
+  
+  tbl_map <- tbl_posterior_s1 %>% group_by(ID, parameter) %>% 
+    summarize(map = mean(value)) %>%
+    ungroup() %>%
+    mutate(
+      parameter = factor(parameter, labels = c("ru", "v")),
+      session = s
+    )
+  
+  return(list(tbl_posterior = tbl_posterior, tbl_map = tbl_map))
+  
+}
 
 
-tbl_map <- tbl_posterior %>% group_by(ID, parameter) %>% summarize(map = mean(value))
+l_posterior_1 <- posteriors_and_maps(tbl_draws_s1, 1)
+l_posterior_2 <- posteriors_and_maps(tbl_draws_s2, 2)
 
+
+
+# plausibilize with ml fit
 tbl_max_likely <- readRDS("data/4arlb-overview.rds")
 tbl_max_likely <- tbl_max_likely %>% ungroup() %>% 
-  filter(ID %in% ids_sample & session == 1) %>% 
+  filter(session == 1) %>% 
   select(ID, beta, gamma_ucb) %>%
   mutate(ID = as.numeric(as.character(ID))) %>%
   rename(ru = beta, v = gamma_ucb) %>%
   pivot_longer(c(ru, v))
 
-tbl_map %>% 
-  left_join(tbl_max_likely, by = c("ID", "parameter" = "name")) %>%
+l_posterior_1$tbl_map %>% 
+  inner_join(tbl_max_likely, by = c("ID", "parameter" = "name")) %>%
   ggplot(aes(map, value, group = parameter)) +
+  geom_abline() +
   geom_point(aes(color = parameter)) +
-  facet_wrap(~ parameter)
-
+  facet_wrap(~ parameter) +
+  coord_cartesian(xlim = c(-.5, .5)) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "MAP", y = "Maximum Likelihood") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
 
 
