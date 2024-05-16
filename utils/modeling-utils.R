@@ -2646,3 +2646,117 @@ ucb_stan <- function() {
   return(m_txt)
 }
 
+
+ucb_stan_hierarchical <- function() {
+  m_txt <- write_stan_file("
+    data {
+      int<lower=1> nSubjects;
+      int<lower=1> nTrials;               
+      array[nSubjects, nTrials] int choice;     
+      matrix[nSubjects, nTrials] reward; 
+    }
+    transformed data {
+      real<lower=0, upper=100> m_prior;
+      real<lower=0> var_mean_prior;
+      real<lower=0> var_epsilon;
+      real<lower=0> var_xi;
+      real<lower=0,upper=1> decay;
+      real<lower=0, upper=100> decay_center;
+      
+      m_prior = 50.0;
+      var_mean_prior = 1000.0; // prior variance of the mean
+      var_epsilon = 16.0; // error variance
+      var_xi = 7.84; // innovation variance
+      decay = 0.9836;
+      decay_center = 50;
+    }
+    parameters {
+      vector<lower=0,upper=3>[nSubjects] tau; 
+      vector[nSubjects] beta;
+      real <lower=0> sigma_tau;
+      real <lower=0> sigma_beta;
+      real mu_tau;
+      real mu_beta;
+
+    }
+    model {
+      for (s in 1:nSubjects) {
+        tau[s] ~ normal(mu_tau, sigma_tau);
+        beta[s] ~ normal(mu_beta, sigma_beta);
+      }
+      
+      sigma_tau ~ uniform(0.001, 10);
+      sigma_beta ~ uniform(0.001, 10);
+      mu_tau ~ normal(0, 1);
+      mu_beta ~ student_t(1, 0, 1);
+    
+      for (s in 1:nSubjects) {
+        vector[4] m;   // mean of the mean
+        vector[4] var_mean; // variance of the mean
+        vector[4] eb;  // exploration bonus
+        real pe;       // prediction error
+        real Kgain;    // Kalman gain
+        m = rep_vector(m_prior, 4);
+        var_mean = rep_vector(var_mean_prior, 4);
+        for (t in 1:nTrials) {        
+        
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            eb = beta[s] * sqrt(var_mean + var_xi);
+            choice[s,t] ~ categorical_logit(tau[s] * (m + eb));
+            
+            // learning model
+            pe = reward[s,t] - m[choice[s,t]];  // prediction error 
+            Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
+            m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;  // value/mu updating (learning)
+            var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
+          }
+          
+          m = decay * m + (1 - decay) * decay_center;  
+          for (j in 1:4) {
+            var_mean[j] = decay^2 * var_mean[j] + var_xi;
+          }
+        }  
+      }
+    }
+    generated quantities{
+      vector [nSubjects] log_lik;        
+      for (s in 1:nSubjects) {
+        vector[4] m;   // value (mu)
+        vector[4] var_mean; // sigma
+        vector[4] eb;  // exploration bonus
+        real pe;       // prediction error
+        real Kgain;    // Kalman gain
+        m = rep_vector(m_prior, 4);
+        var_mean = rep_vector(var_mean_prior, 4);
+        
+        log_lik[s] = 0;    
+        for (t in 1:nTrials) {   
+          
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            eb = beta[s] * sqrt(var_mean + var_xi);
+            log_lik[s] = log_lik[s] + categorical_logit_lpmf(choice[s,t] | tau[s] * (m + eb));
+            
+            // learning model
+            pe = reward[s,t] - m[choice[s,t]];  // prediction error 
+            Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
+            m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;
+            var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
+          }
+          
+          m = decay * m + (1 - decay) * decay_center;  
+          for (j in 1:4) {
+            var_mean[j] = decay^2 * var_mean[j] + var_xi;
+          }  
+        }
+      }
+    }
+  ")
+  return(m_txt)
+}
+
+
+

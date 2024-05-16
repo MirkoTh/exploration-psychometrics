@@ -8,7 +8,8 @@ library(gridExtra)
 library(cmdstanr)
 
 
-is_fit <- FALSE#TRUE#
+is_fit <- TRUE#FALSE#
+is_hierarchical <- TRUE#FALSE#
 
 dirs_homegrown <- c(
   "utils/analysis-utils.R", "utils/plotting-utils.R", 
@@ -87,30 +88,6 @@ tbl_restless <- as_tibble(rbind(restless1, restless2)) %>%
     rewards = reward
   )
 
-
-
-# stan model of kalman sme
-# adopted from danwitz et al. 2022
-# to be changed:
-## add xi variance in kalman gain calculation
-## add xi variance in variance (of the mean) calculation
-## add the weighting of the computed value with regression to the baseline
-
-
-ucb_stan_txt <- ucb_stan()
-mod_ucb_stan <- cmdstan_model(ucb_stan_txt)
-
-file_loc_s1 <- "data/restless-hierarchical-model-posterior-s1.RDS"
-file_loc_s2 <- "data/restless-hierarchical-model-posterior-s2.RDS"
-pars_interest <- c("beta", "tau")
-
-
-# data structure required in stan model:
-## int<lower=1> nSubjects;
-## int<lower=1> nTrials;               
-## array[nSubjects, nTrials] int choice;     
-## matrix[nSubjects, nTrials] reward; 
-
 tbl_restless_s1 <- tbl_restless %>% 
   filter(session == 1) %>%
   arrange(ID, trial)
@@ -132,7 +109,20 @@ l_data_s2 <- list(
   reward = pivot_wider(tbl_restless_s2[, c("ID", "trial", "rewards")], names_from = "trial", values_from = "rewards") %>% select(-ID) %>% as.matrix()
 )
 
-if (is_fit) {
+
+
+
+# by-participant ----------------------------------------------------------
+
+
+ucb_stan_txt <- ucb_stan()
+mod_ucb_stan <- cmdstan_model(ucb_stan_txt)
+
+file_loc_s1 <- "data/restless-hierarchical-model-posterior.RDS"
+file_loc_s2 <- "data/restless-model-posterior-s2.RDS"
+pars_interest <- c("beta", "tau")
+
+if (is_fit & !is_hierarchical) {
   
   # session 1
   fit_restless_ucb_s1 <- mod_ucb_stan$sample(
@@ -165,7 +155,7 @@ ids_sample <- tibble(
   id_stan = 1:length(unique(tbl_restless$ID))
 )
 
-posteriors_and_maps <- function(tbl_draws, s) {
+posteriors_and_maps <- function(tbl_draws, s, pars_interest) {
   
   tbl_posterior <- tbl_draws %>% 
     dplyr::select(starts_with(pars_interest), .chain) %>%
@@ -192,8 +182,8 @@ posteriors_and_maps <- function(tbl_draws, s) {
 }
 
 
-l_posterior_1 <- posteriors_and_maps(tbl_draws_s1, 1)
-l_posterior_2 <- posteriors_and_maps(tbl_draws_s2, 2)
+l_posterior_1 <- posteriors_and_maps(tbl_draws_s1, 1, c("beta", "tau"))
+l_posterior_2 <- posteriors_and_maps(tbl_draws_s2, 2, c("beta", "tau"))
 
 
 
@@ -212,7 +202,7 @@ l_posterior_1$tbl_map %>%
   geom_abline() +
   geom_point(aes(color = parameter)) +
   facet_wrap(~ parameter) +
-  coord_cartesian(xlim = c(-.5, .5)) +
+  coord_cartesian(xlim = c(-.5, .5), ylim = c(-.5, .5)) +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
@@ -221,5 +211,79 @@ l_posterior_1$tbl_map %>%
     strip.background = element_rect(fill = "white"), text = element_text(size = 22)
   ) + 
   scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
+
+
+# hierarchical ------------------------------------------------------------
+
+
+
+ucb_stan_hc_txt <- ucb_stan_hierarchical()
+mod_ucb_stan_hc <- cmdstan_model(ucb_stan_hc_txt)
+
+file_loc_hc_s1 <- "data/restless-hierarchical-model-posterior-s1.RDS"
+file_loc_hc_s2 <- "data/restless-hierarchical-model-posterior-s2.RDS"
+
+if (is_fit & is_hierarchical) {
+  
+  # session 1
+  fit_restless_ucb_hc_s1 <- mod_ucb_stan_hc$sample(
+    data = l_data_s1, iter_sampling = 1000, iter_warmup = 500, chains = 3, parallel_chains = 3
+  )
+  
+  tbl_draws_hc_s1 <- fit_restless_ucb_hc_s1$draws(variables = c(pars_interest, pars_group), format = "df")
+  tbl_summary_hc_s1 <- fit_restless_ucb_hc_s1$summary(variables = c(pars_interest, pars_group))
+  tbl_summary_hc_s1 %>% arrange(desc(rhat))
+  saveRDS(tbl_draws_hc_s1, file_loc_hc_s1)
+  
+  
+  # session 2
+  fit_restless_ucb_hc_s2 <- mod_ucb_stan_hc$sample(
+    data = l_data_s2, iter_sampling = 1000, iter_warmup = 500, chains = 3, parallel_chains = 3
+  )
+  
+  tbl_draws_hc_s2 <- fit_restless_ucb_hc_s2$draws(variables = c(pars_interest, pars_group), format = "df")
+  tbl_summary_hc_s2 <- fit_restless_ucb_hc_s2$summary(variables = c(pars_interest, pars_group))
+  tbl_summary_hc_s2 %>% arrange(desc(rhat))
+  saveRDS(tbl_draws_hc_s2, file_loc_hc_s2)
+  
+} else if (!is_fit) {
+  tbl_draws_hc_s1 <- readRDS(file_loc_hc_s1)
+  tbl_draws_hc_s2 <- readRDS(file_loc_hc_s2)
+}
+
+l_posterior_hc_1 <- posteriors_and_maps(tbl_draws_hc_s1, 1, c("beta", "tau"))
+l_posterior_hc_2 <- posteriors_and_maps(tbl_draws_hc_s2, 2, c("beta", "tau"))
+
+pars_group <- c("mu_beta", "mu_tau")
+
+
+group_posteriors <- function(tbl_draws) {
+  tbl_posterior <- tbl_draws %>% 
+    dplyr::select(starts_with(pars_group), .chain) %>%
+    rename(chain = .chain) %>%
+    pivot_longer(starts_with(pars_group), names_to = "parameter", values_to = "value")
+  
+  l <- sd_bfs(tbl_posterior, pars_group, .5, limits = c(.025, .975))
+  bfs <- l[[1]]
+  tbl_thx <- l[[2]]
+  bfs <- bfs[names(bfs) %in% pars_group]
+  tbl_thx <- tbl_thx %>% filter(parameter %in% pars_group)
+  
+  # plot the posteriors and the bfs
+  l_pl <- map(as.list(pars_group), plot_posterior, tbl_posterior, tbl_thx, bfs)
+  
+  return(list(tbl_posterior = tbl_posterior, l_pl = l_pl))
+}
+
+l_post_hc_1 <- group_posteriors(tbl_draws_hc_s1)
+l_post_hc_2 <- group_posteriors(tbl_draws_hc_s2)
+
+grid.arrange(
+  l_post_hc_1$l_pl[[1]] + ggtitle("S1: Group Beta"), l_post_hc_1$l_pl[[2]] + ggtitle("S1: Group Inv. Temp."),
+  l_post_hc_2$l_pl[[1]] + ggtitle("S2: Group Beta"), l_post_hc_2$l_pl[[2]] + ggtitle("S2: Group Inv. Temp."),
+  nrow = 2, ncol = 2
+)
 
 
