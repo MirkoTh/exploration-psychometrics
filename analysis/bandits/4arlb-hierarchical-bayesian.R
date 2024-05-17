@@ -121,6 +121,8 @@ mod_ucb_stan <- cmdstan_model(ucb_stan_txt)
 file_loc_s1 <- "data/restless-hierarchical-model-posterior.RDS"
 file_loc_s2 <- "data/restless-model-posterior-s2.RDS"
 pars_interest <- c("beta", "tau")
+pars_group <- c("mu_beta", "mu_tau")
+
 
 if (is_fit & !is_hierarchical) {
   
@@ -155,7 +157,7 @@ ids_sample <- tibble(
   id_stan = 1:length(unique(tbl_restless$ID))
 )
 
-posteriors_and_maps <- function(tbl_draws, s, pars_interest) {
+posteriors_and_maps <- function(tbl_draws, s, pars_interest, ids_sample) {
   
   tbl_posterior <- tbl_draws %>% 
     dplyr::select(starts_with(pars_interest), .chain) %>%
@@ -169,7 +171,7 @@ posteriors_and_maps <- function(tbl_draws, s, pars_interest) {
     relocate(ID, .before = parameter) %>%
     select(-c(id_stan))
   
-  tbl_map <- tbl_posterior_s1 %>% group_by(ID, parameter) %>% 
+  tbl_map <- tbl_posterior %>% group_by(ID, parameter) %>% 
     summarize(map = mean(value)) %>%
     ungroup() %>%
     mutate(
@@ -253,12 +255,45 @@ if (is_fit & is_hierarchical) {
   tbl_draws_hc_s2 <- readRDS(file_loc_hc_s2)
 }
 
-l_posterior_hc_1 <- posteriors_and_maps(tbl_draws_hc_s1, 1, c("beta", "tau"))
-l_posterior_hc_2 <- posteriors_and_maps(tbl_draws_hc_s2, 2, c("beta", "tau"))
+l_posterior_hc_1 <- posteriors_and_maps(tbl_draws_hc_s1, 1, c("beta", "tau"), ids_sample)
+l_posterior_hc_2 <- posteriors_and_maps(tbl_draws_hc_s2, 2, c("beta", "tau"), ids_sample)
 
-pars_group <- c("mu_beta", "mu_tau")
+# test-retest reliability
+tbl_map_hc <- l_posterior_hc_1[[2]] %>% select(-session) %>% 
+  left_join(
+    l_posterior_hc_2[[2]] %>% select(-session),
+    by = c("ID", "parameter"), suffix = c("_1", "_2")
+  ) %>% 
+  pivot_wider(names_from = parameter, values_from = c(map_1, map_2))
+saveRDS(tbl_map_hc, "data/4arlb-maps-hierarchical.RDS")
 
+tbl_map_hc %>%
+  summarize(
+    r_v = cor(map_1_v, map_2_v),
+    r_ru = cor(map_1_ru, map_2_ru)
+  )
 
+# distribution of maps
+hist_maps <- l_posterior_hc_1[[2]] %>% select(-session) %>% 
+  left_join(
+    l_posterior_hc_2[[2]] %>% select(-session),
+    by = c("ID", "parameter"), suffix = c("_1", "_2")
+  ) %>% pivot_longer(cols = c(map_1, map_2)) %>%
+  mutate(name = factor(name, labels = c("Session 1", "Session 2"))) %>%
+  ggplot(aes(value)) +
+  geom_histogram(fill = "skyblue2", color = "black") +
+  facet_grid(name ~ parameter, scales = "free_x") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "MAP", y = "Nr. Participants") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  )
+
+save_my_pdf_and_tiff(hist_maps, "figures/4arlb-hierarchical-histograms-maps",  6, 5.5)
+
+## fixed effects
 group_posteriors <- function(tbl_draws) {
   tbl_posterior <- tbl_draws %>% 
     dplyr::select(starts_with(pars_group), .chain) %>%
@@ -281,8 +316,10 @@ l_post_hc_1 <- group_posteriors(tbl_draws_hc_s1)
 l_post_hc_2 <- group_posteriors(tbl_draws_hc_s2)
 
 grid.arrange(
-  l_post_hc_1$l_pl[[1]] + ggtitle("S1: Group Beta"), l_post_hc_1$l_pl[[2]] + ggtitle("S1: Group Inv. Temp."),
-  l_post_hc_2$l_pl[[1]] + ggtitle("S2: Group Beta"), l_post_hc_2$l_pl[[2]] + ggtitle("S2: Group Inv. Temp."),
+  l_post_hc_1$l_pl[[1]] + ggtitle("S1: Group Beta") + coord_cartesian(xlim = c(-1.5, .1)),
+  l_post_hc_1$l_pl[[2]] + ggtitle("S1: Group Inv. Temp.") + coord_cartesian(xlim = c(-.1, .25)),
+  l_post_hc_2$l_pl[[1]] + ggtitle("S2: Group Beta") + coord_cartesian(xlim = c(-1.5, .1)),
+  l_post_hc_2$l_pl[[2]] + ggtitle("S2: Group Inv. Temp.") + coord_cartesian(xlim = c(-.1, .25)),
   nrow = 2, ncol = 2
 )
 
