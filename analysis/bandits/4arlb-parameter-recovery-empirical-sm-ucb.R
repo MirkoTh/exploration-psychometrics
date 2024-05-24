@@ -59,7 +59,7 @@ my_participants_tbl_kalman <- function(l_params_decision, sim_d) {
     mu_prior = 50,
     sigma_xi_sq = 7.84,
     sigma_epsilon_sq = 16,
-    lambda = 9999, # irrelevant because stimulus set known
+    lambda = .9836,
     nr_trials = nr_trials,
     params_decision = l_params_decision,
     simulate_data = sim_d,
@@ -70,7 +70,7 @@ my_participants_tbl_kalman <- function(l_params_decision, sim_d) {
 my_participants_tbl_delta <- function(l_params_decision, delta, sim_d) {
   tibble(
     delta = delta,
-    lambda = 9999, # irrelevant because stimulus set known
+    lambda = .9836,
     nr_trials = nr_trials,
     params_decision = l_params_decision,
     simulate_data = sim_d,
@@ -102,6 +102,7 @@ if (fit_or_load == "fit") {
     sigma_xi_sq, sigma_epsilon_sq,
     sigma_prior, mu_prior,
     bds = bds_sm,
+    decay_center = mu_prior,
     .progress = TRUE
   )
   plan("sequential")
@@ -140,7 +141,7 @@ tbl_cor_softmax_0var_long <- tbl_recovery_kalman_softmax %>%
   rename("Gamma" = r_gamma) %>%
   pivot_longer(cols = c(Gamma))
 
-
+l_participants <- l_participants[1:4]
 
 ## UCB with Softmax -------------------------------------------------------
 
@@ -154,6 +155,8 @@ if (fit_or_load == "fit") {
     sigma_xi_sq, sigma_epsilon_sq,
     sigma_prior, mu_prior,
     bds = bds_ucb, 
+    decay_center = mu_prior,
+    
     .progress = TRUE
   )
   plan("sequential")

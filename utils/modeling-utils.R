@@ -2609,7 +2609,8 @@ ucb_stan <- function() {
       }
     }
     generated quantities{
-      vector [nSubjects] log_lik;        
+      vector [nSubjects] log_lik;
+      array [nSubjects, nTrials] int choice_pred;
       for (s in 1:nSubjects) {
         vector[4] m;   // value (mu)
         vector[4] var_mean; // sigma
@@ -2620,13 +2621,14 @@ ucb_stan <- function() {
         var_mean = rep_vector(var_mean_prior, 4);
         
         log_lik[s] = 0;    
-        for (t in 1:nTrials) {   
+        for (t in 1:nTrials) { 
           
           if (choice[s,t] != 0) {
             
             // choice model
             eb = beta[s] * sqrt(var_mean + var_xi);
             log_lik[s] = log_lik[s] + categorical_logit_lpmf(choice[s,t] | tau[s] * (m + eb));
+            choice_pred[s, t] = categorical_logit_rng(tau[s] * (m + eb));
             
             // learning model
             pe = reward[s,t] - m[choice[s,t]];  // prediction error 
@@ -2721,7 +2723,9 @@ ucb_stan_hierarchical <- function() {
       }
     }
     generated quantities{
-      vector [nSubjects] log_lik;        
+      vector [nSubjects] log_lik;
+      array [nSubjects, nTrials] int choice_pred;
+
       for (s in 1:nSubjects) {
         vector[4] m;   // value (mu)
         vector[4] var_mean; // sigma
@@ -2739,6 +2743,7 @@ ucb_stan_hierarchical <- function() {
             // choice model
             eb = beta[s] * sqrt(var_mean + var_xi);
             log_lik[s] = log_lik[s] + categorical_logit_lpmf(choice[s,t] | tau[s] * (m + eb));
+            choice_pred[s, t] = categorical_logit_rng(tau[s] * (m + eb));
             
             // learning model
             pe = reward[s,t] - m[choice[s,t]];  // prediction error 

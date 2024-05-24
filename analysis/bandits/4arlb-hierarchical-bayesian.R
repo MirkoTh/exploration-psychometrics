@@ -4,6 +4,7 @@ rm(list = ls())
 
 library(tidyverse)
 library(rutils)
+library(grid)
 library(gridExtra)
 library(cmdstanr)
 
@@ -96,6 +97,13 @@ tbl_restless_s2 <- tbl_restless %>%
   arrange(ID, trial)
 
 
+
+# subset for testing
+# all_ids <- unique(tbl_restless$ID)
+# tbl_restless_s1 <- tbl_restless_s1 %>% filter(ID %in% all_ids[1:20])
+# tbl_restless_s2 <- tbl_restless_s2 %>% filter(ID %in% all_ids[1:20])
+
+
 l_data_s1 <- list(
   nSubjects = length(unique(tbl_restless_s1$ID)),
   nTrials = max(tbl_restless_s1$trial),
@@ -109,6 +117,9 @@ l_data_s2 <- list(
   reward = pivot_wider(tbl_restless_s2[, c("ID", "trial", "rewards")], names_from = "trial", values_from = "rewards") %>% select(-ID) %>% as.matrix()
 )
 
+pars_interest <- c("beta", "tau")
+pars_group <- c("mu_beta", "mu_tau")
+pars_pred <- c("choice_pred", "log_lik")
 
 
 
@@ -118,10 +129,9 @@ l_data_s2 <- list(
 ucb_stan_txt <- ucb_stan()
 mod_ucb_stan <- cmdstan_model(ucb_stan_txt)
 
-file_loc_s1 <- "data/restless-hierarchical-model-posterior.RDS"
-file_loc_s2 <- "data/restless-model-posterior-s2.RDS"
-pars_interest <- c("beta", "tau")
-pars_group <- c("mu_beta", "mu_tau")
+file_loc_s1 <- "data/restless-participant-model-posterior-s1.RDS"
+file_loc_s2 <- "data/restless-participant-model-posterior-s2.RDS"
+
 
 
 if (is_fit & !is_hierarchical) {
@@ -131,8 +141,8 @@ if (is_fit & !is_hierarchical) {
     data = l_data_s1, iter_sampling = 300, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
-  tbl_draws_s1 <- fit_restless_ucb_s1$draws(variables = pars_interest, format = "df")
-  tbl_summary_s1 <- fit_restless_ucb_s1$summary(variables = pars_interest)
+  tbl_draws_s1 <- fit_restless_ucb_s1$draws(variables = c(pars_interest, pars_pred), format = "df")
+  tbl_summary_s1 <- fit_restless_ucb_s1$summary(variables = c(pars_interest, pars_pred))
   tbl_summary_s1 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_s1, file_loc_s1)
   
@@ -142,8 +152,8 @@ if (is_fit & !is_hierarchical) {
     data = l_data_s2, iter_sampling = 300, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
-  tbl_draws_s2 <- fit_restless_ucb_s2$draws(variables = pars_interest, format = "df")
-  tbl_summary_s2 <- fit_restless_ucb_s2$summary(variables = pars_interest)
+  tbl_draws_s2 <- fit_restless_ucb_s2$draws(variables = c(pars_interest, pars_pred), format = "df")
+  tbl_summary_s2 <- fit_restless_ucb_s2$summary(variables = c(pars_interest, pars_pred))
   tbl_summary_s2 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_s2, file_loc_s2)
   
@@ -231,22 +241,22 @@ if (is_fit & is_hierarchical) {
   
   # session 1
   fit_restless_ucb_hc_s1 <- mod_ucb_stan_hc$sample(
-    data = l_data_s1, iter_sampling = 1000, iter_warmup = 500, chains = 3, parallel_chains = 3
+    data = l_data_s1, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
-  tbl_draws_hc_s1 <- fit_restless_ucb_hc_s1$draws(variables = c(pars_interest, pars_group), format = "df")
-  tbl_summary_hc_s1 <- fit_restless_ucb_hc_s1$summary(variables = c(pars_interest, pars_group))
+  tbl_draws_hc_s1 <- fit_restless_ucb_hc_s1$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
+  tbl_summary_hc_s1 <- fit_restless_ucb_hc_s1$summary(variables = c(pars_interest, pars_group, pars_pred))
   tbl_summary_hc_s1 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_s1, file_loc_hc_s1)
   
   
   # session 2
   fit_restless_ucb_hc_s2 <- mod_ucb_stan_hc$sample(
-    data = l_data_s2, iter_sampling = 1000, iter_warmup = 500, chains = 3, parallel_chains = 3
+    data = l_data_s2, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
-  tbl_draws_hc_s2 <- fit_restless_ucb_hc_s2$draws(variables = c(pars_interest, pars_group), format = "df")
-  tbl_summary_hc_s2 <- fit_restless_ucb_hc_s2$summary(variables = c(pars_interest, pars_group))
+  tbl_draws_hc_s2 <- fit_restless_ucb_hc_s2$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
+  tbl_summary_hc_s2 <- fit_restless_ucb_hc_s2$summary(variables = c(pars_interest, pars_group, pars_pred))
   tbl_summary_hc_s2 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_s2, file_loc_hc_s2)
   
@@ -324,3 +334,146 @@ grid.arrange(
 )
 
 
+
+# recoverability ----------------------------------------------------------
+
+
+# get predictions from bayesian model and append to original data
+my_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+my_bayesian_preds <- function(tbl_draws) {
+  tbl_pred <- tbl_draws %>% select(contains("choice_pred"))
+  randomly_drawn_ids <- sample(1:nrow(tbl_pred), ncol(tbl_pred), replace = TRUE)
+  
+  tbl_preds <- tibble(
+    choice_pred = map2_dbl(randomly_drawn_ids, tbl_pred, ~ .y[.x]),
+    choice_pred_map = map_dbl(tbl_pred, my_mode)
+  )
+  
+  return(tbl_preds)
+}
+
+tbl_restless_s1 <- cbind(tbl_restless_s1, my_bayesian_preds(tbl_draws_hc_s1))
+tbl_restless_s2 <- cbind(tbl_restless_s2, my_bayesian_preds(tbl_draws_hc_s2))
+tbl_restless_s1$reward_pred_map <- pmap_dbl(
+  tbl_restless_s1[, c("reward1", "reward2", "reward3", "reward4", "choice_pred_map")], 
+  ~ c(..1, ..2, ..3, ..4)[..5]
+)
+tbl_restless_s2$reward_pred_map <- pmap_dbl(
+  tbl_restless_s2[, c("reward1", "reward2", "reward3", "reward4", "choice_pred_map")], 
+  ~ c(..1, ..2, ..3, ..4)[..5]
+)
+
+# fit same model again on predicted data
+l_data_s1$choice <- pivot_wider(tbl_restless_s1[, c("ID", "trial", "choice_pred_map")], names_from = "trial", values_from = "choice_pred_map") %>% select(-ID) %>% as.matrix()
+l_data_s1$reward  <- pivot_wider(tbl_restless_s1[, c("ID", "trial", "reward_pred_map")], names_from = "trial", values_from = "reward_pred_map") %>% select(-ID) %>% as.matrix()
+
+l_data_s2$choice <- pivot_wider(tbl_restless_s2[, c("ID", "trial", "choice_pred_map")], names_from = "trial", values_from = "choice_pred_map") %>% select(-ID) %>% as.matrix()
+l_data_s2$reward  <- pivot_wider(tbl_restless_s2[, c("ID", "trial", "reward_pred_map")], names_from = "trial", values_from = "reward_pred_map") %>% select(-ID) %>% as.matrix()
+
+file_loc_hc_s1_recovery <- "data/restless-hierarchical-model-recovery-posterior-s1.RDS"
+file_loc_hc_s2_recovery <- "data/restless-hierarchical-model-recovery-posterior-s2.RDS"
+
+if (is_fit & is_hierarchical) {
+  
+  # session 1
+  fit_restless_ucb_hc_s1_recovery <- mod_ucb_stan_hc$sample(
+    data = l_data_s1, iter_sampling = 300, iter_warmup = 200, chains = 3, parallel_chains = 3
+  )
+  
+  tbl_draws_hc_s1_recovery <- fit_restless_ucb_hc_s1_recovery$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
+  tbl_summary_hc_s1_recovery <- fit_restless_ucb_hc_s1_recovery$summary(variables = c(pars_interest, pars_group, pars_pred))
+  tbl_summary_hc_s1_recovery %>% arrange(desc(rhat))
+  saveRDS(tbl_draws_hc_s1_recovery, file_loc_hc_s1_recovery)
+  
+  
+  # session 2
+  fit_restless_ucb_hc_s2_recovery <- mod_ucb_stan_hc$sample(
+    data = l_data_s2, iter_sampling = 300, iter_warmup = 200, chains = 3, parallel_chains = 3
+  )
+  
+  tbl_draws_hc_s2_recovery <- fit_restless_ucb_hc_s2_recovery$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
+  tbl_summary_hc_s2_recovery <- fit_restless_ucb_hc_s2_recovery$summary(variables = c(pars_interest, pars_group, pars_pred))
+  tbl_summary_hc_s2_recovery %>% arrange(desc(rhat))
+  saveRDS(tbl_draws_hc_s2_recovery, file_loc_hc_s2_recovery)
+  
+} else if (!is_fit) {
+  tbl_draws_hc_s1_recovery <- readRDS(file_loc_hc_s1_recovery)
+  tbl_draws_hc_s2_recovery <- readRDS(file_loc_hc_s2_recovery)
+}
+
+# compute correlations between input maps and output maps
+
+by_participant_maps <- function(tbl_draws, f_time) {
+  tbl_draws %>% select(starts_with(pars_interest)) %>%
+    mutate(n_sample = 1:nrow(.)) %>%
+    pivot_longer(-n_sample) %>%
+    mutate(
+      ID = as.integer(str_extract(name, "[0-9]+")),
+      parameter = str_extract(name, "^[a-z]*")
+    ) %>%
+    group_by(ID, parameter) %>%
+    summarize(map = mean(value)) %>%
+    ungroup() %>%
+    mutate(fit_time = f_time)
+}
+
+map_cor <- function(tbl_draws_hc, tbl_draws_hc_recovery) {
+  
+  l_tbl_draws <- list(tbl_draws_hc, tbl_draws_hc_recovery)
+  l_tbl_maps <- map2(l_tbl_draws, c("data", "preds"), by_participant_maps)
+  
+  tbl_recovery <- reduce(
+    l_tbl_maps, 
+    ~ left_join(.x, .y, by = c("ID", "parameter"), suffix = c("_data", "_preds"))
+  )
+  cor_recovery <- tbl_recovery %>%
+    pivot_wider(names_from = parameter, values_from = c(map_data, map_preds)) %>%
+    select(-c(fit_time_data, fit_time_preds)) %>%
+    summarize(
+      beta_in_beta_out = cor(map_data_beta, map_preds_beta),
+      tau_in_tau_out = cor(map_data_tau, map_preds_tau),
+      beta_in_tau_out = cor(map_data_beta, map_preds_tau),
+      tau_in_beta_out = cor(map_data_tau, map_preds_beta)
+    )
+  
+  return(list(tbl_recovery = tbl_recovery, cor_recovery = cor_recovery))
+}
+
+recovery_heatmap <- function(l_recovery, ttl) {
+  tbl_in_out <- l_recovery$cor_recovery %>%
+    pivot_longer(colnames(.)) %>%
+    mutate(
+      param_in = str_match(name, "([a-z]*)_")[, 2],
+      param_out = str_match(name, "_([a-z]*)_out")[, 2]
+    )
+  ggplot(tbl_in_out, aes(param_in, param_out)) +
+    geom_tile(aes(fill = value)) +
+    geom_text(aes(label = round(value, 2)), size = 6, color = "white") +
+    theme_bw() +
+    scale_x_discrete(expand = c(0.01, 0)) +
+    scale_y_discrete(expand = c(0.01, 0)) +
+    scale_fill_viridis_c(guide = "none") +
+    labs(x = "MAP (Data)", y = "MAP (Prediction)", title = ttl) + 
+    theme(
+      strip.background = element_rect(fill = "white"), 
+      text = element_text(size = 22)
+    ) + 
+    scale_color_gradient(name = "", low = "skyblue2", high = "tomato4")
+}
+
+l_recovery_s1 <- map_cor(tbl_draws_hc_s1, tbl_draws_hc_s1_recovery)
+l_recovery_s2 <- map_cor(tbl_draws_hc_s2, tbl_draws_hc_s2_recovery)
+pl_heatmap_s1 <- recovery_heatmap(l_recovery_s1, "Session 1")
+pl_heatmap_s2 <- recovery_heatmap(l_recovery_s2, "Session 2")
+
+pl_heatmaps <- arrangeGrob(
+  pl_heatmap_s1, pl_heatmap_s2 + scale_fill_viridis_c(), 
+  nrow = 1, widths = c(1, 1.3)
+)
+
+save_my_pdf_and_tiff(
+  pl_heatmaps, "figures/4arlb-hierarchical-ucb-recovery", 10, 4
+)  
