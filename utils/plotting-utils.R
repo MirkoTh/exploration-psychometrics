@@ -23,10 +23,10 @@ plot_pc_against_ss <- function(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci, tbl_wmu_ss_ag
     pl <- pl +
       geom_errorbar(
         data = tbl_wmu_ss_agg_ci, aes(
-          x = set_size, y = prop_correct, ymin = prop_correct - ci, ymax = prop_correct + ci, color = session_id
+          x = set_size, y = prop_correct, ymin = prop_correct - ci, ymax = prop_correct + ci, color = as.character(as.numeric(as.character(session_id)) + 1)
         ), width = .5
       ) +
-      geom_point(data = tbl_wmu_ss_agg_ci, aes(set_size, prop_correct, color = session_id)) 
+      geom_point(data = tbl_wmu_ss_agg_ci, aes(set_size, prop_correct, color = as.character(as.numeric(as.character(session_id)) + 1))) 
   }
   
   return(pl)
