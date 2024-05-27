@@ -11,8 +11,10 @@ library(tidyverse)
 library(rutils)
 library(future)
 library(furrr)
+library(grid)
+library(gridExtra)
 
-home_grown <- c("utils/analysis-utils.R", "utils/modeling-utils.R", "utils/plotting-utils.R")
+home_grogridExtrahome_grown <- c("utils/analysis-utils.R", "utils/modeling-utils.R", "utils/plotting-utils.R")
 walk(home_grown, source)
 
 
@@ -31,7 +33,7 @@ nr_trials <- 200
 center_decay <- 50
 
 
-my_two_seeds <- c(997733, 5247222) #49015499 originally for wave II, now tested and okish: 9832927, better: 5247222
+my_two_seeds <- c(997733, 5247222)
 set.seed(my_two_seeds[1])
 mu_init <- rnorm(4, 50, 3)
 tbl_rewards_w1 <- generate_restless_bandits(
@@ -72,7 +74,7 @@ l_params_decision <- list(
 n_iter <- 50
 
 
-gamma <- seq(.01, 1, length.out = 10)
+gamma <- c(seq(.01, .25, length.out = 4), .5, 1, 2, 3, 4.5)
 beta <- sort(c(0, seq(-3, 3, length.out = 10)))
 tbl_params <- crossing(gamma, beta)
 
@@ -85,7 +87,7 @@ is_fit <- TRUE
 # takes approx. 17 mins for n_iter = 10, and 10x10 parameter grid
 if (is_fit) {
   plan(multisession, workers = availableCores() - 3)
-  pb <- progress_bar$new(total = nrow(tbl_params))
+  pb <- progress::progress_bar$new(total = nrow(tbl_params))
   for (i in 1:nrow(tbl_params)) {
     l_params_decision$gamma <- tbl_params$gamma[i]
     l_params_decision$beta <- tbl_params$beta[i]
@@ -93,13 +95,13 @@ if (is_fit) {
       sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
       lambda, nr_trials, l_params_decision, simulate_data = FALSE,
       seed = .x, tbl_rewards = tbl_rewards_w1 %>% select(-trial_id),
-      decay_center = decay_center
+      decay_center = center_decay
     ), seed = NULL)
     l_results_w2[[i]] <- future_map(1:n_iter, ~ simulate_kalman(
       sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
       lambda, nr_trials, l_params_decision, simulate_data = FALSE,
       seed = .x, tbl_rewards = tbl_rewards_w2 %>% select(-trial_id),
-      decay_center = decay_center
+      decay_center = center_decay
     ), seed = NULL)
     pb$tick()
   }
@@ -141,7 +143,7 @@ tbl_results_w2 <- cbind(tbl_params, tbl_results_w2) %>%
 l_results_random <- list()
 if (is_fit) {
   plan(multisession, workers = availableCores() - 3)
-  pb <- progress_bar$new(total = nrow(tbl_params))
+  pb <- progress::progress_bar$new(total = nrow(tbl_params))
   for (i in 1:nrow(tbl_params)) {
     l_params_decision$gamma <- tbl_params$gamma[i]
     l_params_decision$beta <- tbl_params$beta[i]
@@ -149,7 +151,7 @@ if (is_fit) {
       sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, 
       lambda, nr_trials, l_params_decision, simulate_data = TRUE,
       seed = .x, tbl_rewards = tbl_rewards_w1 %>% select(-trial_id),
-      mu_init = "sample", decay_center = decay_center
+      mu_init = "sample", decay_center = center_decay
     ))
     pb$tick()
   }
@@ -174,19 +176,20 @@ tbl_results_random <- cbind(tbl_params, tbl_results_random) %>%
 # plot results ------------------------------------------------------------
 
 tbl_results <- rbind(tbl_results_w1, tbl_results_w2, tbl_results_random)
+tbl_results$gamma <- factor(round(tbl_results$gamma, 2))
+tbl_results$beta <- factor(round(tbl_results$beta, 2))
 
-
-grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
+pl_optimal_strategy_2d <- grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
   group_by(stim_set) %>%
   mutate(mean_value_prop = mean_value/max(mean_value)) %>%
   ggplot(aes(gamma, beta)) +
   geom_tile(aes(fill = mean_value_prop)) +
-  geom_text(aes(label = round(mean_value_prop, 2)), color = "grey50") + 
+  geom_text(aes(label = round(mean_value_prop, 3)), color = "white") + 
   facet_wrap(~ stim_set) +
   scale_fill_viridis_c(guide = "none") +
   theme_bw() +
-  scale_x_continuous(expand = c(0.01, 0)) +
-  scale_y_continuous(expand = c(0.01, 0)) +
+  scale_x_discrete(expand = c(0.01, 0)) +
+  scale_y_discrete(expand = c(0.01, 0)) +
   labs(x = expression(gamma), y = expression(beta)) + 
   theme(
     strip.background = element_rect(fill = "white"),
@@ -194,7 +197,7 @@ grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
   )
 
 pd <- position_dodge(width = .15)
-grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
+tbl_results_agg <- grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
   # group_by(stim_set) %>%
   # mutate(mean_value_shifted = mean_value - min(mean_value)) %>%
   pivot_longer(gamma) %>%
@@ -203,30 +206,38 @@ grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
       # group_by(stim_set) %>%
       # mutate(mean_value_shifted = mean_value - min(mean_value)) %>%
       pivot_longer(beta)
-  ) %>%
-  ggplot(aes(value, mean_value, group = stim_set)) +
+  ) %>% ungroup()
+tbl_results_agg$value <- as.factor(as.numeric(as.character(tbl_results_agg$value)))
+tbl_results_agg$name <- factor(tbl_results_agg$name, labels = c("beta", "gamma"))
+
+pl_optimal_strategy_1d <- ggplot(tbl_results_agg, aes(value, mean_value, group = stim_set)) +
   geom_line(aes(color = stim_set), position = pd) +
   geom_errorbar(aes(
     ymin = mean_value - 1.96 * se_value, 
     ymax = mean_value + 1.96 * se_value, 
     color = stim_set
-    ), width = .15, position = pd) +
+  ), width = .15, position = pd) +
   geom_point(color = "white", size = 3, position = pd) +
   geom_point(aes(color = stim_set), position = pd) +
-  facet_wrap(~ name, scales = "free_x") +
+  facet_wrap(~ name, scales = "free_x", labeller = label_parsed) +
   theme_bw() +
-  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_x_discrete(expand = c(0.02, 0)) +
   scale_y_continuous(expand = c(0.01, 0), labels = scales::comma) +
   labs(x = "Parameter Value", y = "Cum. Rewards") + 
   theme(
-    strip.background = element_rect(fill = "white"),
     text = element_text(size = 22),
     axis.text.y = element_text(),
-    legend.position = "bottom"
+    legend.position = "bottom",
+    strip.background = element_rect(fill = "white")
   ) + 
   scale_color_manual(values = c("skyblue2", "tomato4", "gold"), name = "")
 
 
+pl_optimal_stratagy_1d_2d <- arrangeGrob(pl_optimal_strategy_2d, pl_optimal_strategy_1d, nrow = 2)
+save_my_pdf_and_tiff(
+  pl_optimal_stratagy_1d_2d,
+  "figures/4arlb-optimal-strategy", 16, 10
+)
 
 test_sum_bandits <- function(idx) {
   tmp <- generate_restless_bandits(
