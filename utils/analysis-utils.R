@@ -412,6 +412,15 @@ load_wm_data <- function() {
 se <- function(x){sd(x, na.rm = T) / sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
 
+json_to_tibble_kristin <- function(path_file) {
+  js_txt <- read_file(path_file)
+  js_txt <-str_c("[", str_replace_all(js_txt, "\\}", "\\},"), "]")
+  js_txt <- str_replace(js_txt, ",\n]", "]")
+  #js_txt <- str_replace(js_txt, ",,", ",")
+  my_tbl <- jsonlite::fromJSON(js_txt) %>% as_tibble()
+  return(my_tbl)
+}
+
 load_bandit_and_questionnaire_data <- function(session, time_period) {
   
   if (!file.exists("data/all-data/BanditLookup1.csv")){
@@ -507,12 +516,20 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
     pid <- lookup$PID[i]
     file_ind <- grep(pid, files)
     # check if we have the final data for that participant
-    if (length(file_ind)>0){ID = i} 
-    else { # if not we need to look through temp, easiest to do that manually
+    if (length(file_ind)>0){
+      ID = i
+      temp <- fromJSON(paste(path_data_bandits, files[file_ind], sep = ""))
+      } 
+    else { # if not we need to look through temp
       print(pid)
-      next
+      t <- read_file(paste0(path_data_bandits,pid ,"_temp_data_task_session_", session-1,".txt"))
+      te <- gsub("\\}\n\\{", "},\"next\":{", t)
+      te <- paste0("{", te, "}")
+      tem <- fromJSON(te)
+      temp <- tem[[length(tem)]]
+      ID = i
     }
-    temp <- fromJSON(paste(path_data_bandits, files[file_ind], sep = ""))
+    
     ### Horizon task
     for (block in 2:(nBlocksH+1)){# bc block 1 is practice
       for (trial in 1:nTrialsH){

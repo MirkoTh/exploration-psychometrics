@@ -93,7 +93,7 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$Poptim[Perfs$
                                                              Perfs$Poptim[Perfs$model == cors$session2[x] & Perfs$session == 2], use = "pairwise.complete.obs"))
 
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between session 1 and 2"
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of P(optimal) session 1 and 2"
                                                         )
 # save this for the final big plot
 
@@ -104,14 +104,14 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$Poptim[Perfs$
                                                              Perfs$Poptim[Perfs$model == cors$session2[x] & Perfs$session == 1], use = "pairwise.complete.obs"))
 
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between bandit tasks session 1")
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of P(optimal) between bandit tasks session 1")
 
 
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$Poptim[Perfs$model == cors$session1[x] & Perfs$session == 2],
                                                              Perfs$Poptim[Perfs$model == cors$session2[x] & Perfs$session == 2], use = "pairwise.complete.obs"))
 
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between bandit tasks session 2")
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of P(optimal) between bandit tasks session 2")
 
 
 ############### regret
@@ -160,14 +160,14 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$regret[Perfs$
                                                              Perfs$regret[Perfs$model == cors$session2[x] & Perfs$session == 1], use = "pairwise.complete.obs"))
 
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between bandit tasks session 1")
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of regret between bandit tasks session 1")
 
 
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$regret[Perfs$model == cors$session1[x] & Perfs$session == 2],
                                                              Perfs$regret[Perfs$model == cors$session2[x] & Perfs$session == 2], use = "pairwise.complete.obs"))
 
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of performance between bandit tasks session 2")
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of regret between bandit tasks session 2")
 
 
 ##################### model-agnostic measures of exploration ###########
@@ -219,13 +219,13 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(switch$Pswitch[swit
                                                              switch$Pswitch[switch$model == cors$session2[x] & switch$session == 1], use = "pairwise.complete.obs"))
 
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of switch probability within session 1")
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of switch probability within session 1")
 
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(switch$Pswitch[switch$model == cors$session1[x] & switch$session == 2],
                                                              switch$Pswitch[switch$model == cors$session2[x] & switch$session == 2], use = "pairwise.complete.obs"))
 
 ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of switch probability within session 2")
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of switch probability within session 2")
                                                         
 
 ############ what does the switch probabilitiy actually look like across tasks and time points? 
@@ -464,6 +464,19 @@ save(cors, file = "analysis/reliabilityResults/questionnaires.Rda")
 rel_questionnaires <- data.frame(measure = measures,
                                  rel = cors$cor[cors$session1 == cors$session2])
 
+## agreement within a session
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(avg$score[avg$measure == cors$session1[x] & avg$session == 1],
+                                                             avg$score[avg$measure == cors$session2[x] & avg$session == 1], use = "pairwise.complete.obs"))
+
+ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of questionnaires in session 1")
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(avg$score[avg$measure == cors$session1[x] & avg$session == 2],
+                                                             avg$score[avg$measure == cors$session2[x] & avg$session == 2], use = "pairwise.complete.obs"))
+
+ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of questionnaires in session 2")
 
 ##################### big reliability plot(s) #################
 
@@ -513,6 +526,7 @@ save(rel_collect, file ="analysis/reliabilityResults/reliability_tasks_Horizonfu
 
 
 ggpubr::ggarrange(p1, p2, ncol = 2)
+
 
 
 

@@ -19,6 +19,18 @@ source("analysis/recovery_utils.R")
 se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
 
+### remove the person that has no data
+
+horizon <- subset(horizon,!is.na(info))
+sam <- subset(sam, !is.na(chosen))
+restless <- subset(restless, !is.na(chosen))
+
+
+## make sure all bandit datasets are sorted with assending IDs so that there are no downstream issues in the matching of IDs
+
+horizon <- horizon[order(horizon$ID), ]
+sam <- sam[order(sam$ID), ]
+restless <- restless[order(restless$ID), ]
 
 ########## prep questionnaire data #######
 
@@ -61,6 +73,9 @@ responses$max <- maxval$max[match(responses$measure, maxval$measure)]
 responses$response <- ifelse(responses$reversed == 1, as.numeric(responses$max) - as.numeric(responses$response), as.numeric(responses$response))
 
 avg <- ddply(responses, ~ID+measure, summarise, score = mean(response))
+
+avg <- avg[order(avg$ID), ]
+
 
 ########### prep bandit behaviour - proportion of high variance arm choices ##########
 
@@ -194,6 +209,83 @@ bestR$task <- "restless"
 bandits <- rbind(bestH, bestS, bestR)
 
 
+############# prep regret ########
+
+
+horizon$maxR <- ifelse(horizon$reward1 > horizon$reward2, horizon$reward1, horizon$reward2)
+horizon$regret <- horizon$maxR - horizon$reward
+
+Hperf <- ddply(horizon[horizon$trial > 4, ], ~ID,summarise, regret = meann(regret))
+
+sam$maxR <- ifelse(sam$reward1 > sam$reward2, sam$reward1, sam$reward2)
+sam$regret <- sam$maxR - sam$reward
+
+
+Sperf <- ddply(sam, ~ID, summarise, regret = meann(regret))
+
+restrewards <- subset(restless, ID == 1, c(reward1, reward2, reward3, reward4, trial, session))
+restrewards$best <- apply(as.array(1:nrow(restrewards)), 1, function(x) max(c(restrewards$reward1[x],
+                                                                              restrewards$reward2[x],
+                                                                              restrewards$reward3[x],
+                                                                              restrewards$reward4[x])))
+
+
+restless$optimalR <- restrewards$best[match(paste(restless$trial, restless$session), paste(restrewards$trial, restrewards$session))]
+
+restless$regret <-restless$optimalR - restless$reward
+
+Rperf <- ddply(restless, ~ID, summarise, regret = meann(regret))
+
+Hperf$model <- "horizon"
+Sperf$model <- "sam"
+Rperf$model <- "restless"
+
+regret <- rbind(Hperf, Sperf, Rperf)
+
+
+###### prep Poptimal ######
+
+horizon$optimal <- ifelse(horizon$regret == 0, 1, 0)
+Hperf <- ddply(horizon[horizon$trial > 4, ], ~ID, summarise, Poptimal = meann(optimal))
+
+sam$optimal <- ifelse(sam$regret == 0, 1, 0)
+Sperf <- ddply(sam, ~ID, summarise, Poptimal = meann(optimal))
+
+restless$optimal <- ifelse(restless$regret == 0, 1, 0)
+Rperf <- ddply(restless, ~ID, summarise, Poptimal = meann(optimal))
+
+Hperf$model <- "horizon"
+Sperf$model <- "sam"
+Rperf$model <- "restless"
+
+Poptimal <- rbind(Hperf, Sperf, Rperf)
+
+######### prep P(switch) ##########
+
+
+horizon$prev <- c(NA, horizon$chosen[1:nrow(horizon)-1])
+horizon$switch <- ifelse(horizon$chosen == horizon$prev, 0, 1)
+horizon$switch[horizon$trial == 1] <- NA
+
+sam$prev <- c(NA, sam$chosen[1:nrow(sam)-1])
+sam$switch <- ifelse(sam$chosen == sam$prev, 0, 1)
+sam$switch[sam$trial == 1] <- NA
+
+restless$prev <- c(NA, restless$chosen[1:nrow(restless)-1])
+restless$switch <- ifelse(restless$chosen == restless$prev, 0, 1)
+restless$switch[restless$trial == 1] <- NA
+
+Hswitch <- ddply(horizon[horizon$trial > 4, ],~ID,summarise, Pswitch = meann(switch))
+Sswitch <- ddply(sam, ~ID,summarise, Pswitch = meann(switch))
+Rswitch <- ddply(restless, ~ID, summarise, Pswitch = meann(switch))
+
+Hswitch$model <- "horizon"
+Sswitch$model <- "sam"
+Rswitch$model <- "restless"
+
+switch <- rbind(Hswitch, Sswitch, Rswitch)
+
+
 
 ########## get to comparing #########
 
@@ -248,9 +340,21 @@ ggplot(cors, aes(x = task, y = questionnaire, fill = cor)) + geom_raster() + sca
 
 ########## correlate with working memory performance 
 
-import <- readRDS("analysis/4arlb-overview.rds")
+import <- readRDS(sprintf("analysis/4arlb-overviewAll.rds", session))
+
+import$session <- as.numeric(as.character(import$session))
+
+import <- import[import$session == session, ]
 
 wm <- pivot_longer(import, cols = c(10:12), names_to = "task", values_to = "score")
+
+length(unique(wm$ID))
+
+wm$ID <- as.numeric(as.character(wm$ID))
+
+wm <- wm %>% arrange(ID)
+
+unique(wm$ID)
 
 wm_tasks <- unique(wm$task)
 
@@ -283,21 +387,15 @@ ggplot(cors, aes(x = task, y = wm, fill = cor)) + geom_raster() + scale_fill_gra
 
 #load("analysis/bandits/recovHorizonFull.Rda")
 
-load(sprintf("analysis/bandits/modelFitHorizon%i.Rda", session))
+load(sprintf("analysis/bandits/modellingResults/fitHorizonSession%iUCBfull.Rda", session))
 
-if (session == 1){
-  HParams <- trueParams1
-  HParams$ID <- readr::parse_number(HParams$X)
-  
-}else {
-  HParams <- trueParams
-  HParams$X <- rownames(HParams)
-  HParams$ID <- readr::parse_number(HParams$X)
-  
-}
-
+HParams <- trueParams
 
 params <- unique(HParams$predictor)
+
+HParams$ID <- readr::parse_number(rownames(HParams))
+
+HParams <- HParams[order(HParams$ID), ]
 
 IDs <- intersect(unique(avg$ID), unique(HParams$ID))
 
@@ -326,14 +424,14 @@ ggplot(cors, aes(x = parameter, y = questionnaire, fill = cor)) + geom_raster() 
 
 ##### wm
 
-IDs <- intersect(unique(wm$ID), unique(trueParams$ID))
+IDs <- intersect(unique(wm$ID), unique(HParams$ID))
 
 cors <- data.frame(parameter = rep(params, length(wm_tasks)),
                    wm = rep(wm_tasks, each = length(params)),
                    cor = NA)
 
 
-cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate[trueParams$predictor == cors$parameter[x] & is.element(trueParams$ID, IDs)],
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(HParams$estimate[HParams$predictor == cors$parameter[x] & is.element(HParams$ID, IDs)],
                                                              wm$score[wm$task == cors$wm[x] & is.element(wm$ID, IDs)]))
 
 
@@ -351,10 +449,12 @@ ggplot(cors, aes(x = parameter, y = wm, fill = cor)) + geom_raster() + scale_fil
 
 
 #load("analysis/bandits/recovSam.Rda")
-load(sprintf("analysis/bandits/modelFitSamWave%i.Rda", session))
-Sparams <- modelfit[[2]]
+load(sprintf("analysis/bandits/modellingResults/fitSamSession%iUCBhierarchical.Rda", session))
+Sparams <- trueParams
 
 Sparams$ID <- readr::parse_number(rownames(Sparams))
+
+Sparams <- Sparams[order(Sparams$ID), ]
 
 params <- unique(Sparams$predictor)
 
@@ -382,14 +482,14 @@ ggplot(cors, aes(x = parameter, y = questionnaire, fill = cor)) + geom_raster() 
 
 ##### wm
 
-IDs <- intersect(unique(wm$ID), unique(trueParams$ID))
+IDs <- intersect(unique(wm$ID), unique(Sparams$ID))
 
 cors <- data.frame(parameter = rep(params, length(wm_tasks)),
                    wm = rep(wm_tasks, each = length(params)),
                    cor = NA)
 
 
-cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate[trueParams$predictor == cors$parameter[x] & is.element(trueParams$ID, IDs)],
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Sparams$estimate[Sparams$predictor == cors$parameter[x] & is.element(Sparams$ID, IDs)],
                                                              wm$score[wm$task == cors$wm[x] & is.element(wm$ID, IDs)]))
 
 
@@ -405,7 +505,7 @@ ggplot(cors, aes(x = parameter, y = wm, fill = cor)) + geom_raster() + scale_fil
 
 ############### restless bandit
 
-restlessParams <- readRDS("analysis/4arlb-overview.rds")
+restlessParams <- import # the wm data file I use also has the restless bandit parameter estimates
 
 trueParams <- pivot_longer(restlessParams, cols = (5:6), names_to = "predictor", values_to = "estimate")
 
@@ -414,6 +514,9 @@ params <- unique(trueParams$predictor)
 
 trueParams <- subset(trueParams, !is.na(estimate))
 
+trueParams$ID <- as.numeric(as.character(trueParams$ID))
+
+trueParams <- trueParams[order(trueParams$ID), ]
 
 IDs <- intersect(unique(avg$ID), unique(trueParams$ID))
 
@@ -457,5 +560,115 @@ cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate
 ggplot(cors, aes(x = parameter, y = wm, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
   geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of model parameters and WM performance",
                                                         x = element_blank(), y = element_blank())
+
+Rparams <- trueParams
+
+
+############## that big plot that has wm and questionnaires and model params and model agnostic stuff #####
+
+### make 1 big table with all variables
+
+Poptimal$measure <- paste(Poptimal$model, "Poptimal")
+regret$measure <- paste(regret$model, "regret")
+switch$measure <- paste(switch$model, "Pswitch")
+
+
+# start big dataframe with the questionnaire scores
+allOfIt <- data.frame(ID = avg$ID,
+                      measure = avg$measure,
+                      value = avg$score)
+
+# add model agnostic task measures
+allOfIt <- rbind(allOfIt, data.frame(ID = Poptimal$ID,
+                                     measure = Poptimal$measure,
+                                     value = Poptimal$Poptimal))
+
+allOfIt <- rbind(allOfIt, data.frame(ID = regret$ID,
+                                     measure = regret$measure,
+                                     value = regret$regret))
+
+allOfIt <- rbind(allOfIt, data.frame(ID = switch$ID,
+                                     measure = switch$measure,
+                                     value = switch$Pswitch))
+
+
+# add model parameters
+allOfIt <- rbind(allOfIt, data.frame(ID = HParams$ID,
+                                     measure = paste("horizon", HParams$predictor, sep = "_"),
+                                     value = HParams$estimate))
+
+allOfIt <- rbind(allOfIt, data.frame(ID = Sparams$ID,
+                                     measure = paste("sam", Sparams$predictor, sep = "_"),
+                                     value = Sparams$estimate))
+
+
+allOfIt <- rbind(allOfIt, data.frame(ID = Rparams$ID,
+                                     measure = paste("restless", Rparams$predictor, sep = "_"),
+                                     value = Rparams$estimate))
+
+
+# add wm
+
+allOfIt <- rbind(allOfIt, data.frame(ID = wm$ID,
+                                     measure = wm$task,
+                                     value = wm$score))
+
+
+
+### get that big correlation
+
+
+measures <- unique(allOfIt$measure)
+
+IDs <- intersect(unique(avg$ID), unique(horizon$ID))
+IDs <- intersect(IDs, unique(wm$ID))
+
+
+cors <- data.frame(var1 = rep(measures, length(measures)),
+                   var2 = rep(measures, each = length(measures)),
+                   cor = NA)
+
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(allOfIt$value[allOfIt$measure == cors$var1[x] & is.element(allOfIt$ID, IDs)],
+                                                             allOfIt$value[allOfIt$measure == cors$var2[x] & is.element(allOfIt$ID, IDs)]))
+
+
+
+cors$var1 <- factor(cors$var1, levels = cors$var1, labels = cors$var1)
+cors$var2 <- factor(cors$var2, levels = cors$var2, labels = cors$var2)
+
+# plot them
+
+ggplot(cors, aes(x = var1, y = var2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "correlation of model parameters and WM performance",
+                                                        x = element_blank(), y = element_blank())+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
+########### regressions #############
+# 
+allOfIt1 <- allOfIt
+
+allOfIt1$session <- 1
+
+allOfIt$session <- 2
+
+allOfIt <- rbind(allOfIt1, allOfIt)
+
+
+df <- pivot_wider(allOfIt, id_cols = c("ID", "session"), names_from = "measure")
+
+df$horizon_HorizonRU <- df$`horizon_RU:Horizon`
+
+df$session <- df$session -1.5
+unique(df$session)
+
+brm(horizon_RU ~  STICSA*session + (session|ID),
+    data = df,
+    chains = 2,
+    cores = 2,
+    it = 4000)
 
 

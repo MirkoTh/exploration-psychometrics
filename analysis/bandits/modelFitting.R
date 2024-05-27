@@ -9,7 +9,7 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-session <- 2
+session <- 1
 
 load(paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
 
@@ -705,5 +705,19 @@ df <- pivot_longer(pars, cols = 1:2, values_to = "estimate", names_to = "paramet
 ggplot(df, aes(estimate, reward)) + geom_smooth() + facet_wrap(vars(parameter))
 
 
+############### parameter identifiability ##########
 
+############## Horizon
 
+load(sprintf("analysis/bandits/modellingResults/fitHorizonSession%iUCBfullno_intercept.Rda", session))
+
+baymodel
+
+simdat <- subset(horizon, trial == 5, -chosen)
+simdat$chosen <- predict(baymodel)[ ,1]
+simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
+
+out <- fit_model_horizon(simdat, "UCB", full = T, 2000, save = F)
+recovModel <- out[[1]]
+recoveredParams <- out[[2]]
+recovModel
