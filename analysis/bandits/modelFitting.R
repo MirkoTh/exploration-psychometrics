@@ -721,3 +721,49 @@ out <- fit_model_horizon(simdat, "UCB", full = T, 2000, save = F)
 recovModel <- out[[1]]
 recoveredParams <- out[[2]]
 recovModel
+
+
+
+############ visualise fixed effects ##############
+
+models <- list.files("analysis/bandits/modellingResults")
+
+models
+
+models <- subset(models, !grepl("legacy", models))
+models <- subset(models, !grepl("recovery", models))
+
+models
+
+
+count <- 1
+for (i in models){
+  sess <- readr::parse_number(i)
+  load(paste("analysis/bandits/modellingResults/", i, sep = ""))
+  
+  if (grepl("Horizon", i)){
+    model <- baymodel
+  } else {
+    model <- trueModel
+  }
+  fixed <- summary(model)$fixed
+  
+  fixed$var <- rownames(fixed)
+  fixed$color <- ifelse(sign(fixed$`l-95% CI`) == sign(fixed$`u-95% CI`), "red", "grey")
+  
+  p <- ggplot(fixed, aes(var, Estimate, fill = color)) + geom_col() +
+    geom_errorbar(aes(ymin = `l-95% CI`, ymax = `u-95% CI`), width = 0.5)+
+    scale_fill_manual(values = c("grey", "red"))+
+    theme(legend.position = "none") +
+    ggtitle(i)
+  
+  assign(paste("p", count, sep = ""), p)
+  
+  count = count +1
+  
+}
+
+ggpubr::ggarrange(p1, p2, p3, p4, p5, p6)
+ggpubr::ggarrange(p7, p8, p9, p10, p11, p12)
+
+

@@ -63,6 +63,12 @@ PANASneg <- c(2,4,6,7,8,11,13,15,18,20)
 qs$Measure[qs$Measure == "PANAS" & is.element((qs$Qnum+1), PANASpos)] <- "PANASpos"
 qs$Measure[qs$Measure == "PANAS" & is.element((qs$Qnum+1), PANASneg)] <- "PANASneg"
 
+# split sticsa cognitive and somatic
+
+qs$Measure[qs$Measure == "STICSA" & qs$sticsaSubscale == "s"] <- "STICSAsoma"
+qs$Measure[qs$Measure == "STICSA" & qs$sticsaSubscale == "c"] <- "STICSAcog"
+
+
 responses$measure <- qs$Measure[match(responses$Q, qs$Q)]
 
 library(plyr)
@@ -75,6 +81,10 @@ responses$response <- ifelse(responses$reversed == 1, as.numeric(responses$max) 
 avg <- ddply(responses, ~ID+measure, summarise, score = mean(response))
 
 avg <- avg[order(avg$ID), ]
+
+
+
+
 
 
 ########### prep bandit behaviour - proportion of high variance arm choices ##########
@@ -289,7 +299,7 @@ switch <- rbind(Hswitch, Sswitch, Rswitch)
 
 ########## get to comparing #########
 
-questionnaires <- unique(qs$Measure)
+questionnaires <- unique(avg$measure)
 tasks <- unique(bandits$task)
 
 ### compare tasks to each other
@@ -399,7 +409,7 @@ HParams <- HParams[order(HParams$ID), ]
 
 IDs <- intersect(unique(avg$ID), unique(HParams$ID))
 
-questionnaires <- unique(qs$Measure)
+questionnaires <- unique(avg$measure)
 
 cors <- data.frame(parameter = rep(params, length(questionnaires)),
                    questionnaire = rep(questionnaires, each = length(params)),
@@ -614,6 +624,7 @@ allOfIt <- rbind(allOfIt, data.frame(ID = wm$ID,
                                      value = wm$score))
 
 
+save(allOfIt, file = sprintf("analysis/allOfItSession%i.Rda", session))
 
 ### get that big correlation
 
@@ -647,28 +658,124 @@ ggplot(cors, aes(x = var1, y = var2, fill = cor)) + geom_raster() + scale_fill_g
 
 
 
-########### regressions #############
-# 
-allOfIt1 <- allOfIt
 
-allOfIt1$session <- 1
+# ########### regressions #############
+#
 
-allOfIt$session <- 2
-
-allOfIt <- rbind(allOfIt1, allOfIt)
-
+load("analysis/allOfItSession1.Rda")
+all1 <- allOfIt
+all1$session <- -0.5
+load("analysis/allOfItSession2.Rda")
+all2 <- allOfIt
+all2$session <- 0.5
+allOfIt <- rbind(all1, all2)
 
 df <- pivot_wider(allOfIt, id_cols = c("ID", "session"), names_from = "measure")
 
-df$horizon_HorizonRU <- df$`horizon_RU:Horizon`
+colnames(df) <- str_replace(colnames(df), ":", "_")
+colnames(df) <- str_replace(colnames(df), " ", "_")
 
-df$session <- df$session -1.5
-unique(df$session)
+df[ ,colnames(df) != "ID" & colnames(df)!= "session"] <- sapply(df[ ,colnames(df) != "ID" & colnames(df)!= "session"], function(df) scale(df))
+head(df)
 
-brm(horizon_RU ~  STICSA*session + (session|ID),
-    data = df,
-    chains = 2,
-    cores = 2,
-    it = 4000)
 
+banditParams <- colnames(df)[grepl("horizon", colnames(df)) | grepl("sam", colnames(df)) | grepl("restless", colnames(df))]
+
+qs <- c("BIG_5", "CEI", "PANASneg", "PANASpos", "PHQ_9", "STICSAcog", "STICSAsoma")
+
+## df to collect results of regressions
+
+results <- data.frame(dependentVariable = rep(banditParams, each = length(qs)),
+                      predictor = rep(qs, length(banditParams)),
+                      mainEffect = NA,
+                      mainHDIlower = NA,
+                      mainHDIupper = NA,
+                      interactionWithSession = NA,
+                      interactionHDIlower = NA,
+                      interactionHDIupper = NA,
+                      session = NA,
+                      sessionHDIlower = NA,
+                      sessionHDIupper = NA)
+
+for (dv in unique(results$dependentVariable)){
+  for(iv in unique(results$predictor)){
+    
+    print(paste(dv, iv))
+    
+    formula <- as.formula(paste(dv, "~", iv, "*session + (session|ID)"))
+    out <- brm(formula,
+        data = df,
+        cores = 2,
+        chains = 2,
+        it = 3000)
+    
+    fixed <- summary(out)$fixed
+    
+    results$mainEffect[results$dependentVariable == dv & results$predictor == iv] <- fixed$Estimate[rownames(fixed) == iv]
+    results$mainHDIlower[results$dependentVariable == dv & results$predictor == iv] <- fixed$`l-95% CI`[rownames(fixed) == iv]
+    results$mainHDIupper[results$dependentVariable == dv & results$predictor == iv] <- fixed$`u-95% CI`[rownames(fixed) == iv]
+    results$interactionWithSession[results$dependentVariable == dv & results$predictor == iv] <- fixed$Estimate[rownames(fixed) == paste(iv, ":session", sep = "")]
+    results$interactionHDIlower[results$dependentVariable == dv & results$predictor == iv] <- fixed$`l-95% CI`[rownames(fixed) == paste(iv, ":session", sep = "")]
+    results$interactionHDIupper[results$dependentVariable == dv & results$predictor == iv] <- fixed$`u-95% CI`[rownames(fixed) == paste(iv, ":session", sep = "")]
+    
+    results$session[results$dependentVariable == dv & results$predictor == iv] <- fixed$Estimate[rownames(fixed) == "session"]
+    results$sessionHDIlower[results$dependentVariable == dv & results$predictor == iv] <- fixed$`l-95% CI`[rownames(fixed) == "session"]
+    results$sessionHDIupper[results$dependentVariable == dv & results$predictor == iv] <- fixed$`u-95% CI`[rownames(fixed) == "session"]
+    
+  }
+}
+
+save(results, file = "analysis/bandits/regressionResults.Rda")
+
+
+ggplot(results, aes(predictor, mainEffect)) + geom_col()+
+  geom_errorbar(aes(ymin = mainHDIlower, ymax = mainHDIupper))+
+  facet_wrap(vars(dependentVariable))+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("regression results main effects")
+
+ggplot(results, aes(predictor, interactionWithSession)) + geom_col()+
+  geom_errorbar(aes(ymin = interactionHDIlower, ymax = interactionHDIupper))+
+  facet_wrap(vars(dependentVariable))+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("regression results interaction with session")
+
+
+## plot session effects exemplary for when BIG5 was predictor
+
+ggplot(results[results$predictor == "BIG_5", ], aes(dependentVariable, session)) + geom_col()+
+  geom_errorbar(aes(ymin = sessionHDIlower, ymax = sessionHDIupper), width = 0.5)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("effects of session when accounting for some questionnaire")
+
+
+## the effect of session is surprisingly interesting so lets do this again with just session in the regression
+sessionResults <- data.frame(dependentVariable = banditParams,
+                      mainEffect = NA,
+                      mainHDIlower = NA,
+                      mainHDIupper = NA)
+
+for (dv in unique(sessionResults$dependentVariable)){
+    
+    print(paste(dv))
+    
+    formula <- as.formula(paste(dv, "~ session + (session|ID)"))
+    out <- brm(formula,
+               data = df,
+               cores = 2,
+               chains = 2,
+               it = 3000)
+    
+    fixed <- summary(out)$fixed
+    
+    sessionResults$mainEffect[sessionResults$dependentVariable == dv ] <- fixed$Estimate[rownames(fixed) ==  "session"]
+    sessionResults$mainHDIlower[sessionResults$dependentVariable == dv] <- fixed$`l-95% CI`[rownames(fixed) ==  "session"]
+    sessionResults$mainHDIupper[sessionResults$dependentVariable == dv] <- fixed$`u-95% CI`[rownames(fixed) == "session"]
+  
+}
+
+ggplot(sessionResults, aes(dependentVariable, mainEffect)) + geom_col()+
+  geom_errorbar(aes(ymin = mainHDIlower, ymax = mainHDIupper), width = 0.5)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("effects of session")
 
