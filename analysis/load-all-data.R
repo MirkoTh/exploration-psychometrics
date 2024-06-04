@@ -6,11 +6,41 @@ library(rutils)
 library(grid)
 library(jsonlite)
 
+setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 path_utils <- c("utils/analysis-utils.R", "utils/plotting-utils.R")
 walk(path_utils, source)
 
 
-first_time <- FALSE # first time script is run? if not, csv can directly be loaded
+first_time <- TRUE # first time script is run? if not, csv can directly be loaded
+
+# create general lookup with ALL prolific IDs and corresponding anonymous IDs
+if (first_time){
+  
+  IDs <- c()
+  # grab all IDs 
+  for (folder in c("OS", "SS", "WMU", "qs", "bandits")){
+    files <- list.files(paste("data/wave1/", folder, sep = ""))
+    
+    files <- subset(files, apply(file.info(paste("data/wave1/", folder, "/", ))))
+    
+    ID <- apply(as.array(files), 1, function(x) parse_out_ID(x, folder))
+    
+    ID <- subset(ID, ID != "test")
+    
+    IDs <- unique(c(IDs, ID))
+    
+  }
+    
+  lookup <- data.frame(PID = IDs,
+                       ID = 1:length(IDs))
+    
+  write.csv(lookup, "data/FINALlookup.csv")
+  
+  
+}
+
+
+
 
 
 # Load WM Data ------------------------------------------------------------
@@ -39,9 +69,9 @@ if (first_time) {
   # load and save data from time point I
   
   hash_ids(
-    path_data, 
+    "data/wave1/", 
     c(returned_and_timedout$participants_returned, returned_and_timedout$participants_timeout), 
-    time_period = time_period_wave_I,
+    time_period = NULL,
     random_hashes = FALSE, session_id = 0
   )
   
@@ -49,16 +79,16 @@ if (first_time) {
   # load and save data from time point II
   
   hash_ids(
-    path_data, 
+    "data/wave2/", 
     c(returned_and_timedout$participants_returned, returned_and_timedout$participants_timeout), 
-    time_period = time_period_wave_II,
+    time_period = NULL,
     random_hashes = FALSE, session_id = 1
   )
   
 }
 
 # lookup table from first session contains all ids
-tbl_ids_lookup <- read_csv(str_c(path_data, "participant-lookup-0.csv"))
+tbl_ids_lookup <- read_csv(str_c("data/FINALlookup.csv"))
 
 # load all wm data
 l_tbl_wm_data <- load_wm_data()
@@ -77,7 +107,7 @@ if (first_time) {
 
 
 # bandit 
-load("analysis/bandits/banditsWave1full.Rda")
+load("data/wave1/banditsWave1full.Rda")
 sam1 <- sam
 horizon1 <- horizon
 restless1 <- restless
@@ -102,6 +132,18 @@ tbl_qdat <- as_tibble(rbind(qdat, qdat1))
 
 eda_and_exclusion_criteria_bandits(session = 1)
 eda_and_exclusion_criteria_bandits(session = 2)
+
+
+
+
+
+
+
+
+
+
+# I don't know what happens here but it seems duplicate to me. @Mirko?
+
 
 source("analysis/wm/eda-reliability-wm-tasks.R")
 

@@ -697,12 +697,12 @@ results <- data.frame(dependentVariable = rep(banditParams, each = length(qs)),
                       sessionHDIlower = NA,
                       sessionHDIupper = NA)
 
-for (dv in unique(results$dependentVariable)){
+for (dv in unique(results$dependentVariable)){# takes about 1-2h
   for(iv in unique(results$predictor)){
     
     print(paste(dv, iv))
     
-    formula <- as.formula(paste(dv, "~", iv, "*session + (session|ID)"))
+    formula <- as.formula(paste(dv, "~", iv, "*session + (1|ID)"))
     out <- brm(formula,
         data = df,
         cores = 2,
@@ -725,7 +725,7 @@ for (dv in unique(results$dependentVariable)){
   }
 }
 
-save(results, file = "analysis/bandits/regressionResults.Rda")
+save(results, file = "analysis/bandits/regressionResults_noRandomSlope.Rda")
 
 
 ggplot(results, aes(predictor, mainEffect)) + geom_col()+
@@ -779,3 +779,24 @@ ggplot(sessionResults, aes(dependentVariable, mainEffect)) + geom_col()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   ggtitle("effects of session")
 
+
+############## simple linear regressions for the BAP abstract #######
+
+# giving those psychologists what they want...
+
+# cannot have random slope for session bc that is unidentifiable
+
+
+for (dv in c("horizon_RU_Horizon", "sam_RU", "restless_beta")){
+  for(iv in c("BIG_5", "CEI", "STICSAcog", "STICSAsoma", "PHQ_9")){
+    
+    print(paste(dv, iv))
+    
+    formula <- as.formula(paste(dv, "~", iv, "*session + (1|ID)"))
+    out <- anova(lmerTest::lmer(formula,
+                                df))
+    
+    print(out)
+    
+  }
+}
