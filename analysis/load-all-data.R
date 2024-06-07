@@ -6,12 +6,16 @@ library(rutils)
 library(grid)
 library(jsonlite)
 
-setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
+tryCatch(
+  error = function(cnd) cat("do not care"),
+  setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
+  
+)
 path_utils <- c("utils/analysis-utils.R", "utils/plotting-utils.R")
 walk(path_utils, source)
 
 
-first_time <- TRUE # first time script is run? if not, csv can directly be loaded
+first_time <- FALSE # TRUE # first time script is run? if not, csv can directly be loaded
 
 # create general lookup with ALL prolific IDs and corresponding anonymous IDs
 if (first_time){
@@ -111,12 +115,12 @@ load("data/wave1/banditsWave1full.Rda")
 sam1 <- sam
 horizon1 <- horizon
 restless1 <- restless
-load("analysis/bandits/banditsWave2full.Rda")
+load("data/wave2/banditsWave2full.Rda")
 
 # questionnaires
-load("analysis/qswave1Full.Rda")
+load("data/wave1/qswave1Full.Rda")
 qdat1 <- qdat
-load("analysis/qswave2Full.Rda")
+load("data/wave2/qswave2Full.Rda")
 
 
 # combine data from two sessions

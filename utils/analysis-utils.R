@@ -260,7 +260,7 @@ parse_out_ID <- function(filename, task){
   return(id)
 }
 
-agg_by_ss <- function(my_tbl, tbl_ids_lookup, taskname) {
+agg_by_ss <- function(my_tbl, taskname) {
   my_tbl %>% 
     mutate(
       prop_correct = n_correct / set_size
@@ -1009,6 +1009,9 @@ eda_and_exclusion_criteria_bandits <- function(session) {
   lookup$exclude <- ifelse(lookup$totalExclude == 0, 0 , 1)
   print(table(lookup$exclude))
   
+  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session - 1)
+  lookup <- lookup %>% left_join(tbl_lookup_wm, by = c("ID" = "participant_id"))
+  
   
   write_csv(lookup, str_c("data/exclusions", session, ".csv"))
   
@@ -1021,3 +1024,183 @@ eda_and_exclusion_criteria_bandits <- function(session) {
   
 }
 
+exclusion_criteria_wm_tasks <- function(s_id) {
+  
+  path_data <- "data/all-data/"
+  
+  # load data from all wm tasks
+  l_tbl_wm_data <- load_wm_data()
+  l_tbl_wm_data <- map(l_tbl_wm_data, ~ .x %>% filter(session_id == s_id))
+  
+  list2env(l_tbl_wm_data, environment())
+  
+  # these are the nr. trials that were administered in the experiment
+  tbl_trials_administered <- tibble(
+    os_recall = 15,
+    ss_recall = 12,
+    os_processing = 90,
+    ss_processing = 50, #54, # would actually be 54, but accept a few missing responses
+    wmu_recall = 20
+  ) %>% pivot_longer(colnames(.))
+  colnames(tbl_trials_administered) <- c("task", "n_administered")
+  
+  # N Trials Collected ------------------------------------------------------
+  
+  # how many trials were collected from the participants?
+  how_many_trials <- function(nm, tbl_df) {
+    tbl_df %>% 
+      group_by(participant_id) %>%
+      count() %>% 
+      arrange(desc(n)) %>%
+      ungroup() %>%
+      mutate(task = nm)
+  }
+  
+  tbl_n_trials <- map2(
+    list("os_recall", "os_processing", "ss_recall", "ss_processing", "wmu_recall"),
+    list(tbl_os_recall, tbl_os_processing, tbl_ss_recall, tbl_ss_processing, tbl_wmu_recall),
+    how_many_trials
+  ) %>% reduce(rbind)
+  
+  
+  # use first given responses for participants with multiple responses for a given trial
+  
+  extract_first_response <- function(tbl_df, g_vars) {
+    tbl_df %>% 
+      group_by(across({{g_vars}})) %>%
+      mutate(rwn = row_number()) %>%
+      ungroup() %>% filter(rwn == 1)
+  }
+  
+  tbl_os_recall <- extract_first_response(tbl_os_recall, c(participant_id, session_id, trial_id_recall))
+  tbl_os_processing <- extract_first_response(tbl_os_processing, c(participant_id, session_id, trial_id_recall, processing_position))
+  tbl_ss_recall <- extract_first_response(tbl_ss_recall, c(participant_id, session_id, trial_id_recall))
+  tbl_ss_processing <- extract_first_response(tbl_ss_processing, c(participant_id, session_id, trial_id_recall, processing_position))
+  tbl_wmu_recall <- extract_first_response(tbl_wmu_recall, c(participant_id, session_id, trial_id))
+  
+  tmp_n_trials <- map2(
+    list("os_recall", "os_processing", "ss_recall", "ss_processing", "wmu_recall"),
+    list(tbl_os_recall, tbl_os_processing, tbl_ss_recall, tbl_ss_processing, tbl_wmu_recall),
+    how_many_trials
+  ) %>% reduce(rbind)
+  
+  tbl_design <- crossing(
+    task = unique(tbl_n_trials$task),
+    participant_id = unique(tbl_n_trials$participant_id)
+  )
+  
+  tbl_n_trials_task <- tbl_design %>%
+    left_join(tmp_n_trials, by = c("participant_id", "task")) %>%
+    replace_na(list(n = 0))
+  
+  tbl_n_trials <- tbl_n_trials_task %>%
+    left_join(tbl_trials_administered, by = "task") %>%
+    mutate(
+      too_few = n < (n_administered - 5) # - 5 seems reasonable given distribution of nr responses per task
+    ) %>%
+    group_by(participant_id) %>%
+    summarize(any_task_too_few = sum(too_few) >= 1) %>%
+    ungroup()
+  
+  # Trials per Participant, Task, and Set Size -------------------------
+  
+  tbl_trials_overview <- tbl_os_recall %>% 
+    group_by(participant_id, set_size) %>% 
+    count() %>%
+    mutate(task = "OS Recall") %>%
+    rbind(
+      tbl_ss_recall %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "SS Recall")
+    ) %>% rbind(
+      tbl_wmu_recall %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "WMU")
+    )  %>% rbind(
+      tbl_os_processing %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "OS Processing")
+    )  %>% rbind(
+      tbl_ss_processing %>% group_by(participant_id, set_size) %>% count() %>% mutate(task = "SS Processing")
+    ) %>%
+    ungroup() %>%
+    group_by(participant_id) %>%
+    mutate(n_total_datapoints = sum(n)) %>%
+    ungroup()
+  tbl_trials_overview2 <- tbl_trials_overview %>%
+    group_by(participant_id) %>%
+    summarize(n = max(n_total_datapoints)) %>%
+    ungroup() %>%
+    mutate(task = "All Tasks", set_size = 4)
+  
+  tbl_trials_all <- rbind(tbl_trials_overview %>% select(-c(n_total_datapoints)), tbl_trials_overview2)
+  
+  # Exclude Incomplete Datasets ---------------------------------------------
+  
+  
+  tbl_complete_p <- tbl_n_trials %>% filter(!any_task_too_few) %>% select(participant_id)
+  tbl_os_recall <- tbl_os_recall %>% inner_join(tbl_complete_p, "participant_id")
+  tbl_ss_recall <- tbl_ss_recall %>% inner_join(tbl_complete_p, "participant_id")
+  tbl_os_processing <- tbl_os_processing %>% inner_join(tbl_complete_p, "participant_id")
+  tbl_ss_processing <- tbl_ss_processing %>% inner_join(tbl_complete_p, "participant_id")
+  tbl_wmu_recall <- tbl_wmu_recall %>% inner_join(tbl_complete_p, "participant_id")
+  
+  
+  
+  # Processing --------------------------------------------------------------
+  
+  
+  tbl_os_proc_agg <- agg_by_ss(
+    tbl_os_processing %>% filter(processing_position == 1), "OS"
+  )
+  tbl_ss_proc_agg <- agg_by_ss(
+    tbl_ss_processing %>% filter(processing_position == 1), "SS"
+  )
+  
+  tbl_os_proc_participant_agg <- grouped_agg(
+    tbl_os_proc_agg, c(participant_id, session_id, task), prop_correct
+  )
+  tbl_ss_proc_participant_agg <- grouped_agg(
+    tbl_ss_proc_agg, c(participant_id, session_id, task), prop_correct
+  )
+  
+  tbl_os_timeouts <- tbl_os_processing %>% group_by(participant_id, session_id) %>% 
+    summarize(prop_timeout_os = sum(rt == 6000) / n()) %>% ungroup()
+  tbl_ss_timeouts <- tbl_ss_processing %>% group_by(participant_id, session_id) %>%
+    summarize(prop_timeout_ss = sum(rt == 6000) / n()) %>% ungroup()
+  
+  
+  
+  tbl_proc_performance_participants <- tbl_os_proc_participant_agg %>%
+    select(participant_id, session_id, task, mean_prop_correct) %>%
+    rbind(
+      tbl_ss_proc_participant_agg %>% select(participant_id, session_id, task, mean_prop_correct)
+    ) %>% pivot_wider(
+      id_cols = c(participant_id, session_id), names_from = task, values_from = mean_prop_correct
+    ) %>%
+    ungroup() %>%
+    left_join(tbl_os_timeouts, by = c("participant_id", "session_id")) %>%
+    left_join(tbl_ss_timeouts, by = c("participant_id", "session_id")) %>%
+    mutate(session_id = 9999) %>%
+    pivot_wider(
+      id_cols = participant_id, names_from = session_id, values_from = c(OS, SS, prop_timeout_os, prop_timeout_ss)
+    )
+  
+  
+  tbl_proc_performance_participants$thx_lo_os <- 
+    qbinom(.95, tbl_trials_administered$n_administered[tbl_trials_administered$task == "os_processing"], .5)/
+    (tbl_trials_administered$n_administered[tbl_trials_administered$task == "os_processing"])
+  tbl_proc_performance_participants$thx_lo_ss <- 
+    qbinom(.95, tbl_trials_administered$n_administered[tbl_trials_administered$task == "ss_processing"], .5)/
+    (tbl_trials_administered$n_administered[tbl_trials_administered$task == "ss_processing"])
+  tbl_proc_performance_participants <- tbl_proc_performance_participants %>%
+    mutate(
+      excl_os = OS_9999 < thx_lo_os,
+      excl_ss = SS_9999< thx_lo_ss,
+      proc_below_thx = excl_os + excl_ss > 0
+    )
+  
+  # add exclusions to overview tbl
+  tbl_ids_lookup <- tbl_n_trials %>%
+    left_join(
+      tbl_proc_performance_participants[, c("participant_id", "proc_below_thx")], 
+      by = "participant_id"
+    )
+  
+  return(tbl_ids_lookup)
+  
+}
