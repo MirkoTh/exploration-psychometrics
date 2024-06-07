@@ -362,7 +362,7 @@ return_n_timeout <- function() {
   
 }
 
-load_wm_data <- function() {
+load_wm_data <- function(path_data) {
   #' load data from three wm tasks
   #' 
   #' @description loads data from csv files, excludes practice trials, and
@@ -965,30 +965,25 @@ eda_and_exclusion_criteria_bandits <- function(session) {
   # )
   
   
-  #### comprehension attempts horizon
+  #### comprehension attempts  (this we only do for session 1 bc in session 2 we assume that those who were re-invited understood the tasks)
   
-  mean_sd <- plyr::ddply(comprehension, ~task, summarise, meanComp = mean(compAttempts, na.rm =T), SD = sd(compAttempts, na.rm = T))
+  if (session == 1){
+    mean_sd <- plyr::ddply(comprehension, ~task, summarise, meanComp = mean(compAttempts, na.rm =T), SD = sd(compAttempts, na.rm = T))
+    
+    mean_sd$SD <- 2*mean_sd$SD + mean_sd$meanComp
+    
+    mean_SD <- meann(comprehension$compAttempts) + 2*sd(comprehension$compAttempts, na.rm = T)
+    
+    comprehension$excl <- ifelse(comprehension$compAttempts > mean_sd$SD[match(comprehension$task, mean_sd$task)], 1, 0)
+    #comprehension$excl <- ifelse(comprehension$compAttempts > mean_SD, 1, 0)
+    
+    table(comprehension$excl)
+    
+    lookup$compHorizon <- lookup %>% left_join(comprehension %>% filter(task == "horizon"), by = "ID") %>% select(excl) %>% as_vector()
+    lookup$compSam <- lookup %>% left_join(comprehension %>% filter(task == "sam"), by = "ID") %>% select(excl) %>% as_vector()
+    lookup$compRestless <- lookup %>% left_join(comprehension %>% filter(task == "restless"), by = "ID") %>% select(excl) %>% as_vector()
+  }
   
-  mean_sd$SD <- 2*mean_sd$SD + mean_sd$meanComp
-  
-  comprehension$excl <- ifelse(comprehension$compAttempts > mean_sd$SD[match(comprehension$task, mean_sd$task)], 1, 0)
-  
-  table(comprehension$excl)
-  
-  lookup$compHorizon <- lookup %>% left_join(comprehension %>% filter(task == "horizon"), by = "ID") %>% select(excl) %>% as_vector()
-  lookup$compSam <- lookup %>% left_join(comprehension %>% filter(task == "sam"), by = "ID") %>% select(excl) %>% as_vector()
-  lookup$compRestless <- lookup %>% left_join(comprehension %>% filter(task == "restless"), by = "ID") %>% select(excl) %>% as_vector()
-  
-  #lookup$compHorizon[match(comprehension$ID[comprehension$task == "horizon"], lookup$ID)] <- comprehension$excl[comprehension$task == "horizon"]
-  
-  #### comprehension attempts sam
-  
-  #lookup$compSam[match(comprehension$ID[comprehension$task == "sam"], lookup$ID)] <- comprehension$excl[comprehension$task == "sam"]
-  
-  
-  #### comprehension attempts 4arb
-  
-  #lookup$compRestless[match(comprehension$ID[comprehension$task == "restless"], lookup$ID)] <- comprehension$excl[comprehension$task == "restless"]
   
   #### attention checks
   
@@ -1004,13 +999,16 @@ eda_and_exclusion_criteria_bandits <- function(session) {
   
   lookup$totalExclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(lookup[x, c(grep("incomplete_data", colnames(lookup)): ncol(lookup))])), na.rm = T))
   
+  
+  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session - 1)
+  lookup <- lookup %>% left_join(tbl_lookup_wm, by = c("ID" = "participant_id"))
+  
   hist(lookup$totalExclude, breaks = max(lookup$totalExclude))
   
   lookup$exclude <- ifelse(lookup$totalExclude == 0, 0 , 1)
   print(table(lookup$exclude))
   
-  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session - 1)
-  lookup <- lookup %>% left_join(tbl_lookup_wm, by = c("ID" = "participant_id"))
+  
   
   
   write_csv(lookup, str_c("data/exclusions", session, ".csv"))
@@ -1026,10 +1024,10 @@ eda_and_exclusion_criteria_bandits <- function(session) {
 
 exclusion_criteria_wm_tasks <- function(s_id) {
   
-  path_data <- "data/all-data/"
+  path_data <- sprintf("data/wave%i/", s_id)
   
   # load data from all wm tasks
-  l_tbl_wm_data <- load_wm_data()
+  l_tbl_wm_data <- load_wm_data(path_data)
   l_tbl_wm_data <- map(l_tbl_wm_data, ~ .x %>% filter(session_id == s_id))
   
   list2env(l_tbl_wm_data, environment())
