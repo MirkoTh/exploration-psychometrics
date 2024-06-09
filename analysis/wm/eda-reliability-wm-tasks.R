@@ -1,3 +1,8 @@
+# EDA on WM data
+# Part I is done on all data
+# Part 2 is done on participants who succeeded after session 2
+
+
 rm(list = ls())
 
 library(tidyverse)
@@ -8,17 +13,14 @@ library(grid)
 path_utils <- c("utils/analysis-utils.R", "utils/plotting-utils.R")
 walk(path_utils, source)
 
-path_data <- c("data/2023-11-lab-pilot/", "data/all-data/")[2]
+path_data <- "data/all-data/"
 
 
-
-# lookup table from first session contains all ids
-#tbl_ids_lookup <- read_csv(str_c(path_data, "participant-lookup-0.csv"))
-
+# lookup table from second session contains final ids
 tbl_ids_lookup <- read_csv(str_c("data/exclusions2.csv"))
 tbl_ids_lookup <- tbl_ids_lookup %>% rename("participant_id" = "PID", "participant_id_randomized" = "ID")
 # load data from all wm tasks
-l_tbl_wm_data <- load_wm_data()
+l_tbl_wm_data <- load_wm_data("data/all-data/")
 
 list2env(l_tbl_wm_data, environment())
 
@@ -32,7 +34,12 @@ tbl_trials_administered <- tibble(
 ) %>% pivot_longer(colnames(.))
 colnames(tbl_trials_administered) <- c("task", "n_administered")
 
-# N Trials Collected ------------------------------------------------------
+
+
+# Part I ------------------------------------------------------------------
+
+
+## N Trials Collected ------------------------------------------------------
 
 
 # how many trials were collected from the participants?
@@ -50,10 +57,6 @@ tbl_n_trials <- map2(
   list(tbl_os_recall, tbl_os_processing, tbl_ss_recall, tbl_ss_processing, tbl_wmu_recall),
   how_many_trials
 ) %>% reduce(rbind)
-
-# ggplot(tbl_n_trials, aes(task, substr(participant_id, 1, 6))) +
-#   geom_tile(aes(fill = n)) +
-#   geom_text(aes(label = n), color = "white")
 
 # use first given responses for participants with multiple responses
 
@@ -81,25 +84,20 @@ tbl_design <- crossing(
   participant_id = unique(tbl_n_trials$participant_id)
 )
 
-tbl_n_trials <- tbl_design %>%
+tbl_n_trials_task <- tbl_design %>%
   left_join(tmp_n_trials, by = c("participant_id", "task")) %>%
   replace_na(list(n = 0))
 
-tbl_n_trials <- tbl_n_trials %>%
+tbl_n_trials <- tbl_n_trials_task %>%
   left_join(tbl_trials_administered, by = "task") %>%
   mutate(
     too_few = n < (2*n_administered - 5) # - 5 seems reasonable given distribution of nr responses per task
-  )
+  ) %>%
+  group_by(participant_id) %>%
+  summarize(any_task_too_few = sum(too_few) >= 1) %>%
+  ungroup()
 
-tbl_ids_lookup <- tbl_ids_lookup %>%
-  left_join(
-    tbl_n_trials %>%
-      group_by(participant_id) %>%
-      summarize(any_task_too_few = sum(too_few) >= 1)
-    , by = c("participant_id_randomized" = "participant_id")
-  )
-
-pl_n_collected_overview <- tbl_n_trials %>%
+tbl_n_trials_task %>%
   group_by(task, n_trials = n) %>%
   count() %>%
   mutate(rwn = row_number(n_trials)) %>%
@@ -110,7 +108,7 @@ pl_n_collected_overview <- tbl_n_trials %>%
   scale_fill_viridis_c(guide = "none")
 
 ggplot(
-  tbl_n_trials %>%
+  tbl_n_trials_task %>%
     filter(participant_id %in% sample(tbl_n_trials$participant_id, 20)),
   aes(task, substr(participant_id, 1, 6))) +
   geom_tile(aes(fill = n)) +
@@ -120,7 +118,7 @@ ggplot(
 
 
 
-# Trials per Participant, Task, and Set Size -------------------------
+## Trials per Participant, Task, and Set Size -------------------------
 
 tbl_trials_overview <- tbl_os_recall %>% 
   group_by(participant_id, set_size) %>% 
@@ -145,8 +143,7 @@ tbl_trials_overview2 <- tbl_trials_overview %>%
   summarize(n = max(n_total_datapoints)) %>%
   ungroup() %>%
   mutate(task = "All Tasks", set_size = 4)
-#select(-c(set_size)) %>%
-#pivot_wider(names_from = task, values_from = n) %>%
+
 tbl_trials_all <- rbind(tbl_trials_overview %>% select(-c(n_total_datapoints)), tbl_trials_overview2)
 ggplot(
   tbl_trials_all %>%
@@ -169,35 +166,28 @@ ggplot(
 
 
 
-# Exclude Incomplete Datasets ---------------------------------------------
 
 
-# this criterion can be more lenient than excluding participants
-# if there is any task with too few trials (as above)
-# if n_thx < 191
+# Part II -----------------------------------------------------------------
 
-n_thx <- sum(tbl_trials_administered$n_administered)*2 # keep data set of participants with only few data points missing
-tbl_complete <- tbl_trials_all %>% filter(task == "All Tasks" & n >= n_thx)
-tbl_complete_p <- tbl_complete %>% select(participant_id)
-tbl_os_recall <- tbl_os_recall %>% inner_join(tbl_complete_p, "participant_id")
-tbl_ss_recall <- tbl_ss_recall %>% inner_join(tbl_complete_p, "participant_id")
-tbl_os_processing <- tbl_os_processing %>% inner_join(tbl_complete_p, "participant_id")
-tbl_ss_processing <- tbl_ss_processing %>% inner_join(tbl_complete_p, "participant_id")
-tbl_wmu_recall <- tbl_wmu_recall %>% inner_join(tbl_complete_p, "participant_id")
 
-tbl_ids_lookup <- tbl_ids_lookup %>% 
-  left_join(
-    tbl_complete_p %>% 
-      mutate(all_tasks_too_few = FALSE),
-    by = c("participant_id_randomized" = "participant_id")
-  ) %>%
-  replace_na(list(all_tasks_too_few = TRUE))
+## Exclude Incomplete Datasets ---------------------------------------------
 
-# Recall ------------------------------------------------------------------
 
-tbl_os_agg <- agg_by_ss(tbl_os_recall, tbl_ids_lookup, "OS")
-tbl_ss_agg <- agg_by_ss(tbl_ss_recall, tbl_ids_lookup, "SS")
-tbl_wmu_agg <- agg_by_ss(tbl_wmu_recall, tbl_ids_lookup, "WMU")
+# now only consider participants, who were not excluded after the second session
+
+tbl_os_recall <- tbl_os_recall %>% inner_join(tbl_ids_lookup %>% filter(!exclude), by = c("participant_id" = "participant_id_randomized"))
+tbl_ss_recall <- tbl_ss_recall %>% inner_join(tbl_ids_lookup %>% filter(!exclude), by = c("participant_id" = "participant_id_randomized"))
+tbl_os_processing <- tbl_os_processing %>% inner_join(tbl_ids_lookup %>% filter(!exclude), by = c("participant_id" = "participant_id_randomized"))
+tbl_ss_processing <- tbl_ss_processing %>% inner_join(tbl_ids_lookup %>% filter(!exclude), by = c("participant_id" = "participant_id_randomized"))
+tbl_wmu_recall <- tbl_wmu_recall %>% inner_join(tbl_ids_lookup %>% filter(!exclude), by = c("participant_id" = "participant_id_randomized"))
+
+
+## Recall ------------------------------------------------------------------
+
+tbl_os_agg <- agg_by_ss(tbl_os_recall, "OS")
+tbl_ss_agg <- agg_by_ss(tbl_ss_recall, "SS")
+tbl_wmu_agg <- agg_by_ss(tbl_wmu_recall, "WMU")
 
 # for every set size separately
 tbl_os_ss_agg_ci <- summary_se_within(
@@ -248,14 +238,14 @@ ss_rts <- grouped_agg(tbl_ss_recall, c(session_id, participant_id), rt) %>%
   pivot_wider(id_cols = participant_id, names_from = session_id, values_from = c(n, nunique_rt, rt_ss, se_rt))
 
 
-# Processing --------------------------------------------------------------
+## Processing --------------------------------------------------------------
 
 
 tbl_os_proc_agg <- agg_by_ss(
-  tbl_os_processing %>% filter(processing_position == 1), tbl_ids_lookup, "OS"
+  tbl_os_processing %>% filter(processing_position == 1), "OS"
 )
 tbl_ss_proc_agg <- agg_by_ss(
-  tbl_ss_processing %>% filter(processing_position == 1), tbl_ids_lookup, "SS"
+  tbl_ss_processing %>% filter(processing_position == 1), "SS"
 )
 
 # for every set size separately
@@ -314,7 +304,7 @@ tbl_proc_performance_participants <- tbl_proc_performance_participants %>%
   )
 
 # add exclusions to overview tbl
-tbl_ids_lookup <- tbl_ids_lookup %>%
+tbl_ids_lookup <- tbl_ids_lookup %>% select(-proc_below_thx) %>%
   left_join(
     tbl_proc_performance_participants[, c("participant_id", "proc_below_thx")], 
     by = c("participant_id_randomized" = "participant_id")
@@ -336,7 +326,8 @@ if (!dir.exists("figures/EDA/")) {
 }
 save_my_pdf(pl_ss, "figures/EDA/setsize-accuracy-rt.pdf", 11, 4.5)
 
-# Both --------------------------------------------------------------------
+
+## Both --------------------------------------------------------------------
 
 add_word_cols <- function(my_tbl, my_word) {
   old_colnames <- colnames(my_tbl)
@@ -359,39 +350,12 @@ tbl_performance_all <- tbl_recall_performance_participants %>%
   left_join(ss_rts %>% select(participant_id, rt_ss_0, rt_ss_1), by = c("participant_id"))
 
 
-tbl_thx_0 <- tibble(
-  name = c("OS_recall_0", "SS_recall_0", "WMU_recall_0", "OS_processing_0", "SS_processing_0"),
-  thx = c(
-    0, 0, 0, 
-    tbl_proc_performance_participants$thx_lo_os[1],
-    tbl_proc_performance_participants$thx_lo_ss[1]
-  )
-)
-tbl_thx_1 <- tibble(
-  name = c("OS_recall_1", "SS_recall_1", "WMU_recall_1", "OS_processing_1", "SS_processing_1"),
-  thx = c(
-    0, 0, 0, 
-    tbl_proc_performance_participants$thx_lo_os[1],
-    tbl_proc_performance_participants$thx_lo_ss[1]
-  )
-)
-
-tbl_exclusions <- tbl_ids_lookup %>% select(participant_id, participant_id_randomized, exclude, all_tasks_too_few) %>% 
-  rename(exclude_bandits = exclude) %>%
-  left_join(tbl_performance_all, by = c("participant_id_randomized" = "participant_id")) %>%
-  replace_na(list(proc_below_thx =  0)) %>%
-  rename(prolific_pid = participant_id, participant_id = participant_id_randomized) %>%
-  select(prolific_pid, participant_id, exclude_bandits, all_tasks_too_few, proc_below_thx) %>%
-  mutate(excl_subject = pmax(all_tasks_too_few, proc_below_thx, exclude_bandits))
-
-
-saveRDS(tbl_exclusions, file = str_c("analysis/wm/subjects-excl-wm.rds"))
 
 tbl_performance_all <- tbl_performance_all %>%
-  left_join(tbl_exclusions[, c("participant_id", "excl_subject")], by = "participant_id")
+  left_join(tbl_ids_lookup[, c("participant_id_randomized", "exclude")], by = c("participant_id" = "participant_id_randomized"))
 
 
-hist_wm_performance <- tbl_performance_all %>% filter(!excl_subject) %>%
+hist_wm_performance <- tbl_performance_all %>% filter(!exclude) %>%
   pivot_longer(cols = contains("recall") | contains("processing") & !contains("timeout")) %>%
   mutate(
     Session = str_extract(name, "[0-1]$"),
@@ -421,7 +385,7 @@ save_my_pdf(
 
 tbl_cor <- cor(
   tbl_performance_all %>% 
-    filter(!is.na(WMU_recall_0) & !is.na(WMU_recall_1) & !excl_subject) %>%
+    filter(!is.na(WMU_recall_0) & !is.na(WMU_recall_1) & !exclude) %>%
     select(contains("recall"), contains("processing"), contains("WMU")) %>%
     select(!contains("timeout"))
 ) %>% as.data.frame() %>%
@@ -490,7 +454,7 @@ pl_between_session_cors <- ggplot(tbl_between, aes(task_in, task_out)) +
   )
 save_my_pdf(pl_between_session_cors, "figures/EDA/cors-between-session.pdf", 6, 6)
 
-# Save recall, and processing files of included participants --------------
+## Save recall, and processing files of included participants --------------
 
 
 saveRDS(tbl_performance_all, file = "data/all-data/tbl-performance-wm-all-s2.rds")
