@@ -535,35 +535,19 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   
   ### Wilson model
   if (model == "Wilson"){
-    warning("I did not yet implement a no-horizon version of the Wilson model in here.")
-    
-    data$mean_L <- NA
-    data$mean_R <- NA
-    
-    data$row <- 1:nrow(data)
-    data$mean_L[data$trial == 5] <- apply(as.array(data$row[data$trial == 5]), 1, function(x) meann(data$reward[data$ID == data$ID[x]&
-                                                                                                                  data$block == data$block[x] &
-                                                                                                                  data$chosen == 0 & 
-                                                                                                                  data$trial < 5]))
-    data$mean_R[data$trial == 5] <- apply(as.array(data$row[data$trial == 5]), 1, function(x) meann(data$reward[data$ID == data$ID[x]&
-                                                                                                                  data$block == data$block[x] &
-                                                                                                                  data$chosen == 1& 
-                                                                                                                  data$trial < 5]))
-    ## calculate deltas
-    data$delta_mean <- scale(data$mean_L - data$mean_R)
-    
-      
+    if (no_horizon){warning("I did not yet implement a no-horizon version of the Wilson model in here.") 
+      return(list())}
+    if (no_intercept){
+      warning("I did not yet implement a no-intercept version of the Wilson model in here.")
+      return(list())
+    }
       if (full == T){
-        
         formula <- "chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID)"
         
       } else {
-        
         formula <- "chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID)"
         
       }
-      
-      
   } else if (model == "UCB"){
       
     if (full == T){
@@ -575,9 +559,7 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
     } else {
       
         formula <- "chosen ~ V*Horizon + RU*Horizon + (RU:Horizon + V:Horizon| ID)"
-
     }
-  
   }
   
   if (no_horizon){
@@ -608,7 +590,15 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   rows <- rownames(fixed)
   rows[rows == "V:Horizon"] <- "Horizon:V"
   rows[rows == "Horizon:RU"] <- "RU:Horizon"
+  rows[rows == "Horizon:delta_mean"] <- "delta_mean:Horizon"
+  rows[rows == "Horizon:info"] <- "info:Horizon"
   rownames(fixed) <- rows
+  # for true params flip it too bc this is just too annoying and I want to be sure
+  rows <- rownames(trueParams)
+  rows[grepl("Horizon:delta_mean", rows) & grepl("r_ID", rows)] <- paste0(rows[grepl("Horizon:delta_mean", rows) & grepl("r_ID", rows)], "delta_mean:Horizon")
+  rows[grepl("Horizon:info", rows) & grepl("r_ID", rows)] <- paste0(rows[grepl("Horizon:info", rows) & grepl("r_ID", rows)], "info:Horizon")
+  rownames(trueParams) <- rows
+  
   for (i in predictors){
     trueParams$predictor[grepl(i, rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- i
     ## transform random effects into subject-level slopes
@@ -650,7 +640,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
   nTrials = max(data$block)
   
   # making some variables just for the data saving:
-  b <- ifelse(bayesian, "bayesian", "")
+  b <- ifelse(bayesian, "bayesian", "subject_level")
   f <- ifelse(full, "full", "reduced")
   h <- ifelse(no_horizon, "no_horizon", "")
   i <- ifelse(no_intercept, "no_intercept", "")
@@ -705,16 +695,27 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
     
     if (bayesian == T){
       
-      out <- fit_model_horizon(data = data, model = model, full = full, it = it, no_horizon = no_horizon, save = save, no_intercept = no_intercept)
+      out <- fit_model_horizon(data = data, 
+                               model = model, 
+                               full = full, 
+                               it = it, 
+                               no_horizon = no_horizon, 
+                               save = save, 
+                               no_intercept = no_intercept)
       baymodel <- out[[1]]
       trueParams <- out[[2]]
       # simulate data
       simdat <- subset(data, trial == 5, -chosen)
       simdat$chosen <- predict(baymodel)[ ,1]
       simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
-      
     
-      out <- fit_model_horizon(data, model, full, it, no_horizon, save = F, no_intercept = no_intercept)
+      out <- fit_model_horizon(data = simdat, 
+                               model = model, 
+                               full = full, 
+                               it = it, 
+                               no_horizon = no_horizon, 
+                               save = F, 
+                               no_intercept = no_intercept)
       recovModel <- out[[1]]
       recoveredParams <- out[[2]]
       
@@ -815,7 +816,9 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
   # plotting and packaging it all for the return
   
   p <-ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-    geom_text(aes(label = round(cor, digits = 2))) + ggtitle(paste("Recovery of Horizon task using ", model))
+    geom_text(aes(label = round(cor, digits = 2))) + 
+    labs(title = paste("Recovery of Horizon task using ", model),
+         subtitle = sprintf("session %i", session))
   
   
   

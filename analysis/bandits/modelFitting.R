@@ -1,5 +1,5 @@
 ######## fit models ##########
-
+rm(list = ls())
 
 library(tidyverse)
 library(ggplot2)
@@ -9,11 +9,14 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-session <- 1
+session <- 2
 
 load(paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
 
 source("analysis/recovery_utils.R")
+
+se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
+meann <- function(x){mean(x, na.rm = T)}
 
 if (!is.element("KLM0", colnames(sam))) {
   sam <- get_KL_into_df(sam) 
@@ -41,8 +44,26 @@ if (!is.element("bayMeanL", colnames(horizon))) {
   
 }
 
-se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
-meann <- function(x){mean(x, na.rm = T)}
+if (!is.element("delta_mean", colnames(horizon))){
+  horizon$mean_L <- NA
+  horizon$mean_R <- NA
+  
+  horizon$row <- 1:nrow(horizon)
+  horizon$mean_L[horizon$trial == 5] <- apply(as.array(horizon$row[horizon$trial == 5]), 1, function(x) meann(horizon$reward[horizon$ID == horizon$ID[x]&
+                                                                                                                horizon$block == horizon$block[x] &
+                                                                                                                horizon$chosen == 0 & 
+                                                                                                                horizon$trial < 5]))
+  horizon$mean_R[horizon$trial == 5] <- apply(as.array(horizon$row[horizon$trial == 5]), 1, function(x) meann(horizon$reward[horizon$ID == horizon$ID[x]&
+                                                                                                                horizon$block == horizon$block[x] &
+                                                                                                                horizon$chosen == 1& 
+                                                                                                                horizon$trial < 5]))
+  ## calculate deltas
+  horizon$delta_mean <- scale(horizon$mean_L - horizon$mean_R)
+  
+  save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
+}
+
+
 
 ### remove the person that has no data
 
@@ -63,7 +84,7 @@ horizon$info <- horizon$info/2
 
 
 ###### Hierachical Bayesian Implementation of Standard Wilson model 
-res_list <- recovery_horizon(horizon, "Wilson", full = T, it = 1000)
+res_list <- recovery_horizon(horizon, "Wilson", full = T, it = 6000, save = T)
 res_list
 ## plot estimates
 trueParams <- res_list[[1]]
@@ -122,8 +143,8 @@ horiz <- subset(horizon, Horizon == 0.5)
 res_list <- recovery_horizon(horiz, "UCB", bayesian = T, full = T, it = 4000, no_horizon = T, no_intercept = T) # this should save the output as .Rda as well
 res_list
 
-res_list2 <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 4000, no_intercept = T)
-res_list2
+res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 6000, no_intercept = F, save = T)
+res_list
 
 
 
@@ -767,3 +788,120 @@ ggpubr::ggarrange(p1, p2, p3, p4, p5, p6)
 ggpubr::ggarrange(p7, p8, p9, p10, p11, p12)
 
 
+################# identifiability of the interaction effect ############
+
+model <- brm(chosen ~ V + RU + Horizon + (V + RU + Horizon | ID),
+             data = horizon[horizon$trial == 5, ],
+             family = "bernoulli",
+             chains = 2,
+             cores = 2,
+             it = 3000)
+model
+
+simdat <- subset(horizon, trial == 5, -c(chosen))
+
+simdat$chosen_pred <- predict(model)[ ,1]
+simdat$chosen <- ifelse(runif(nrow(simdat),0, 1) > simdat$chosen_pred, 0, 1)
+
+print(plyr::ddply(simdat, ~chosen, summarise, pred = mean(chosen_pred)))
+
+recov_model <- brm(chosen ~ V*Horizon + RU*Horizon + (V*Horizon + RU*Horizon | ID),
+                   data = simdat,
+                   family = "bernoulli",
+                   chains = 2,
+                   cores = 2,
+                   it = 3000)
+
+recov_model
+
+
+### only taking out 1 interaction at a time
+
+model <- brm(chosen ~ V*Horizon + RU  + (V*Horizon + RU + Horizon | ID),
+             data = horizon[horizon$trial == 5, ],
+             family = "bernoulli",
+             chains = 2,
+             cores = 2,
+             it = 3000)
+model
+
+simdat <- subset(horizon, trial == 5, -c(chosen))
+
+simdat$chosen_pred <- predict(model)[ ,1]
+simdat$chosen <- ifelse(runif(nrow(simdat),0, 1) > simdat$chosen_pred, 0, 1)
+
+print(plyr::ddply(simdat, ~chosen, summarise, pred = mean(chosen_pred)))
+
+recov_model <- brm(chosen ~ V + RU*Horizon + (V + RU*Horizon | ID),
+                   data = simdat,
+                   family = "bernoulli",
+                   chains = 2,
+                   cores = 2,
+                   it = 3000)
+
+recov_model
+
+recov_model <- brm(chosen ~ V*Horizon + RU*Horizon + (V*Horizon + RU*Horizon | ID),
+                   data = simdat,
+                   family = "bernoulli",
+                   chains = 2,
+                   cores = 2,
+                   it = 3000)
+
+recov_model
+
+#####
+model <- brm(chosen ~ V + RU*Horizon  + (V + RU*Horizon | ID),
+             data = horizon[horizon$trial == 5, ],
+             family = "bernoulli",
+             chains = 2,
+             cores = 2,
+             it = 3000)
+model
+
+simdat <- subset(horizon, trial == 5, -c(chosen))
+
+simdat$chosen_pred <- predict(model)[ ,1]
+simdat$chosen <- ifelse(runif(nrow(simdat),0, 1) > simdat$chosen_pred, 0, 1)
+
+print(plyr::ddply(simdat, ~chosen, summarise, pred = mean(chosen_pred)))
+
+recov_model <- brm(chosen ~ V*Horizon + RU + (V*Horizon + RU | ID),
+                   data = simdat,
+                   family = "bernoulli",
+                   chains = 2,
+                   cores = 2,
+                   it = 3000)
+
+recov_model
+
+
+
+recov_model <- brm(chosen ~ V*Horizon + RU*Horizon + (V*Horizon + RU*Horizon | ID),
+                   data = simdat,
+                   family = "bernoulli",
+                   chains = 2,
+                   cores = 2,
+                   it = 3000)
+
+recov_model
+
+
+################# is it that the predictors are correlated? ######
+
+df <- data.frame(V = horizon$V[horizon$trial == 5],
+                 V_Horizon = horizon$V[horizon$trial == 5]*horizon$Horizon[horizon$trial == 5],
+                 RU = horizon$RU[horizon$trial == 5],
+                 R_Horizon = horizon$RU[horizon$trial == 5] * horizon$Horizon[horizon$trial == 5])
+
+df <- pivot_longer(df,cols = 1:ncol(df), names_to = "predictor", values_to = "value")
+cors <- data.frame(x = rep(colnames(df), each = length(colnames(df))),
+                   y = rep(colnames(df), length(colnames(df))),
+                   cor = NA)
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(df$value[df$predictor == cors$x[x]],
+                                                             df$value[df$predictor == cors$y[x]]))
+
+
+ggplot(cors, aes(x = x, y = y, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
+  geom_text(aes(label = round(cor, digits = 2)))

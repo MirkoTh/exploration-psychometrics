@@ -154,10 +154,20 @@ eda_and_exclusion_criteria_bandits(session = 2)
 
 
 
+##### testing exclusion stuff
+criterions <- colnames(lookup)[grep("incomplete", colnames(lookup)):ncol(lookup)]
+criterions <- subset(criterions, !grepl("xclude", criterions))
+print(criterions)
+testing <- data.frame(criterion = criterions,
+                      N_ex = NA)
 
+tem <- subset(lookup, totalExclude == 1)
+for (i in criterions){
+  temp <- tem[ ,colnames(tem) == i]
+  testing$N_ex[testing$criterion == i] <- sum(as.numeric(temp), na.rm = T)
+}
 
-
-
+print(testing)
 
 
 
