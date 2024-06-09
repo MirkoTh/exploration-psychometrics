@@ -362,7 +362,7 @@ return_n_timeout <- function() {
   
 }
 
-load_wm_data <- function() {
+load_wm_data <- function(path_data) {
   #' load data from three wm tasks
   #' 
   #' @description loads data from csv files, excludes practice trials, and
@@ -1001,17 +1001,25 @@ eda_and_exclusion_criteria_bandits <- function(session) {
   table(lookup$attention)
   
   ##### total
+  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session - 1)
+  tbl_lookup_wm$any_task_too_few <- as.numeric(tbl_lookup_wm$any_task_too_few)
+  tbl_lookup_wm$proc_below_thx <- as.numeric(tbl_lookup_wm$proc_below_thx)
+  
+  lookup <- lookup %>% 
+    left_join(tbl_lookup_wm, by = c("ID" = "participant_id")) %>%
+    as_tibble()
+  lookup$any_task_too_few[is.na(lookup$any_task_too_few)] <- 1
+  lookup$proc_below_thx[is.na(lookup$proc_below_thx)] <- 1
+   
   
   lookup$totalExclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(lookup[x, c(grep("incomplete_data", colnames(lookup)): ncol(lookup))])), na.rm = T))
-  
+
   hist(lookup$totalExclude, breaks = max(lookup$totalExclude))
   
-  lookup$exclude <- ifelse(lookup$totalExclude == 0, 0 , 1)
+  lookup$exclude <- ifelse(lookup$totalExclude == 0, 0, 1)
   print(table(lookup$exclude))
   
-  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session - 1)
-  lookup <- lookup %>% left_join(tbl_lookup_wm, by = c("ID" = "participant_id"))
-  
+    
   
   write_csv(lookup, str_c("data/exclusions", session, ".csv"))
   
@@ -1029,7 +1037,7 @@ exclusion_criteria_wm_tasks <- function(s_id) {
   path_data <- "data/all-data/"
   
   # load data from all wm tasks
-  l_tbl_wm_data <- load_wm_data()
+  l_tbl_wm_data <- load_wm_data(path_data)
   l_tbl_wm_data <- map(l_tbl_wm_data, ~ .x %>% filter(session_id == s_id))
   
   list2env(l_tbl_wm_data, environment())
