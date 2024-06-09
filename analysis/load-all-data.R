@@ -34,10 +34,10 @@ if (first_time){
     IDs <- unique(c(IDs, ID))
     
   }
-    
+  
   lookup <- data.frame(PID = IDs,
                        ID = 1:length(IDs))
-    
+  
   write.csv(lookup, "data/FINALlookup.csv")
   
   
@@ -75,7 +75,7 @@ if (first_time) {
   hash_ids(
     "data/wave1/", 
     c(returned_and_timedout$participants_returned, returned_and_timedout$participants_timeout), 
-    time_period = NULL,
+    time_period = time_period_wave_I,
     random_hashes = FALSE, session_id = 0
   )
   
@@ -85,17 +85,32 @@ if (first_time) {
   hash_ids(
     "data/wave2/", 
     c(returned_and_timedout$participants_returned, returned_and_timedout$participants_timeout), 
-    time_period = NULL,
+    time_period = time_period_wave_II,
     random_hashes = FALSE, session_id = 1
   )
   
 }
 
+# copy files over to all-data folder
+path_data1 <- "data/wave1/"
+path_data2 <- "data/wave2/"
+
+move_to_same_folder <- function(path_data) {
+  pths <- dir(path_data)
+  files_copy_bool <- str_detect(pths, "^tbl_[OS,SS,WMU]")
+  pth_origin <- str_c(path_data, pths[files_copy_bool])
+  pth_target <- str_c("data/all-data/", pths[files_copy_bool])
+  walk2(pth_origin, pth_target, ~ file.copy(.x, .y, overwrite = TRUE))
+}
+
+walk(c(path_data1, path_data2), move_to_same_folder)
+
+
 # lookup table from first session contains all ids
 tbl_ids_lookup <- read_csv(str_c("data/FINALlookup.csv"))
 
 # load all wm data
-l_tbl_wm_data <- load_wm_data()
+l_tbl_wm_data <- load_wm_data("data/all-data/")
 
 list2env(l_tbl_wm_data, environment())
 
@@ -163,7 +178,7 @@ tbl_excl_all <- tbl_excl_wm %>%
   left_join(
     tbl_excl_bandits_2 %>% select(PID, exclude),
     by = c("prolific_pid" = "PID"), suffix = c("_1", "_2")
-    ) %>%
+  ) %>%
   mutate(
     exclude = exclude_1 + exclude_2 + proc_below_thx + all_tasks_too_few
   ) %>%
