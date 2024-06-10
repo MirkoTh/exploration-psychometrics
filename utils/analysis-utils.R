@@ -363,7 +363,6 @@ return_n_timeout <- function() {
 }
 
 load_wm_data <- function(path_data) {
-load_wm_data <- function(path_data) {
   #' load data from three wm tasks
   #' 
   #' @description loads data from csv files, excludes practice trials, and
