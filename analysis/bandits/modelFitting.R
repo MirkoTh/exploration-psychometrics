@@ -9,7 +9,7 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-session <- 2
+session <- 1
 
 load(paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
 
@@ -84,111 +84,159 @@ horizon$info <- horizon$info/2
 
 
 ###### Hierachical Bayesian Implementation of Standard Wilson model 
-res_list <- recovery_horizon(horizon, "Wilson", full = T, it = 6000, save = T)
-res_list
-## plot estimates
-trueParams <- res_list[[1]]
-trueParams$estimate <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodel)))`
-simParams <- res_list[[2]]
-simParams$estimate <- simParams$`colMeans(as.data.frame(posterior_samples(recovModel)))`
-pars <- rbind(trueParams[ ,2:3], simParams[ ,2:3])
-pars$source <- rep(c("observed", "recovered"), each = nrow(pars)/2)
 
-ggplot(pars, aes(estimate, fill = source)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
-
-###### UCB subject-level GLMs
-
-res_list <- recovery_horizon(horizon, "UCB", bayesian = T)
+res_list <- recovery_horizon(horizon, "Wilson", full = T, it = 8000, save = T, use_saved = T)
 res_list
 
-trueParams <- res_list[[1]]
-simParams <- res_list[[2]]
+# in orig wilson paper they fit the two horizons separately so let's do that here
 
-## visualise parameter distributions
+res_list2 <- recovery_horizon(horizon[horizon$Horizon == -0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
+res_list3 <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
+res_list2
+res_list3
 
-pars <- pivot_longer(trueParams, cols = 2:6, names_to = "parameter", values_to = "estimate")
-pars <- rbind(pars, pivot_longer(simParams, cols = 2:6, names_to = "parameter", values_to = "estimate"))
+########## are V and RU equivalent to delta_mean and info?
 
-pars$source <- rep(c("observed", "recovered"), each = nrow(pars)/2)
+p1 <- ggplot(horizon[horizon$trial == 5, ], aes(delta_mean, V)) + geom_jitter(alpha = 0.3)+
+  geom_smooth(method = "lm")+
+  #coord_cartesian(xlim = c(min(c(horizon$V, horizon$delta_mean), na.rm = T), min(c(horizon$V, horizon$delta_mean), na.rm = T)),
+                 # ylim = c(min(c(horizon$V, horizon$delta_mean), na.rm = T), min(c(horizon$V, horizon$delta_mean), na.rm = T)))+
+  geom_label(label = sprintf("r = %.2f", cor(horizon$V[horizon$trial == 5], horizon$delta_mean[horizon$trial == 5])), x = Inf, y = -Inf, hjust = "inward", vjust = "inward")+
+  labs(title = "Difference in posterior means (V) by mean difference",
+       x = "mean difference",
+       y = "V")
 
-pars <- subset(pars, bothConverged & abs(estimate) < 10)
+p2 <- ggplot(horizon[horizon$trial == 5, ], aes(as.factor(info), RU)) + 
+  geom_boxplot(width = 0.2)+
+  scale_x_discrete(breaks = c(-0.5, 0, 0.5), labels = c(-1, 0, 1))+
+  labs(title = "Difference in posterior variance (RU) by information condition",
+       x = "information condition",
+       y = "RU")
 
-ggplot(pars, aes(estimate, fill = source)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(parameter), scale= "free")
-
-
-### check whether the recovery looks better if I remove outliers
-
-simParams <- subset(simParams, V > mean(V)-1*sd(V) &  V < mean(V)+1*sd(V)) # outlier datapoints are the same subjects irrespective of variable
-
-trueParams <- subset(trueParams, V > mean(V)-1*sd(V) &  V < mean(V)+1*sd(V), ID != 10) # outlier datapoints are the same subjects irrespective of variable
-
-cors <- data.frame(true = rep(c("RU", "V", "Horizon", "RUH", "VH"), 5),
-                   recovered =  rep(c("RU", "V", "Horizon", "RUH", "VH"), each = 5),
-                   cor = NA)
-
-cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams[trueParams$bothConverged,grep(cors$true[x], colnames(trueParams))[1]],# converged rows, cols with correct variable name (first instance)
-                                                             simParams[simParams$bothConverged, grep(cors$recovered[x], colnames(simParams))[1]]))
-
-ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2)))
+ggpubr::ggarrange(p1, p2, labels = "AUTO")
 
 
-############  UCB but bayesian model ########
+############  Hierarchical Bayesian Implementation of UCB
 
-#test <- recovery_horizon(horizon, model = "UCB",bayesian = T, full = T, it = 200, no_horizon = T, save = F, no_intercept = T)
 
-## version with just the long horizon
-horiz <- subset(horizon, Horizon == 0.5)
-
-res_list <- recovery_horizon(horiz, "UCB", bayesian = T, full = T, it = 4000, no_horizon = T, no_intercept = T) # this should save the output as .Rda as well
+res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 8000, no_horizon = F, no_intercept = F, save = T, use_saved = T) # this should save the output as .Rda as well
 res_list
 
-res_list <- recovery_horizon(horizon, "UCB", bayesian = T, full = T, it = 6000, no_intercept = F, save = T)
-res_list
+res_list1 <- recovery_horizon(horizon[horizon$Horizon == -0.5, ], "UCB", bayesian = T, full = T, it = 8000, no_intercept = F, no_horizon = T, save = T, use_saved = T)
+res_list1
+
+res_list2 <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "UCB", bayesian = T, full = T, it = 8000, no_intercept = F, no_horizon = T, save = T, use_saved = T)
+res_list2
 
 
+############ how does the modelfit of UCB compare to the classic wilson model?
 
-#load("analysis/bandits/recovHorizonReduced.Rda")
+# model fit of wilson model
+out <- fit_model_horizon(horizon[horizon$Horizon == -0.5, ], model = "Wilson", full = T, it = 8000, no_intercept = F, no_horizon = T, save = T, use_saved = T)
+wilson_5 <- out[[1]]
+wilson_5 <- add_criterion(wilson_5, "loo")
+wilson_5$criteria
 
-# distribution of fitted and recovered parameters
-# 
-# simParams <- res_list[[2]]
-# simParams$estimate <- simParams$`colMeans(as.data.frame(posterior_samples(recovModelUCB)))`
-# pars <- rbind(trueParams[ ,2:3], simParams[ ,2:3])
-# pars$source <- rep(c("observed", "recovered"), each = nrow(pars)/2)
-# 
-# ggplot(pars, aes(estimate, fill = source)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
+modelFits <- data.frame(model = rep(c("Wilson", "UCB"), each = 2),
+                        horizon = rep(c(5,10), 2),
+                        loo = NA,
+                        se = NA)
 
-# distribution only of fitting parameters
+modelFits[modelFits$model == "Wilson" & modelFits$horizon == 5, c(3,4)] <- wilson_5$criteria$loo$estimates[3, ]
 
-ggplot(trueParams, aes(estimate)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free") + geom_vline(aes(xintercept = 0))
+out <- fit_model_horizon(horizon[horizon$Horizon == 0.5, ], model = "Wilson", full = T, it = 8000, no_intercept = F, no_horizon = T, save = T, use_saved = T)
+wilson_10 <- out[[1]]
+wilson_10 <- add_criterion(wilson_10, "loo")
+wilson_10$criteria
 
+modelFits[modelFits$model == "Wilson" & modelFits$horizon == 10, c(3,4)] <- wilson_10$criteria$loo$estimates[3, ]
 
+# model fit of UCB
+out <- fit_model_horizon(horizon[horizon$Horizon == -0.5, ], model = "UCB", full = T, it = 8000, no_intercept = F, no_horizon = T, save = T, use_saved = T)
+ucb_5 <- add_criterion(out[[1]], "loo")
+ucb_5$criteria
+
+modelFits[modelFits$model == "UCB" & modelFits$horizon == 5, c(3,4)] <- ucb_5$criteria$loo$estimates[3, ]
+
+out <- fit_model_horizon(horizon[horizon$Horizon == 0.5, ], model = "UCB", full = T, it = 8000, no_intercept = F, no_horizon = T, save = T, use_saved = T)
+ucb_10 <- add_criterion(out[[1]], "loo")
+ucb_10$criteria
+
+modelFits[modelFits$model == "UCB" & modelFits$horizon == 10, c(3,4)] <- ucb_10$criteria$loo$estimates[3, ]
+
+modelFits$horizon <- factor(modelFits$horizon, levels = c(5, 10), labels = c("short", "long"))
+
+p3 <- ggplot(modelFits, aes(model, loo, fill = horizon)) +
+  geom_col(position = "dodge")+
+  geom_errorbar(aes(ymin = loo -se, ymax = loo+se), width = 0.3, position = position_dodge(0.9))+
+  scale_fill_manual(values = c("#66C2A5", "#FC8D62"), name = "Horizon")+
+  labs(title = "Model comparison",
+       subtitle = "UCB and the classic Wilson model do not differ in their model fit",
+       y = "Leave one out information criterion")
+  
+p3
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, labels = "AUTO")
+
+########## is UCB fitting the horizons separately identifiable?
+
+## Horizon 5
+
+# no V
+
+fit <- brm(chosen ~ RU + (RU | ID),
+           data = horizon[horizon$Horizon == -0.5 & horizon$trial == 5, ],
+           family = "bernoulli",
+           chains = 2,
+           cores = 2,
+           iter = 6000)
+
+simdat <- subset(horizon, trial == 5 & Horizon == -0.5, -chosen)
+
+simdat$chosen <- predict(fit)[ ,1]
+
+hist(simdat$chosen)
+
+simdat$chosen <- ifelse(runif(nrow(simdat), 0, 1) > simdat$chosen, 0, 1)
+
+refit <- brm(chosen ~ V + RU + (V + RU | ID),
+             data = simdat,
+             family = "bernoulli",
+             chains = 2,
+             cores = 2,
+             iter = 6000)
+
+refit
+# no RU
+
+fit <- brm(chosen ~ V + (V | ID),
+           data = horizon[horizon$Horizon == -0.5 & horizon$trial == 5, ],
+           family = "bernoulli",
+           chains = 2,
+           cores = 2,
+           iter = 6000)
+
+simdat <- subset(horizon, trial == 5 & Horizon == -0.5, -chosen)
+
+simdat$chosen <- predict(fit)[ ,1]
+
+hist(simdat$chosen)
+
+simdat$chosen <- ifelse(runif(nrow(simdat), 0, 1) > simdat$chosen, 0, 1)
+
+refit <- brm(chosen ~ V + RU + (V + RU | ID),
+             data = simdat,
+             family = "bernoulli",
+             chains = 2,
+             cores = 2,
+             iter = 6000)
+
+refit
 ################# Sam's task ########
 
-## just fitting the model
 
-# modelfit <- fit_model_sam(sam, "UCB", hierarchical = T, it = 4000)
-# 
-# estims <- modelfit[[2]]
-# ggplot(estims, aes(estimate)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
-# 
-# save(modelfit, file = paste("analysis/bandits/modelFitSamWave", session, ".Rda", sep = ""))
-
-#test <- recovery_sam(sam, "UCB", hierarchical = T, it = 200, save = F, no_intercept = T)
-
-## UCB
-res_list1 <- recovery_sam(sam, "UCB", hierarchical = T, it = 4000, no_intercept = T)
+res_list1 <- recovery_sam(sam, "hybrid", hierarchical = T, it = 6000, no_intercept = F, save = T, use_saved = T)
 res_list1
-# get parameters fitted to actual data
-# trueParams <- res_list[[1]]
-# # get parameters fitted to simulated data
-# simParams <- res_list                                                                                                                                                                                                          [[2]]
-# 
 
-load("analysis/bandits/recovSamhybrid.Rda")
-# view recovery plot
-res_list1[[3]]
 
 # hierarchical
 
@@ -349,13 +397,15 @@ ggplot(cors_sam, aes(cor)) + geom_histogram()
 
 ############## UCB Horizon 
 
+session <- 1
+set.seed(123)
 #### parameters
 
-V = seq(-3, 0, 1)
-RU = seq(-2, 2, 1)
-Horizon = seq(-2,2,1)
-VH = seq(-2,2,1)
-RUH = seq(-2,2,1)
+V = seq(-4, 0, 1)
+RU = seq(-3, 3, 1)
+Horizon = seq(-3,3,1)
+VH = seq(-3,3,1)
+RUH = seq(-3,3,1)
 
 Nsims = 10
 
@@ -372,7 +422,7 @@ pars$ID <- 1:nrow(pars)
 
 ### if this is for wave 2 we don't have data for that yet so load the reward set
 
-load("task/rewardsHorizon2.Rda")
+load(sprintf("task/rewardsHorizon%i.Rda", session))
 
 horizon <- rewards
 horizon$ID <- 1
@@ -390,7 +440,7 @@ horizon$bayVarR <- NA
 
 
 
-fixed <- jsonlite::fromJSON("task/fixedChoices2.json")# rounds incl practice * fixed choices matrix
+fixed <- jsonlite::fromJSON(sprintf("task/fixedChoices%i.json", session))# rounds incl practice * fixed choices matrix
 
 for (i in 1:nrow(fixed)){
   
@@ -410,7 +460,7 @@ for (i in pars$ID){
   
   for (k in 1:Nsims){
     
-    simdat <- subset(horizon, ID == 1 & !is.na(chosen)) # ID does not matter here, everyone observed the same fixed choices anyway
+    simdat <- subset(horizon, !is.na(chosen)) 
     
     
     simdat$row <- 1:nrow(simdat)
@@ -443,6 +493,7 @@ for (i in pars$ID){
     
     simdat$chosen[simdat$trial > 6] <- rep(simdat$chosen[simdat$trial == 6], each = 4)
     
+    # calculate proportion of best choices
     simdat$best <- ifelse(simdat$reward1 > simdat$reward2, 0,1)
     simdat$reward <- NA
     simdat$reward <- ifelse(simdat$chosen == simdat$best, 1, 0)
@@ -466,11 +517,11 @@ ggplot(df, aes(estimate, reward)) + facet_wrap(vars(parameter)) +
   stat_summary(geom = "point", fun.y = mean) + stat_summary(geom = "line", fun.y = mean)
 
 
-ggplot(pars, aes(V,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red", high = "blue")
+ggplot(pars, aes(V,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(high = "#66C2A5", low = "#FC8D62")
 
-ggplot(pars, aes(RU,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red",  high = "blue")
+ggplot(pars, aes(RU,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(high = "#66C2A5", low = "#FC8D62")
 
-ggplot(pars, aes(VH,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(low = "red",  high = "blue")
+ggplot(pars, aes(VH,RUH, fill = reward)) + geom_raster() + scale_fill_gradient(high = "#66C2A5", low = "#FC8D62")
 
 
 ####################### now for Sam

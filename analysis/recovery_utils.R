@@ -3,7 +3,7 @@
 library(brms)
 library(docstring)
 library(ggplot2)
-theme_set(theme_classic(base_size = 14))
+theme_set(theme_bw(base_size = 14))
 set.seed(123)
 
 
@@ -217,7 +217,7 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F,
   return(simdat)
 }
 
-fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T, no_intercept = F){
+fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T, no_intercept = F, use_saved = T){
   #' fit model to data from Sam's task
   #' 
   #' @description fits the type of model described by input to function to the data given to function
@@ -226,6 +226,8 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T, no_int
   #' @param hierarchical boolean; bayesian fitting or subject-level glm
   #' @param it number of iterations, optional, only relevant if hierarchical = T
   #' @param save whether or not to save the output
+  #' @param no_intercept boolean; if T intercept is omitted from model
+  #' @param use_saved boolean; if T attempts to load model output under path
   #' @return list containing model object and if hierarchical == F also a data.frame with coefficients
   
   # preparing data saving
@@ -235,6 +237,18 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T, no_int
   path <- paste("analysis/bandits/modellingResults/fitSamSession", session, model, h, i, ".Rda", sep = "")
   if (save){
     print(paste("save location: ", path, sep = ""))
+  }
+  
+  if (use_saved){
+    print("attempting to use saved model.")
+    if (file.exists(path)) {
+      load(path)
+      print("sucessfully loaded previous model.")
+      return(list(trueModel, trueParams))
+    }
+    else{
+      print("unable to locate model file. Fitting model.")
+    }
   }
   
   
@@ -364,7 +378,7 @@ get_KL_into_df <- function(data){
 }
 
 
-recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_intercept = F){
+recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_intercept = F, use_saved = F){
   #' parameter recovery for data from Sam's task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
@@ -373,15 +387,34 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
   #' @param hierarchical boolean; whether data are fit using brms or subject-level glms
   #' @param it iterations, option, only relevant if hierarchical = T
   #' @param save whether or not to save the output
+  #' @param no_intercept boolean; if T intercept is omitted from model
+  #' @param use_saved boolean; if T, attempts to load model recovery output saved under path
   #' @return a list containing a data.frame with subject-level estimates fitted to the observed data, a data.frame with the recovered estimates, a ggplot element plotting the recovery
   
   # preparing data saving
-  h <- ifelse(hierarchical, "hierarchical", "subject-level")
-  i <- ifelse(no_intercept, "no_intercept", "")
+  h <- ifelse(hierarchical, "_hierarchical", "_subject-level")
+  i <- ifelse(no_intercept, "_no_intercept", "")
   session <- data$session[1]
   path <- paste("analysis/bandits/modellingResults/recoverySamSession", session, model, h,i, ".Rda", sep = "")
   if (save){
     print(paste("save location: ", path, sep = ""))
+  }
+  
+  if (use_saved){
+    print("attempting to use saved recovery output.")
+    if (file.exists(path)) {
+      load(path)
+      print("sucessfully loaded previous recovery output.")
+      
+      p <-ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white")+
+        geom_label(aes(label = round(cor, digits = 2)), fill = "white") + 
+        labs(title = paste("Recovery of 2-armed bandit using", model),
+             subtitle = paste("session", session))
+      return(list(trueParams, simParams, p))
+    }
+    else{
+      print("unable to locate saved recovery output.")
+    }
   }
   
   
@@ -412,7 +445,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
     
     ### fit model
     if (hierarchical){
-      out <- fit_model_sam(data, model, T, it, no_intercept = no_intercept, save = save)
+      out <- fit_model_sam(data, model, T, it, no_intercept = no_intercept, save = save, use_saved = use_saved)
       trueModel <- out[[1]]
       trueParams <- out[[2]]
     }
@@ -448,7 +481,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
     
     ## extract parameters for hierarchical
     if (hierarchical){
-      simParams <- fit_model_sam(simdatCollect, model, T, it, save = F)[[2]]
+      simParams <- fit_model_sam(simdatCollect, model, T, it, save = F, use_saved = F)[[2]]
       
       ### get correlations for hierarchical
       
@@ -479,8 +512,9 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
     
     # plot them
     
-    p <- ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-      geom_text(aes(label = round(cor, digits = 2))) + ggtitle(paste("Recovery of Sam's task using ", model))
+    p <- ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white")+
+      geom_label(aes(label = round(cor, digits = 2)), fill = "white") + labs(title = paste("Recovery of Sam's task using ", model),
+                                                                             subtitle = sprintf("session %i", session))
     
     if (save){
       save(trueParams, simParams, cors, file = path)
@@ -491,7 +525,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
   
 }
 
-fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, save = T, no_intercept = F){
+fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, save = T, no_intercept = F, use_saved = F){
   #' parameter recovery for data from Horizon task
   #' 
   #' @description fits model to data
@@ -502,17 +536,30 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   #' @param it iterations of brms
   #' @param no_horizon if true, the data contains only the long or the short horizon so we estimate no effect of horizon
   #' @param save whether or not to save the output to the path that is being defined in path
+  #' @param use_saved boolean; whether or not to look for a saved version of the model
   #' @return a brms model object
   #' 
   # create some variables for the save path only
   
-  f <- ifelse(full, "full", "reduced")
-  h <- ifelse(no_horizon, "no_horizon", "")
-  i <- ifelse(no_intercept, "no_intercept", "")
+  f <- ifelse(full, "_full", "_reduced")
+  h <- ifelse(no_horizon, ifelse(data$Horizon[1] == -0.5, "_horizon5only", "_horizon10only"), "")
+  i <- ifelse(no_intercept, "_no_intercept", "")
   session <- data$session[1]
   path <- paste("analysis/bandits/modellingResults/fitHorizonSession", session, model, f, h, i, ".Rda", sep = "")
   if (save){
     print(paste("save location: ", path, sep = ""))
+  }
+  
+  if (use_saved){
+    print("attempting to use saved model.")
+    if (file.exists(path)) {
+      load(path)
+      print("sucessfully loaded previous model.")
+      return(list(baymodel, trueParams))
+    }
+    else{
+      print("unable to locate model file. Fitting model.")
+    }
   }
   
   ## this is all getting messy so I will just set the parameters in the beginning and then it's all clean afterwards
@@ -535,12 +582,7 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   
   ### Wilson model
   if (model == "Wilson"){
-    if (no_horizon){warning("I did not yet implement a no-horizon version of the Wilson model in here.") 
-      return(list())}
-    if (no_intercept){
-      warning("I did not yet implement a no-intercept version of the Wilson model in here.")
-      return(list())
-    }
+    
       if (full == T){
         formula <- "chosen ~ delta_mean*Horizon + info*Horizon + (info*Horizon+ delta_mean*Horizon| ID)"
         
@@ -548,6 +590,7 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
         formula <- "chosen ~ delta_mean*Horizon + info*Horizon + (info:Horizon + delta_mean:Horizon| ID)"
         
       }
+   
   } else if (model == "UCB"){
       
     if (full == T){
@@ -622,7 +665,7 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
 }
   
   
-recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_horizon = F, save = T, no_intercept = F){
+recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_horizon = F, save = T, no_intercept = F, use_saved = F){
   #' parameter recovery for data from Horizon task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
@@ -634,22 +677,41 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
   #' @param it iterations of brms, only relevant if bayesian = T
   #' @param no_horizon if true, the data contains only the long or the short horizon so we estimate no effect of horizon
   #' @param save whether or not to save the outputs
+  #' @param use_saved boolean; whether or not to look for a saved version of the model
   #' @return a list containing a data.frame with subject-level estimates fitted to the observed data, a data.frame with the recovered estimates, a ggplot element plotting the recovery
   
   
   nTrials = max(data$block)
   
   # making some variables just for the data saving:
-  b <- ifelse(bayesian, "bayesian", "subject_level")
-  f <- ifelse(full, "full", "reduced")
-  h <- ifelse(no_horizon, "no_horizon", "")
-  i <- ifelse(no_intercept, "no_intercept", "")
+  b <- ifelse(bayesian, "_bayesian", "_subject_level")
+  f <- ifelse(full, "_full", "_reduced")
+  h <- ifelse(no_horizon, ifelse(data$Horizon[1] == -0.5, "_horizon5only", "_horizon10only"), "")
+  i <- ifelse(no_intercept, "_no_intercept", "")
   
   session <- data$session[1]
   path <- paste("analysis/bandits/modellingResults/recoveryHorizonSession", session, model,b, f, h, i, ".Rda", sep = "")
   if (save){
     print(paste("save path:", path))
   }
+  
+  if (use_saved){
+    print("attempting to use saved recovery output.")
+    if (file.exists(path)) {
+      load(path)
+      print("sucessfully loaded previous recovery output.")
+      
+      p <-ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white")+
+        geom_label(aes(label = round(cor, digits = 2)), fill = "white") + 
+        labs(title = paste("Recovery of Horizon task using ", model),
+             subtitle = paste("session", session,gsub("_", "", h)))
+      return(list(trueParams, recoveredParams, p))
+    }
+    else{
+      print("unable to locate saved recovery output.")
+    }
+  }
+  
   
   
   ## this is all getting messy so I will just set the parameters in the beginning and then it's all clean afterwards
@@ -701,7 +763,8 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
                                it = it, 
                                no_horizon = no_horizon, 
                                save = save, 
-                               no_intercept = no_intercept)
+                               no_intercept = no_intercept,
+                               use_saved = use_saved)
       baymodel <- out[[1]]
       trueParams <- out[[2]]
       # simulate data
@@ -715,7 +778,8 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
                                it = it, 
                                no_horizon = no_horizon, 
                                save = F, 
-                               no_intercept = no_intercept)
+                               no_intercept = no_intercept,
+                               use_saved = F)
       recovModel <- out[[1]]
       recoveredParams <- out[[2]]
       
@@ -815,10 +879,10 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
   
   # plotting and packaging it all for the return
   
-  p <-ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-    geom_text(aes(label = round(cor, digits = 2))) + 
+  p <-ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white")+
+    geom_label(aes(label = round(cor, digits = 2)), fill = "white") + 
     labs(title = paste("Recovery of Horizon task using ", model),
-         subtitle = sprintf("session %i", session))
+         subtitle = paste("session", session,gsub("_", "", h)))
   
   
   
@@ -985,8 +1049,8 @@ recover_bootstrapped_estimates_glm <- function(N, trueParams, model, task, data)
   
   # plotting and packaging it all for the return
   
-  p <- ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-    geom_text(aes(label = round(cor, digits = 2))) 
+  p <- ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white")+
+    geom_label(aes(label = round(cor, digits = 2)), fill = "white") 
   
   
   
