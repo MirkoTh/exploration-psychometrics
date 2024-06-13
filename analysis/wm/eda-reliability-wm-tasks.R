@@ -452,9 +452,22 @@ pl_between_session_cors <- ggplot(tbl_between, aes(task_in, task_out)) +
     axis.text.x = element_text(angle = 90),
     plot.caption = element_text(size = 10)
   )
-save_my_pdf(pl_between_session_cors, "figures/EDA/cors-between-session.pdf", 6, 6)
+save_my_pdf(pl_between_session_cors, "figures/EDA/cors-between-session.pdf", 7.25, 7.25)
 
 ## Save recall, and processing files of included participants --------------
 
 
 saveRDS(tbl_performance_all, file = "data/all-data/tbl-performance-wm-all-s2.rds")
+
+tbl_performance_all_clean <- tbl_performance_all %>%
+  select(-c(
+    thx_lo_os, thx_lo_ss, excl_os, excl_ss, proc_below_thx, exclude
+  ))
+
+write_csv(tbl_performance_all_clean, "data/all-data/wm-performance.csv")
+write_csv(tbl_cor, "data/all-data/wm-reliabilities-correlations.csv")
+
+
+
+
+
