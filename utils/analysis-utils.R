@@ -226,7 +226,7 @@ parse_out_ID <- function(filename, task){
   #' also some IDs are certainly from our piloting so those get thrown out
   #' @param filname filename to parse ID from
   #' @param task task the data file is from
-
+  
   #' @return id the parsed out prolific ID
   #' 
   
@@ -555,18 +555,18 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
   
   for (i in 1:nrow(lookup)){
     #for (i in 1:3){
-
+    
     if (i%%20 == 0){print(sprintf("subject %i of %i", i, nrow(lookup)))}
-
+    
     pid <- lookup$PID[i]
     file_ind <- grep(paste0(pid, "_"), files)
     ID <- lookup$ID[i]
     # check if we have the final data for that participant
     if (length(file_ind)>0){
       temp <- fromJSON(paste(path_data_bandits, files[file_ind], sep = ""))
-      }
+    }
     else { # if not we need to look through temp
-
+      
       # do we even have a temp file in that name?
       if(!file.exists(paste0(path_data_bandits,pid ,"_temp_data_task_session_", session-1,".txt"))){
         print(pid); next} # no we don't
@@ -581,9 +581,9 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
         temp <- fromJSON(te)
         #temp <- tem[[length(tem)]]
       }
-
+      
     }
-
+    
     ### Horizon task
     for (block in 2:(nBlocksH+1)){# bc block 1 is practice
       if (length(temp$horizon$choice) < block){next} # dealing with incomplete data
@@ -595,9 +595,9 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
       }
       horizon$info[horizon$ID == i & horizon$block == block-1] <- length(horizon$chosen[horizon$ID == i & horizon$block == block-1&horizon$chosen == 0 & horizon$trial < 5]) -
         length(horizon$chosen[horizon$ID == i & horizon$block == block-1 & horizon$chosen == 1& horizon$trial < 5])
-
+      
     }
-
+    
     ### Sam's task
     for (block in 2:(nBlocksS+1)){# bc block 1 is practice
       if(length(temp$sam$choice) < block){next}
@@ -607,9 +607,9 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
         sam$reward[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$reward[[block]][[trial]]
         sam$rt[sam$ID == i & sam$block == block-1 & sam$trial == trial] <- temp$sam$time[[block]][[trial]]
       }
-
+      
     }
-
+    
     ## restless
     for (trial in 1:nTrialsR){
       if(length(temp$restless$choice) < 2) {next} # if there is no data for restless
@@ -618,41 +618,41 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
       restless$reward[restless$ID == i & restless$trial == trial] <- temp$restless$reward[[2]][[trial]]
       restless$rt[restless$ID == i & restless$trial == trial] <- temp$restless$time[[2]][[trial]]
     }
-
-
+    
+    
     ### get some info on their comprehension time etc.
-
+    
     if(length(temp$comprehensionAttemptsH)>0){ # if we have this info
       comprehension$compAttempts[comprehension$ID == i & comprehension$task == "horizon"] <- temp$comprehensionAttemptsH
       comprehension$compAttempts[comprehension$ID == i & comprehension$task == "sam"] <- temp$comprehensionAttemptsS
       comprehension$compAttempts[comprehension$ID == i & comprehension$task == "restless"] <- temp$comprehensionAttemptsR
-
+      
       comprehension$compTime[comprehension$ID == i & comprehension$task == "horizon"] <- temp$horizon$comprehensionTime
       comprehension$compTime[comprehension$ID == i & comprehension$task == "sam"] <- temp$sam$comprehensionTime
       comprehension$compTime[comprehension$ID == i & comprehension$task == "restless"] <- temp$restless$comprehensionTime
-
+      
       comprehension$instTime[comprehension$ID == i & comprehension$task == "horizon"] <- temp$horizon$instructionTime
       comprehension$instTime[comprehension$ID == i & comprehension$task == "sam"] <- temp$sam$instructionTime
       comprehension$instTime[comprehension$ID == i & comprehension$task == "restless"] <- temp$restless$instructionTime
-
+      
     }
   }
-
+  
   # info condition should be coded as -1 0 1 but is now coded as -2 0 2 so fix that
   horizon$info <- horizon$info/2
-
-
+  
+  
   ### save lookup
-
+  
   # write.csv(
   #   lookup, file = str_c(
   #     str_remove(path_data_bandits, "[a-z]*/$"),
   #     str_c("BanditLookup", session, ".csv")
   #   )
   # )
-
+  
   ####### make lookup that transforms IDs from session 2 into IDs from session 1
-
+  
   # session1 <- read.csv("data/all-data/BanditLookup1.csv")
   # if (session == 2) {
   #   session2 <- read.csv("data/all-data/BanditLookup2.csv")
@@ -664,24 +664,24 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
   #   restless$ID <- session2$wave1ID[match(restless$ID, session2$ID)]
   #   comprehension$ID <- session2$wave1ID[match(comprehension$ID, session2$ID)]
   # }
-
+  
   save(comprehension, file = str_c("data/wave",session,"/comprehension", session, ".Rda"))
   ############### calculate max rewards #########
-
+  
   ############## Horizon task
-
+  
   ## load the rewards
-
+  
   rewardsH <- fromJSON(paste("task/rewardsHorizon", session, ".json", sep = ""))
   Hrewards <- data.frame(block = rep(1:(nBlocksH+1), each = nTrialsH),
                          trial = rep(1:nTrialsH, nBlocksH+1),
                          rew1 = NA,
                          rew2 = NA)
-
+  
   Horizon <-  fromJSON(paste("task/Horizon", session, ".json", sep = ""))
-
+  
   Hrewards$horizon <- rep(Horizon, each = nTrialsH)
-
+  
   for (block in 1:(nBlocksH+1)){# +1 bc there is the practice round too
     for (trial in 1:nTrialsH){
       if (trial > Hrewards$horizon[Hrewards$block == block & Hrewards$trial == trial]){next}
@@ -689,28 +689,28 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
       Hrewards$rew2[Hrewards$block == block & Hrewards$trial == trial]<-  rewardsH[block,trial,2]
     }
   }
-
+  
   # calculate max reward
-
+  
   Hrewards$max <- ifelse(Hrewards$rew1 > Hrewards$rew2, Hrewards$rew1, Hrewards$rew2)
-
+  
   maxHorizon <- sum(Hrewards$max, na.rm = T)
-
+  
   ########### Sam's task
   load(paste("task/rewardsSam", session, ".Rda", sep = ""))
   Srewards <- rewards
-
+  
   # calculate max reward
-
+  
   #Srewards$max <- ifelse(Srewards$rew1 > Srewards$rew2, Srewards$rew1, Srewards$rew2)
   Srewards$max <- ifelse(Srewards$reward1 > Srewards$reward2, Srewards$reward1, Srewards$reward2)
-
+  
   maxSam <- sum(Srewards$max, na.rm = T)
-
-
+  
+  
   ####### Restless
-
-
+  
+  
   rewardsR <- fromJSON(paste("task/rewards4ARB", session, ".json", sep = ""))
   Rrewards <- data.frame(block = rep(1:(nBlocksR+1), each = nTrialsR),
                          trial = rep(1:nTrialsR, nBlocksR+1),
@@ -718,8 +718,8 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
                          rew2 = NA,
                          rew3 = NA,
                          rew4 = NA)
-
-
+  
+  
   for (block in 1:(nBlocksR+1)){# +1 bc there is the practice round too
     for (trial in 1:nTrialsR){
       if (block == 1 & trial > 10){next}
@@ -729,45 +729,45 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
       Rrewards$rew4[Rrewards$block == block & Rrewards$trial == trial]<-  rewardsR[[block]][trial, 4]
     }
   }
-
+  
   # calculate max reward
   Rrewards$row <- 1:nrow(Rrewards)
   Rrewards$max <- apply(as.array(Rrewards$row), 1, function(x) max(Rrewards[x,3:6]))
-
+  
   maxRestless <- sum(Rrewards$max, na.rm = T)
-
-
+  
+  
   #save(maxHorizon, maxSam, maxRestless, file = paste("task/maxRewards", session, ".Rda", sep = ""))
-
-
+  
+  
   ################# get ground truth variables ###############
-
+  
   ####### Horizon
-
+  
   rewardsH <- fromJSON(paste("task/rewardsHorizon", session, ".json", sep = ""))
   Horizon <- fromJSON(paste("task/Horizon", session, ".json", sep = ""))
-
+  
   horizon$reward1 <- NA
   horizon$reward2 <- NA
   horizon$Horizon <- NA
-
+  
   for (block in 2:(nBlocksH+1)){
     temp <- data.frame(rewardsH[block, ,])
     horizon$reward1[horizon$block == block-1] <- temp$X1
     horizon$reward2[horizon$block == block-1] <- temp$X2
     horizon$Horizon[horizon$block == block-1] <- Horizon[block]
-
+    
   }
-
+  
   ######### Sam
-
+  
   load(paste("task/rewardsSam", session, ".Rda", sep = ""))
   rewardsS <- rewards
-
+  
   sam$reward1 <- rewardsS$reward1[rewardsS$block > 1]
   sam$reward2 <- rewardsS$reward2[rewardsS$block > 1]
   sam$cond <- rewardsS$cond[rewardsS$block > 1]
-
+  
   # for (block in 2:(nBlocksS+1)){
   #   temp <- data.frame(rewardsS[block, ,])
   #   sam$reward1[sam$block == block-1] <- temp$X1
@@ -778,23 +778,23 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
   #   # cond2 <- ifelse(sd(temp$X2)>1.5, "F", "S")
   #   # sam$cond[sam$block == block-1] <- paste(cond1, cond2, sep = "")
   # }
-
+  
   ### restless
   restless$reward1 <- NA
   restless$reward2 <- NA
   restless$reward3 <- NA
   restless$reward4 <- NA
   rewardsR <- fromJSON(paste("task/rewards4ARB", session, ".json", sep = ""))
-
-
-
+  
+  
+  
   temp <- data.frame(rewardsR[[2]])
   restless$reward1 <- rep(temp$X1, length(unique(restless$ID)))
   restless$reward2 <- rep(temp$X2, length(unique(restless$ID)))
   restless$reward3 <- rep(temp$X3, length(unique(restless$ID)))
   restless$reward4 <- rep(temp$X4, length(unique(restless$ID)))
-
-
+  
+  
   ############ take out subjects who have no data ##############
   remove_na_participants <- function(df) {
     temp <- plyr::ddply(df, ~ID, summarise, ch = mean(chosen, na.rm = T))
@@ -802,23 +802,23 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
     df <- subset(df, is.element(ID, temp$ID))
     return(df)
   }
-
+  
   horizon <- remove_na_participants(horizon)
   sam <- remove_na_participants(sam)
   restless <- remove_na_participants(restless)
-
+  
   #save(horizon, sam, restless, file = str_c(str_remove(path_data_bandits, "[a-z]*/$"),  "bandits.Rda"))
   #save(horizon, sam, restless, file = str_c(str_remove(path_data_bandits, "[a-z]*/$"),  str_c("bandits", session, ".Rda")))
   save(horizon, sam, restless, file = sprintf("data/wave%i/banditsWave%ifull.Rda", session, session))
-
+  
   #################### questionnaires ###############
-
+  
   print("done with bandits")
-
+  
   files = list.files(path = path_data_qs)
-
+  
   for (i in 1:nrow(lookup)){
-
+    
     pid <- lookup$PID[i]
     # check if we have the final data for that participant
     if (mean(grepl(pid, files))>0){ID = i}
@@ -828,7 +828,7 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
     }
     all_paths <- files[grep(paste0(pid, "_"), files)]
     q_path <- all_paths[str_detect(all_paths, str_c("session_", session - 1))]
-
+    
     if (length(q_path) > 0) {
       tmp <- read_file(paste(path_data_qs, q_path, sep = ""))
       if (str_count(tmp, "motiv_mem_0") > 1) {# sometimes qdat was saved duplicate
@@ -838,7 +838,7 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
         my_txt <- paste(path_data_qs, q_path, sep = "")
       }
       temp <- fromJSON(my_txt)
-
+      
       if (!exists("qdat")){# if this is the first one
         qdat <- temp
         qdat <- as.data.frame(qdat)
@@ -850,18 +850,18 @@ load_bandit_and_questionnaire_data <- function(session, time_period) {
       }
     }
   }
-
+  
   ## recode IDs to be based on wave1 IDs
- # if (session == 2) qdat$ID <- session2$wave1ID[match(qdat$ID, session2$ID)]
-
+  # if (session == 2) qdat$ID <- session2$wave1ID[match(qdat$ID, session2$ID)]
+  
   ## save it
-
+  
   save(qdat, file = sprintf("data/wave%i/qsWave%ifull.Rda", session, session))
 }
 
 
 
-eda_and_exclusion_criteria_bandits <- function(session) {
+exclusion_criteria <- function(session) {
   
   load(sprintf("data/wave%i/banditsWave%ifull.Rda", session, session))
   load(sprintf("data/wave%i/qswave%iFull.Rda", session, session))
@@ -922,7 +922,7 @@ eda_and_exclusion_criteria_bandits <- function(session) {
     print(pchance)
     df$row <- 1:nrow(df)
     df$optimalR <- rep(apply(as.array(df$row[df$ID == df$ID[1]]), 1, function(x) max(df[x, grepl("reward", colnames(df))])), 
-                         length(unique(df$ID)))
+                       length(unique(df$ID)))
     
     df$chooseBest <- ifelse(df$reward == df$optimalR, 1, 0)
     
@@ -967,22 +967,21 @@ eda_and_exclusion_criteria_bandits <- function(session) {
   
   #### comprehension attempts  (this we only do for session 1 bc in session 2 we assume that those who were re-invited understood the tasks)
   
-  if (session == 1){
-    mean_sd <- plyr::ddply(comprehension, ~task, summarise, meanComp = mean(compAttempts, na.rm =T), SD = sd(compAttempts, na.rm = T))
-    
-    mean_sd$SD <- 2*mean_sd$SD + mean_sd$meanComp
-    
-    mean_SD <- meann(comprehension$compAttempts) + 2*sd(comprehension$compAttempts, na.rm = T)
-    
-    comprehension$excl <- ifelse(comprehension$compAttempts > mean_sd$SD[match(comprehension$task, mean_sd$task)], 1, 0)
-    #comprehension$excl <- ifelse(comprehension$compAttempts > mean_SD, 1, 0)
-    
-    table(comprehension$excl)
-    
-    lookup$compHorizon <- lookup %>% left_join(comprehension %>% filter(task == "horizon"), by = "ID") %>% select(excl) %>% as_vector()
-    lookup$compSam <- lookup %>% left_join(comprehension %>% filter(task == "sam"), by = "ID") %>% select(excl) %>% as_vector()
-    lookup$compRestless <- lookup %>% left_join(comprehension %>% filter(task == "restless"), by = "ID") %>% select(excl) %>% as_vector()
-  }
+  mean_sd <- plyr::ddply(comprehension, ~task, summarise, meanComp = mean(compAttempts, na.rm =T), SD = sd(compAttempts, na.rm = T))
+  
+  mean_sd$SD <- 2*mean_sd$SD + mean_sd$meanComp
+  
+  mean_SD <- meann(comprehension$compAttempts) + 2*sd(comprehension$compAttempts, na.rm = T)
+  
+  comprehension$excl <- ifelse(comprehension$compAttempts > mean_sd$SD[match(comprehension$task, mean_sd$task)], 1, 0)
+  #comprehension$excl <- ifelse(comprehension$compAttempts > mean_SD, 1, 0)
+  
+  table(comprehension$excl)
+  
+  lookup$compHorizon <- lookup %>% left_join(comprehension %>% filter(task == "horizon"), by = "ID") %>% select(excl) %>% as_vector()
+  lookup$compSam <- lookup %>% left_join(comprehension %>% filter(task == "sam"), by = "ID") %>% select(excl) %>% as_vector()
+  lookup$compRestless <- lookup %>% left_join(comprehension %>% filter(task == "restless"), by = "ID") %>% select(excl) %>% as_vector()
+  
   
   
   #### attention checks
@@ -995,31 +994,29 @@ eda_and_exclusion_criteria_bandits <- function(session) {
   
   table(lookup$attention)
   
-  ##### total
-  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session - 1)
+  
+  # wm
+  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session)
   tbl_lookup_wm$any_task_too_few <- as.numeric(tbl_lookup_wm$any_task_too_few)
   tbl_lookup_wm$proc_below_thx <- as.numeric(tbl_lookup_wm$proc_below_thx)
+ 
   
+  ##### total
+ 
   lookup <- lookup %>% 
     left_join(tbl_lookup_wm, by = c("ID" = "participant_id")) %>%
     as_tibble()
   lookup$any_task_too_few[is.na(lookup$any_task_too_few)] <- 1
   lookup$proc_below_thx[is.na(lookup$proc_below_thx)] <- 1
-   
+  
   
   lookup$totalExclude <- apply(as.array(1:nrow(lookup)), 1, function(x) sum(as.numeric(unlist(lookup[x, c(grep("incomplete_data", colnames(lookup)): ncol(lookup))])), na.rm = T))
   
   
-  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session - 1)
-  lookup <- lookup %>% left_join(tbl_lookup_wm, by = c("ID" = "participant_id"))
-
   hist(lookup$totalExclude, breaks = max(lookup$totalExclude))
   
   lookup$exclude <- ifelse(lookup$totalExclude == 0, 0, 1)
   print(table(lookup$exclude))
-  
-  tbl_lookup_wm <- exclusion_criteria_wm_tasks(session - 1)
-  lookup <- lookup %>% left_join(tbl_lookup_wm, by = c("ID" = "participant_id"))
   
   
   write_csv(lookup, str_c("data/exclusions", session, ".csv"))
@@ -1035,11 +1032,11 @@ eda_and_exclusion_criteria_bandits <- function(session) {
 
 exclusion_criteria_wm_tasks <- function(s_id) {
   
-  path_data <- sprintf("data/wave%i/", s_id)
+  path_data <- "data/all-data/"
   
   # load data from all wm tasks
-  l_tbl_wm_data <- load_wm_data(path_datapath_data)
-  l_tbl_wm_data <- map(l_tbl_wm_data, ~ .x %>% filter(session_id == s_id))
+  l_tbl_wm_data <- load_wm_data(path_data)
+  l_tbl_wm_data <- map(l_tbl_wm_data, ~ .x %>% filter(session_id == (s_id - 1)))
   
   list2env(l_tbl_wm_data, environment())
   
