@@ -1025,8 +1025,14 @@ exclusion_criteria <- function(session) {
   horizon <- subset(horizon, !is.element(ID, excl_ID) )
   sam <- subset(sam, !is.element(ID, excl_ID))
   restless <- subset(restless, !is.element(ID, excl_ID))
+  qdat <- subset(qdat, !is.element(ID, excl_ID))
   
   save(horizon, sam, restless, file = sprintf("analysis/bandits/banditsWave%i.Rda", session))
+  save(qdat, file = sprintf("analysis/qswave%i.Rda", session))
+  write.csv(horizon, file = sprintf("data/finalHorizonSession%i.csv", session))
+  write.csv(sam, file = sprintf("data/final2armedBanditSession%i.csv", session))
+  write.csv(restless, file = sprintf("data/finalRestlessSession%i.csv", session))
+  write.csv(qdat, file = sprintf("data/finalQuestionnaireDataSession%i.csv", session))
   
 }
 
