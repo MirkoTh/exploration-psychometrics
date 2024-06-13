@@ -9,7 +9,7 @@ library(gridExtra)
 library(cmdstanr)
 
 
-is_fit <- TRUE#FALSE#
+is_fit <- FALSE#TRUE#
 is_hierarchical <- TRUE#FALSE#
 
 dirs_homegrown <- c(
@@ -18,6 +18,32 @@ dirs_homegrown <- c(
 )
 walk(dirs_homegrown, source)
 
+
+posteriors_and_maps <- function(tbl_draws, s, pars_interest, ids_sample) {
+  
+  tbl_posterior <- tbl_draws %>% 
+    dplyr::select(starts_with(pars_interest), .chain) %>%
+    rename(chain = .chain) %>%
+    pivot_longer(starts_with(pars_interest), names_to = "parameter", values_to = "value") %>%
+    mutate(
+      id_stan = as.integer(str_extract(parameter, "[0-9]+")),
+      parameter = str_extract(parameter, "^[a-z]+")
+    ) %>%
+    left_join(ids_sample, by = "id_stan") %>%
+    relocate(ID, .before = parameter) %>%
+    select(-c(id_stan))
+  
+  tbl_map <- tbl_posterior %>% group_by(ID, parameter) %>% 
+    summarize(map = mean(value)) %>%
+    ungroup() %>%
+    mutate(
+      parameter = factor(parameter, labels = c("ru", "v")),
+      session = s
+    )
+  
+  return(list(tbl_posterior = tbl_posterior, tbl_map = tbl_map))
+  
+}
 
 
 # Read and Preprocess Data ------------------------------------------------
@@ -126,15 +152,17 @@ pars_pred <- c("choice_pred", "log_lik")
 # by-participant ----------------------------------------------------------
 
 
-ucb_stan_txt <- ucb_stan()
-mod_ucb_stan <- cmdstan_model(ucb_stan_txt)
-
 file_loc_s1 <- "data/restless-participant-model-posterior-s1.RDS"
 file_loc_s2 <- "data/restless-participant-model-posterior-s2.RDS"
 
 
-
 if (is_fit & !is_hierarchical) {
+  
+  
+  ucb_stan_txt <- ucb_stan()
+  mod_ucb_stan <- cmdstan_model(ucb_stan_txt)
+  
+  
   
   # session 1
   fit_restless_ucb_s1 <- mod_ucb_stan$sample(
@@ -157,7 +185,8 @@ if (is_fit & !is_hierarchical) {
   tbl_summary_s2 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_s2, file_loc_s2)
   
-} else if (!is_fit) {
+}
+if (!is_fit) {
   tbl_draws_s1 <- readRDS(file_loc_s1)
   tbl_draws_s2 <- readRDS(file_loc_s2)
 }
@@ -166,32 +195,6 @@ ids_sample <- tibble(
   ID = unique(tbl_restless$ID),
   id_stan = 1:length(unique(tbl_restless$ID))
 )
-
-posteriors_and_maps <- function(tbl_draws, s, pars_interest, ids_sample) {
-  
-  tbl_posterior <- tbl_draws %>% 
-    dplyr::select(starts_with(pars_interest), .chain) %>%
-    rename(chain = .chain) %>%
-    pivot_longer(starts_with(pars_interest), names_to = "parameter", values_to = "value") %>%
-    mutate(
-      id_stan = as.integer(str_extract(parameter, "[0-9]+")),
-      parameter = str_extract(parameter, "^[a-z]+")
-    ) %>%
-    left_join(ids_sample, by = "id_stan") %>%
-    relocate(ID, .before = parameter) %>%
-    select(-c(id_stan))
-  
-  tbl_map <- tbl_posterior %>% group_by(ID, parameter) %>% 
-    summarize(map = mean(value)) %>%
-    ungroup() %>%
-    mutate(
-      parameter = factor(parameter, labels = c("ru", "v")),
-      session = s
-    )
-  
-  return(list(tbl_posterior = tbl_posterior, tbl_map = tbl_map))
-  
-}
 
 
 l_posterior_1 <- posteriors_and_maps(tbl_draws_s1, 1, c("beta", "tau"))
@@ -230,12 +233,10 @@ l_posterior_1$tbl_map %>%
 # hierarchical ------------------------------------------------------------
 
 
-
-ucb_stan_hc_txt <- ucb_stan_hierarchical()
-mod_ucb_stan_hc <- cmdstan_model(ucb_stan_hc_txt)
-
 file_loc_hc_s1 <- "data/restless-hierarchical-model-posterior-s1.RDS"
 file_loc_hc_s2 <- "data/restless-hierarchical-model-posterior-s2.RDS"
+ucb_stan_hc_txt <- ucb_stan_hierarchical()
+mod_ucb_stan_hc <- cmdstan_model(ucb_stan_hc_txt)
 
 if (is_fit & is_hierarchical) {
   
@@ -260,7 +261,8 @@ if (is_fit & is_hierarchical) {
   tbl_summary_hc_s2 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_s2, file_loc_hc_s2)
   
-} else if (!is_fit) {
+}
+if (!is_fit) {
   tbl_draws_hc_s1 <- readRDS(file_loc_hc_s1)
   tbl_draws_hc_s2 <- readRDS(file_loc_hc_s2)
 }
@@ -333,6 +335,34 @@ grid.arrange(
   nrow = 2, ncol = 2
 )
 
+params_bf <- c("RU", "V")
+library(kde1d)
+plot_hdi_etc <- function(tbl_draws, ttl) {
+  tbl_posterior <- tbl_draws %>% 
+    dplyr::select(starts_with(c("mu_beta", "mu_tau")), .chain) %>%
+    rename(chain = .chain) %>%
+    pivot_longer(starts_with(c("mu_beta", "mu_tau")), names_to = "parameter", values_to = "value") %>%
+    mutate(parameter = factor(parameter, labels = params_bf))
+  kdes <- estimate_kd(tbl_posterior, params_bf)
+  limits <- c(0.0025, 0.9975)
+  par_lims <- limit_axes(kdes, limits = limits)
+  bfs <- map2_dbl(kdes, c(dt(0, 1, 1), dnorm(0, 0, 1)), ~ (..2)/dkde1d(0, ..1))
+  
+  plot_map_hdi_bf(par_lims, bfs, ttl) + coord_cartesian(xlim = c(-1.25, .5))
+}
+
+pl_fixed_s1 <- plot_hdi_etc(tbl_draws_hc_s1, "Restless Bandit Session 1")
+pl_fixed_s2 <- plot_hdi_etc(tbl_draws_hc_s2, "Restless Bandit Session 2")
+pl_fixed_both <- arrangeGrob(
+  pl_fixed_s1 + scale_y_discrete(expand = c(.3, 0)),
+  pl_fixed_s2 + scale_y_discrete(expand = c(.3, 0)),
+  nrow = 2)
+
+grid.draw(pl_fixed_both)
+
+save_my_pdf_and_tiff(pl_fixed_both, "figures/4arlb-fixed-effects-posteriors", 5.5, 8)
+
+
 
 
 # recoverability ----------------------------------------------------------
@@ -343,20 +373,42 @@ my_mode <- function(x) {
   ux <- unique(x)
   ux[which.max(tabulate(match(x, ux)))]
 }
+
+
 my_bayesian_preds <- function(tbl_draws) {
   tbl_pred <- tbl_draws %>% select(contains("choice_pred"))
   randomly_drawn_ids <- sample(1:nrow(tbl_pred), ncol(tbl_pred), replace = TRUE)
   
-  tbl_preds <- tibble(
-    choice_pred = map2_dbl(randomly_drawn_ids, tbl_pred, ~ .y[.x]),
-    choice_pred_map = map_dbl(tbl_pred, my_mode)
+  tbl_subj <- tbl_pred[1, ] %>% 
+    mutate(it = 1:nrow(.)) %>% 
+    pivot_longer(-it, names_pattern = "\\[([0-9]+),", names_to = "ID") %>%
+    mutate(ID = as.numeric(ID)) %>% select(-c(it, value))
+  tbl_trial <- tbl_pred[1, ] %>% 
+    mutate(it = 1:nrow(.)) %>% 
+    pivot_longer(-it, names_pattern = "([0-9]+)\\]$", names_to = "trial") %>%
+    mutate(trial = as.numeric(trial))  %>% select(-it)
+  
+  tbl_lookup_id <- tibble(
+    ID_stan = sort(unique(tbl_subj$ID)),
+    ID = unique(tbl_restless_s1$ID)
   )
   
-  return(tbl_preds)
+  tbl_pred_arranged <- tibble(cbind(tbl_subj, trial = tbl_trial$trial))
+  tbl_pred_arranged$choice_pred <- map2_dbl(randomly_drawn_ids, tbl_pred, ~ .y[.x])
+  tbl_pred_arranged$choice_pred_map <- map_dbl(tbl_pred, my_mode)
+  tbl_pred_arranged <- tbl_pred_arranged %>% 
+    left_join(tbl_lookup_id, by = c("ID" = "ID_stan"), suffix = c("_stan", ""))
+  
+  return(tbl_pred_arranged)
 }
 
-tbl_restless_s1 <- cbind(tbl_restless_s1, my_bayesian_preds(tbl_draws_hc_s1))
-tbl_restless_s2 <- cbind(tbl_restless_s2, my_bayesian_preds(tbl_draws_hc_s2))
+tbl_preds_s1 <- my_bayesian_preds(tbl_draws_hc_s1)
+tbl_preds_s2 <- my_bayesian_preds(tbl_draws_hc_s2)
+
+tbl_restless_s1 <- as_tibble(left_join(tbl_restless_s1, tbl_preds_s1, by = c("ID", "trial")))
+tbl_restless_s2 <- as_tibble(left_join(tbl_restless_s2, tbl_preds_s2, by = c("ID", "trial")))
+
+
 tbl_restless_s1$reward_pred_map <- pmap_dbl(
   tbl_restless_s1[, c("reward1", "reward2", "reward3", "reward4", "choice_pred_map")], 
   ~ c(..1, ..2, ..3, ..4)[..5]
@@ -380,7 +432,7 @@ if (is_fit & is_hierarchical) {
   
   # session 1
   fit_restless_ucb_hc_s1_recovery <- mod_ucb_stan_hc$sample(
-    data = l_data_s1, iter_sampling = 300, iter_warmup = 200, chains = 3, parallel_chains = 3
+    data = l_data_s1, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
   tbl_draws_hc_s1_recovery <- fit_restless_ucb_hc_s1_recovery$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
@@ -391,7 +443,7 @@ if (is_fit & is_hierarchical) {
   
   # session 2
   fit_restless_ucb_hc_s2_recovery <- mod_ucb_stan_hc$sample(
-    data = l_data_s2, iter_sampling = 300, iter_warmup = 200, chains = 3, parallel_chains = 3
+    data = l_data_s2, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
   tbl_draws_hc_s2_recovery <- fit_restless_ucb_hc_s2_recovery$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
@@ -399,7 +451,8 @@ if (is_fit & is_hierarchical) {
   tbl_summary_hc_s2_recovery %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_s2_recovery, file_loc_hc_s2_recovery)
   
-} else if (!is_fit) {
+} 
+if (!is_fit) {
   tbl_draws_hc_s1_recovery <- readRDS(file_loc_hc_s1_recovery)
   tbl_draws_hc_s2_recovery <- readRDS(file_loc_hc_s2_recovery)
 }
@@ -473,6 +526,8 @@ pl_heatmaps <- arrangeGrob(
   pl_heatmap_s1, pl_heatmap_s2 + scale_fill_viridis_c(), 
   nrow = 1, widths = c(1, 1.3)
 )
+
+grid.draw(pl_heatmaps)
 
 save_my_pdf_and_tiff(
   pl_heatmaps, "figures/4arlb-hierarchical-ucb-recovery", 10, 4
