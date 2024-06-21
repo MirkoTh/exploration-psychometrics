@@ -25,14 +25,22 @@ walk(home_grown, source)
 
 
 fit_or_load <- "fit"
-load("analysis/bandits/banditsWave1.Rda")
-tbl_exclude <- readRDS(file = "analysis/wm/subjects-excl-wm.rds")
-tbl_rb <- as_tibble(restless) %>%
-  left_join(
-    tbl_exclude[, c("participant_id", "excl_subject")], 
-    by = c("ID" = "participant_id")
-    ) %>%
-  filter(excl_subject == 0 & ID != 168) %>%
+tbl_rb <- read_csv("data/finalRestlessSession1.csv")
+tbl_exclude2 <- read_csv(file = "data/exclusions2.csv")
+tbl_exclude1 <- read_csv(file = "data/exclusions1.csv")
+
+
+decay_center <- 50
+# seems like two people were invited to session 2, who should not have been
+tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
+  left_join(tbl_exclude2 %>% select(ID, exclude), by = "ID", suffix = c("_1", "_2")) %>%
+  filter(exclude_2 == 0 & exclude_1 == 0)
+
+# for testing, just take 4 subjects
+tbl_exclude <- tbl_exclude %>% filter(ID <= 6)
+
+tbl_rb <- tbl_rb %>%
+  inner_join(tbl_exclude[, c("ID")], by = "ID") %>%
   rename(choices = chosen, rewards = reward) %>%
   mutate(choices = choices + 1)
 l_participants <- tbl_rb %>% split(., .$"ID")
@@ -42,7 +50,7 @@ nr_trials <- nrow(l_participants[[1]])
 nr_participants <- length(l_participants)
 
 tbl_rewards <- tbl_rb  %>%
-  filter(ID == 1) %>%
+  filter(ID == 2) %>%
   select(starts_with("reward")) %>%
   rename(
     "Arm 1" = reward1,
@@ -53,7 +61,7 @@ tbl_rewards <- tbl_rb  %>%
 
 
 
-my_participants_tbl_kalman <- function(l_params_decision, sim_d) {
+my_participants_tbl_kalman <- function(l_params_decision, sim_d, v_choices) {
   tibble(
     sigma_prior = 1000,
     mu_prior = 50,
@@ -63,18 +71,20 @@ my_participants_tbl_kalman <- function(l_params_decision, sim_d) {
     nr_trials = nr_trials,
     params_decision = l_params_decision,
     simulate_data = sim_d,
-    seed = round(rnorm(nr_participants, 100000, 1000))
+    seed = round(rnorm(nr_participants, 100000, 1000)),
+    choices_made = v_choices
   )
 }
 
-my_participants_tbl_delta <- function(l_params_decision, delta, sim_d) {
+my_participants_tbl_delta <- function(l_params_decision, delta, sim_d, v_choices) {
   tibble(
     delta = delta,
     lambda = .9836,
     nr_trials = nr_trials,
     params_decision = l_params_decision,
     simulate_data = sim_d,
-    seed = round(rnorm(nr_participants, 100000, 1000))
+    seed = round(rnorm(nr_participants, 100000, 1000)),
+    choices_made = v_choices
   )
 }
 
@@ -83,6 +93,8 @@ sigma_xi_sq <- 7.84
 sigma_epsilon_sq <- 16
 sigma_prior <- 1000
 mu_prior <- 50
+
+l_choices_made <- map(l_participants, "choices")
 
 
 
@@ -117,11 +129,11 @@ if (fit_or_load == "fit") {
   )
   
   # recovery just for selected stimulus sets
-  tbl_participants_kalman_softmax <- my_participants_tbl_kalman(l_params_decision, FALSE)
+  tbl_participants_kalman_softmax <- my_participants_tbl_kalman(l_params_decision, FALSE, l_choices_made)
   tbl_results_kalman_softmax <- simulate_and_fit_softmax(
     tbl_participants_kalman_softmax, nr_vars = 0, 
     cond_on_choices = TRUE, nr_trials = nr_trials,
-    bds = bds_sm, tbl_rewards = tbl_rewards
+    bds = bds_sm, tbl_rewards = tbl_rewards, decay_center = decay_center
   )
   
   saveRDS(tbl_results_kalman_softmax, file = "data/empirical-parameter-recovery-kalman-softmax-recovery.rds")
@@ -170,7 +182,7 @@ if (fit_or_load == "fit") {
     ~ list(gamma = ..1, beta = ..2, choicemodel = "ucb", no = 4)
   )
   
-  tbl_participants_kalman_ucb <- my_participants_tbl_kalman(l_params_decision, FALSE)
+  tbl_participants_kalman_ucb <- my_participants_tbl_kalman(l_params_decision, FALSE, l_choices_made)
   tbl_results_kalman_ucb <- simulate_and_fit_ucb(
     tbl_participants_kalman_ucb, nr_vars = 0, cond_on_choices = TRUE, 
     nr_trials = nr_trials, bds = bds_ucb, tbl_rewards = tbl_rewards

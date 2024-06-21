@@ -439,7 +439,7 @@ kalman_learning <- function(tbl_df, no, sigma_xi_sq, sigma_epsilon_sq, m0 = NULL
     m[t + 1, ] <- lambda * m[t + 1, ] + (1 - lambda) * decay_center
     v[t + 1, ] <- lambda^2 * v[t + 1, ] + sigma_xi_sq
   }
-
+  
   tbl_m <- as.data.frame(m)
   # prevent v from becoming too small
   v <- t(apply(v, 1, function(x) pmax(x, .0001)))
@@ -599,7 +599,9 @@ choice_probs_e2 <- function(l_results_by_id) {
 
 simulate_kalman <- function(
     sigma_prior, mu_prior, sigma_xi_sq, sigma_epsilon_sq, lambda, nr_trials,
-    params_decision, simulate_data, seed, tbl_rewards, mu_init = NULL, decay_center = 0) {
+    params_decision, simulate_data, seed, tbl_rewards, mu_init = NULL, decay_center = 0,
+    choices_made = NULL
+) {
   #'
   #' @description simulate choices from a Kalman filter with some choice model
   #' @param sigma_prior prior variance
@@ -636,24 +638,48 @@ simulate_kalman <- function(
   choices <- rep(0, nt + 1) # to hold the choices of the RL agent
   rewards <- rep(0.0, nt + 1) # to hold the obtained rewards by the RL agent
   
-  for (t in 1:nt) {
-    p <- choice_prob(matrix(m[t, ], 1, ncol(m)), matrix(v[t, ], 1, ncol(v)), sigma_xi_sq, params_decision)
-    # choose an option according to these probabilities
-    choices[t] <- sample(1:4, size = 1, prob = p)
-    # get the reward of the choice
-    rewards[t] <- tbl_rewards[t, choices[t]] %>% as_vector()
-    kt <- rep(0, no)
-    # set the Kalman gain for the chosen option
-    kt[choices[t]] <- (v[t, choices[t]] + sigma_xi_sq) / (v[t, choices[t]] + sigma_epsilon_sq + sigma_xi_sq)
-    # compute the posterior means
-    m[t + 1, ] <- m[t, ] + kt * (tbl_rewards[t, ] - m[t, ]) %>% as_vector()
-    # compute the posterior variances
-    v[t + 1, ] <- (1 - kt) * (v[t, ] + sigma_xi_sq)
-    
-    # decay towards decay center
-    m[t + 1, ] <- lambda * m[t + 1, ] + (1 - lambda) * decay_center
-    v[t + 1, ] <- lambda^2 * v[t + 1, ] + sigma_xi_sq
+  if (is.null(choices_made)){
+    # here choices are generated/predicted, and learning is based on these choices
+    for (t in 1:nt) {
+      p <- choice_prob(matrix(m[t, ], 1, ncol(m)), matrix(v[t, ], 1, ncol(v)), sigma_xi_sq, params_decision)
+      # choose an option according to these probabilities
+      choices[t] <- sample(1:4, size = 1, prob = p)
+      # get the reward of the choice
+      rewards[t] <- tbl_rewards[t, choices[t]] %>% as_vector()
+      kt <- rep(0, no)
+      # set the Kalman gain for the chosen option
+      kt[choices[t]] <- (v[t, choices[t]] + sigma_xi_sq) / (v[t, choices[t]] + sigma_epsilon_sq + sigma_xi_sq)
+      # compute the posterior means
+      m[t + 1, ] <- m[t, ] + kt * (tbl_rewards[t, ] - m[t, ]) %>% as_vector()
+      # compute the posterior variances
+      v[t + 1, ] <- (1 - kt) * (v[t, ] + sigma_xi_sq)
+      
+      # decay towards decay center
+      m[t + 1, ] <- lambda * m[t + 1, ] + (1 - lambda) * decay_center
+      v[t + 1, ] <- lambda^2 * v[t + 1, ] + sigma_xi_sq
+    }
+  } else if (!is.null(choices_made)) {
+    # here choices are generated/predicted, but learning is fixed (given the made choices by the participants)
+    for (t in 1:nt) {
+      p <- choice_prob(matrix(m[t, ], 1, ncol(m)), matrix(v[t, ], 1, ncol(v)), sigma_xi_sq, params_decision)
+      # choose an option according to these probabilities
+      choices[t] <- sample(1:4, size = 1, prob = p)
+      # get the reward of the choice
+      rewards[t] <- tbl_rewards[t, choices[t]] %>% as_vector()
+      kt <- rep(0, no)
+      # set the Kalman gain for the chosen option
+      kt[choices_made[t]] <- (v[t, choices_made[t]] + sigma_xi_sq) / (v[t, choices_made[t]] + sigma_epsilon_sq + sigma_xi_sq)
+      # compute the posterior means
+      m[t + 1, ] <- m[t, ] + kt * (tbl_rewards[t, ] - m[t, ]) %>% as_vector()
+      # compute the posterior variances
+      v[t + 1, ] <- (1 - kt) * (v[t, ] + sigma_xi_sq)
+      
+      # decay towards decay center
+      m[t + 1, ] <- lambda * m[t + 1, ] + (1 - lambda) * decay_center
+      v[t + 1, ] <- lambda^2 * v[t + 1, ] + sigma_xi_sq
+    }
   }
+  
   
   tbl_m <- as.data.frame(m)
   # prevent v from becoming too small
@@ -1491,7 +1517,7 @@ kalman_softmax_experiment <- function(
 }
 
 simulate_and_fit_softmax <- function(
-    tbl_params_participants, nr_vars, cond_on_choices, nr_trials, bds, tbl_rewards = NULL) {
+    tbl_params_participants, nr_vars, cond_on_choices, nr_trials, bds, tbl_rewards = NULL, decay_center = NULL, choices_made = NULL) {
   
   if (is.null(tbl_rewards)) {
     # simulate data
@@ -1510,6 +1536,7 @@ simulate_and_fit_softmax <- function(
     tbl_params_participants,
     simulate_kalman,
     tbl_rewards = tbl_rewards,
+    decay_center = decay_center,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
@@ -2649,7 +2676,7 @@ ucb_stan <- function() {
 }
 
 
-ucb_stan_hierarchical <- function() {
+ucb_stan_hierarchical_generate <- function() {
   m_txt <- write_stan_file("
     data {
       int<lower=1> nSubjects;
@@ -2763,5 +2790,85 @@ ucb_stan_hierarchical <- function() {
   return(m_txt)
 }
 
+
+ucb_stan_hierarchical_fit_fixed_learning <- function() {
+  m_txt <- write_stan_file("
+    data {
+      int<lower=1> nSubjects;
+      int<lower=1> nTrials;               
+      array[nSubjects, nTrials] int choice;     
+      matrix[nSubjects, nTrials] reward;
+      array[nSubjects, nTrials] int choice_gen;     
+    }
+    transformed data {
+      real<lower=0, upper=100> m_prior;
+      real<lower=0> var_mean_prior;
+      real<lower=0> var_epsilon;
+      real<lower=0> var_xi;
+      real<lower=0,upper=1> decay;
+      real<lower=0, upper=100> decay_center;
+      
+      m_prior = 50.0;
+      var_mean_prior = 1000.0; // prior variance of the mean
+      var_epsilon = 16.0; // error variance
+      var_xi = 7.84; // innovation variance
+      decay = 0.9836;
+      decay_center = 50;
+    }
+    parameters {
+      vector<lower=0,upper=3>[nSubjects] tau; 
+      vector[nSubjects] beta;
+      real <lower=0> sigma_tau;
+      real <lower=0> sigma_beta;
+      real mu_tau;
+      real mu_beta;
+
+    }
+    model {
+      for (s in 1:nSubjects) {
+        tau[s] ~ normal(mu_tau, sigma_tau);
+        beta[s] ~ normal(mu_beta, sigma_beta);
+      }
+      
+      sigma_tau ~ uniform(0.001, 10);
+      sigma_beta ~ uniform(0.001, 10);
+      mu_tau ~ normal(0, 1);
+      mu_beta ~ student_t(1, 0, 1);
+    
+      for (s in 1:nSubjects) {
+        vector[4] m;   // mean of the mean
+        vector[4] var_mean; // variance of the mean
+        vector[4] eb;  // exploration bonus
+        real pe;       // prediction error
+        real Kgain;    // Kalman gain
+        m = rep_vector(m_prior, 4);
+        var_mean = rep_vector(var_mean_prior, 4);
+        for (t in 1:nTrials) {        
+        
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            eb = beta[s] * sqrt(var_mean + var_xi);
+            // here, we just want to know, how likely the generated choice (aka backcast) is
+            // with leaving the learning as was by participants
+            choice_gen[s,t] ~ categorical_logit(tau[s] * (m + eb));
+            
+            // learning model
+            pe = reward[s,t] - m[choice[s,t]];  // prediction error 
+            Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
+            m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;  // value/mu updating (learning)
+            var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
+          }
+          
+          m = decay * m + (1 - decay) * decay_center;  
+          for (j in 1:4) {
+            var_mean[j] = decay^2 * var_mean[j] + var_xi;
+          }
+        }  
+      }
+    }
+  ")
+  return(m_txt)
+}
 
 
