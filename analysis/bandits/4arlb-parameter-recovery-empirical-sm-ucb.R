@@ -49,6 +49,7 @@ l_participants <- tbl_rb %>% split(., .$"ID")
 nr_trials <- nrow(l_participants[[1]])
 nr_participants <- length(l_participants)
 
+# reward set is the same for all participants, just take one of them
 tbl_rewards <- tbl_rb  %>%
   filter(ID == 2) %>%
   select(starts_with("reward")) %>%
@@ -78,6 +79,7 @@ my_participants_tbl_kalman <- function(l_params_decision, sim_d, v_choices) {
 
 my_participants_tbl_delta <- function(l_params_decision, delta, sim_d, v_choices) {
   tibble(
+    mu_prior = 50,
     delta = delta,
     lambda = .9836,
     nr_trials = nr_trials,
@@ -88,7 +90,7 @@ my_participants_tbl_delta <- function(l_params_decision, delta, sim_d, v_choices
   )
 }
 
-# values from actual stimulus set
+# generating values from actual stimulus set
 sigma_xi_sq <- 7.84
 sigma_epsilon_sq <- 16
 sigma_prior <- 1000
@@ -100,6 +102,14 @@ l_choices_made <- map(l_participants, "choices")
 
 # Fit, Simulate, & Recover Parameters -------------------------------------
 
+# empirically observed & learned options by participants
+l_tbl_prelearned <- map(
+  l_participants, 
+  ~ kalman_learning(
+    .x, no = 4, sigma_xi_sq, sigma_epsilon_sq,
+    m0 = mu_prior, v0 = sigma_prior, lambda = .9836, decay_center = decay_center
+  )
+)
 
 ## Softmax no variance ----------------------------------------------------
 
@@ -187,7 +197,7 @@ if (fit_or_load == "fit") {
     tbl_participants_kalman_ucb, nr_vars = 0, cond_on_choices = TRUE, 
     nr_trials = nr_trials, bds = bds_ucb, tbl_rewards = tbl_rewards
   )
-
+  
   saveRDS(tbl_results_kalman_ucb, file = "data/empirical-parameter-recovery-kalman-ucb-recovery.rds")
 } else if (fit_or_load == "load") {
   l_kalman_ucb_no_variance <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-fit.rds")
@@ -255,9 +265,95 @@ tbl_results_kalman_ucb %>%
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22)
-    ) + 
+  ) + 
   scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
+## Mixture Thompson Sampling with UCB -------------------------------------
+
+
+bds_mix_th_ucb <- list(gamma = list(lo = 0, hi = .5), beta = list(lo = -10, hi = 10), w_mix = list(lo = 0, hi = 1))
+
+if (fit_or_load == "fit") {
+  plan(multisession, workers = availableCores() - 1)
+  l_kalman_ucb_thompson <- furrr:::future_map(
+    l_participants, fit_mixture_no_variance_wrapper,
+    tbl_rewards = tbl_rewards, condition_on_observed_choices = TRUE,
+    f_fit = fit_kalman_ucb_thompson_no_variance,
+    sigma_xi_sq, sigma_epsilon_sq,
+    sigma_prior, mu_prior,
+    bds = bds_mix_th_ucb, 
+    decay_center = mu_prior,
+    .progress = TRUE
+  )
+  plan("sequential")
   
+  saveRDS(l_kalman_ucb_thompson, file = "data/empirical-parameter-recovery-kalman-ucb-thompson-fit.rds")
+  
+  tbl_kalman_ucb_thompson <- reduce(l_kalman_ucb_thompson, rbind) %>%
+    as.data.frame() %>% as_tibble() %>% rename(gamma = V1, beta = V2, w_mix = V3, ll = V4)
+  
+  l_params_decision <- pmap(
+    tbl_kalman_ucb_thompson[, c("gamma", "beta", "w_mix")],
+    ~ list(gamma = ..1, beta = ..2, w_mix = ..3, choicemodel = "ucb_thompson", no = 4)
+  )
+  
+  tbl_participants_kalman_ucb_thompson <- my_participants_tbl_kalman(l_params_decision, FALSE, l_choices_made)
+  tbl_results_kalman_ucb <- simulate_and_fit_mixture(
+    tbl_participants_kalman_ucb_thompson, nr_vars = 0, cond_on_choices = TRUE, 
+    nr_trials = nr_trials, bds = bds_mix_th_ucb, tbl_rewards = tbl_rewards
+  )
+  
+  saveRDS(tbl_results_kalman_ucb, file = "data/empirical-parameter-recovery-kalman-ucb-thompson-recovery.rds")
+  
+} else if (fit_or_load == "load") {
+  l_kalman_ucb_thompson <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-thompson-fit.rds")
+  tbl_results_kalman_ucb <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-thompson-recovery.rds")
+}
+
+
+
+
+cat("\nfitting kalman ru & thompson")
+l_ru_thompson <- future_map2(
+  map(l_choices_simulated, "tbl_return"),
+  map(l_choices_simulated, "tbl_rewards"),
+  safely(fit_mixture_no_variance_wrapper),
+  condition_on_observed_choices = cond_on_choices,
+  f_fit = fit_kalman_ru_thompson_no_variance,
+  .progress = TRUE,
+  .options = furrr_options(seed = NULL)
+)
+
+
+# for delta and decay, check that prior mu is set to 50 in all functions
+cat("\nfitting delta")
+l_delta <- future_map2(
+  map(l_choices_simulated, "tbl_return"),
+  map(l_choices_simulated, "tbl_rewards"),
+  safely(fit_delta_softmax_wrapper),
+  is_decay = FALSE,
+  condition_on_observed_choices = cond_on_choices,
+  .progress = TRUE,
+  .options = furrr_options(seed = NULL)
+)
+
+cat("\nfitting decay")
+l_decay <- future_map2(
+  map(l_choices_simulated, "tbl_return"),
+  map(l_choices_simulated, "tbl_rewards"),
+  safely(fit_delta_softmax_wrapper),
+  is_decay = TRUE,
+  condition_on_observed_choices = cond_on_choices,
+  .progress = TRUE,
+  .options = furrr_options(seed = NULL)
+)
+
+
+## Mixture Thompson Sampling with Softmax ---------------------------------
+
+
+
 
 
 
