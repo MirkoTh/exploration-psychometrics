@@ -30,7 +30,6 @@ tbl_exclude2 <- read_csv(file = "data/exclusions2.csv")
 tbl_exclude1 <- read_csv(file = "data/exclusions1.csv")
 
 
-decay_center <- 50
 # seems like two people were invited to session 2, who should not have been
 tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
   left_join(tbl_exclude2 %>% select(ID, exclude), by = "ID", suffix = c("_1", "_2")) %>%
@@ -69,6 +68,7 @@ my_participants_tbl_kalman <- function(l_params_decision, sim_d, v_choices) {
     sigma_xi_sq = 7.84,
     sigma_epsilon_sq = 16,
     lambda = .9836,
+    decay_center = decay_center,
     nr_trials = nr_trials,
     params_decision = l_params_decision,
     simulate_data = sim_d,
@@ -95,6 +95,7 @@ sigma_xi_sq <- 7.84
 sigma_epsilon_sq <- 16
 sigma_prior <- 1000
 mu_prior <- 50
+decay_center <- 50
 
 l_choices_made <- map(l_participants, "choices")
 
@@ -102,14 +103,6 @@ l_choices_made <- map(l_participants, "choices")
 
 # Fit, Simulate, & Recover Parameters -------------------------------------
 
-# empirically observed & learned options by participants
-l_tbl_prelearned <- map(
-  l_participants, 
-  ~ kalman_learning(
-    .x, no = 4, sigma_xi_sq, sigma_epsilon_sq,
-    m0 = mu_prior, v0 = sigma_prior, lambda = .9836, decay_center = decay_center
-  )
-)
 
 ## Softmax no variance ----------------------------------------------------
 
@@ -124,7 +117,7 @@ if (fit_or_load == "fit") {
     sigma_xi_sq, sigma_epsilon_sq,
     sigma_prior, mu_prior,
     bds = bds_sm,
-    decay_center = mu_prior,
+    decay_center = decay_center,
     .progress = TRUE
   )
   plan("sequential")
@@ -143,7 +136,7 @@ if (fit_or_load == "fit") {
   tbl_results_kalman_softmax <- simulate_and_fit_softmax(
     tbl_participants_kalman_softmax, nr_vars = 0, 
     cond_on_choices = TRUE, nr_trials = nr_trials,
-    bds = bds_sm, tbl_rewards = tbl_rewards, decay_center = decay_center
+    bds = bds_sm, tbl_rewards = tbl_rewards
   )
   
   saveRDS(tbl_results_kalman_softmax, file = "data/empirical-parameter-recovery-kalman-softmax-recovery.rds")
@@ -163,7 +156,6 @@ tbl_cor_softmax_0var_long <- tbl_recovery_kalman_softmax %>%
   rename("Gamma" = r_gamma) %>%
   pivot_longer(cols = c(Gamma))
 
-l_participants <- l_participants[1:4]
 
 ## UCB with Softmax -------------------------------------------------------
 
@@ -208,7 +200,7 @@ if (fit_or_load == "fit") {
 tbl_results_kalman_ucb <- tbl_results_kalman_ucb %>%
   unnest_wider(params_decision)
 tbl_recovery_kalman_ucb <- tbl_results_kalman_ucb %>%
-  filter(between(beta, -3, 3)) %>%
+  #filter(between(beta, -3, 3)) %>%
   summarize(
     r_gamma = cor(gamma, gamma_ml),
     r_beta = cor(beta, beta_ml),
@@ -283,7 +275,7 @@ if (fit_or_load == "fit") {
     sigma_xi_sq, sigma_epsilon_sq,
     sigma_prior, mu_prior,
     bds = bds_mix_th_ucb, 
-    decay_center = mu_prior,
+    decay_center = decay_center,
     .progress = TRUE
   )
   plan("sequential")
@@ -299,61 +291,417 @@ if (fit_or_load == "fit") {
   )
   
   tbl_participants_kalman_ucb_thompson <- my_participants_tbl_kalman(l_params_decision, FALSE, l_choices_made)
-  tbl_results_kalman_ucb <- simulate_and_fit_mixture(
+  tbl_results_kalman_ucb_thompson <- simulate_and_fit_mixture(
     tbl_participants_kalman_ucb_thompson, nr_vars = 0, cond_on_choices = TRUE, 
     nr_trials = nr_trials, bds = bds_mix_th_ucb, tbl_rewards = tbl_rewards
   )
   
-  saveRDS(tbl_results_kalman_ucb, file = "data/empirical-parameter-recovery-kalman-ucb-thompson-recovery.rds")
+  saveRDS(tbl_results_kalman_ucb_thompson, file = "data/empirical-parameter-recovery-kalman-ucb-thompson-recovery.rds")
   
 } else if (fit_or_load == "load") {
   l_kalman_ucb_thompson <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-thompson-fit.rds")
-  tbl_results_kalman_ucb <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-thompson-recovery.rds")
+  tbl_results_kalman_ucb_thompson <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-thompson-recovery.rds")
 }
 
 
+tbl_results_kalman_ucb_thompson <- tbl_results_kalman_ucb
+
+tbl_results_kalman_ucb_thompson <- tbl_results_kalman_ucb_thompson %>%
+  unnest_wider(params_decision)
+tbl_recovery_kalman_ucb_thompson <- tbl_results_kalman_ucb_thompson %>%
+  #filter(between(beta, -3, 3)) %>%
+  summarize(
+    r_gamma = cor(gamma, gamma_ml),
+    r_beta = cor(beta, beta_ml),
+    r_w_mix = cor(w_mix, w_mix_ml),
+    r_gamma_beta = cor(gamma, beta_ml),
+    r_gamma_w_mix = cor(gamma, w_mix_ml),
+    r_beta_gamma = cor(beta, gamma_ml),
+    r_beta_w_mix = cor(beta, w_mix_ml),
+    r_w_mix_gamma = cor(w_mix, gamma_ml),
+    r_w_mix_beta = cor(w_mix, beta_ml)
+  ) %>% ungroup()
+
+tbl_recovery_kalman_ucb_thompson_long <- tbl_recovery_kalman_ucb_thompson  %>% 
+  mutate(
+    beta_mn = "empirical",
+    gamma_mn = "empirical",
+    w_mix_mn = "empirical"
+  ) %>%
+  rename(
+    "Gamma" = r_gamma,
+    "Beta" = r_beta,
+    "w(mix)" = r_w_mix,
+    "Gamma in Beta out" = r_gamma_beta,
+    "Gamma in w(mix) out" = r_gamma_w_mix,
+    "Beta in Gamma out" = r_beta_gamma,
+    "Beta in w(mix) out" = r_beta_w_mix,
+    "w(mix) in Gamma out" = r_w_mix_gamma,
+    "w(mix) in Beta out" = r_w_mix_beta
+  ) %>%
+  pivot_longer(cols = c(Gamma, Beta, `w(mix)`, `Gamma in Beta out`, `Gamma in w(mix) out`, `Beta in Gamma out`, `Beta in w(mix) out`, `w(mix) in Gamma out`, `w(mix) in Beta out`)) %>%
+  mutate(
+    param_in = rep(c("Gamma", "Beta", "w(mix)"), 3),
+    param_out = c("Gamma", "Beta", "w(mix)",  "Beta", "w(mix)",  "Gamma", "w(mix)",  "Gamma", "Beta")
+  )
+
+pl_recov_ucb_thompson <- ggplot(tbl_recovery_kalman_ucb_thompson_long, aes(param_in, param_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_text(aes(label = round(value, 2))) +
+  scale_fill_gradient2(name = "") +
+  geom_label(aes(label = str_c("r = ", round(value, 2)))) +
+  theme_bw() +
+  #theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = "Parameter In", y = "Parameter Out")
 
 
-cat("\nfitting kalman ru & thompson")
-l_ru_thompson <- future_map2(
-  map(l_choices_simulated, "tbl_return"),
-  map(l_choices_simulated, "tbl_rewards"),
-  safely(fit_mixture_no_variance_wrapper),
-  condition_on_observed_choices = cond_on_choices,
-  f_fit = fit_kalman_ru_thompson_no_variance,
-  .progress = TRUE,
-  .options = furrr_options(seed = NULL)
+
+save_my_pdf_and_tiff(
+  pl_recov_ucb_thompson, "figures/4arlb-ucb-thompson-param-correlations-empirical", 5.5, 3
 )
+
+tbl_results_kalman_ucb_thompson %>%
+  #filter(between(beta, -3, 3)) %>%
+  pivot_longer(c(gamma, beta, w_mix), names_to = "Parameter In", values_to = "p_val_in") %>%
+  pivot_longer(c(gamma_ml, beta_ml, w_mix_ml), names_to = "Parameter Out", values_to = "p_val_out") %>%
+  ggplot(aes(p_val_in, p_val_out)) +
+  geom_abline(linewidth = 1, color = "grey") +
+  geom_point(shape = 1) +
+  facet_wrap(`Parameter In` ~ `Parameter Out`, scales = "free") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Parameter Value In", y = "Parameter Value Out") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
+## Mixture Thompson Sampling with RU -------------------------------------
+
+
+bds_mix_th_ru <- list(beta = list(lo = -10, hi = 10), w_mix = list(lo = 0, hi = 1))
+
+if (fit_or_load == "fit") {
+  plan(multisession, workers = availableCores() - 1)
+  l_kalman_ru_thompson <- furrr:::future_map(
+    l_participants, fit_mixture_no_variance_wrapper,
+    tbl_rewards = tbl_rewards, condition_on_observed_choices = TRUE,
+    f_fit = fit_kalman_ru_thompson_no_variance,
+    sigma_xi_sq, sigma_epsilon_sq,
+    sigma_prior, mu_prior,
+    bds = bds_mix_th_ru, 
+    decay_center = decay_center,
+    .progress = TRUE, .options = furrr_options(seed = NULL)
+  )
+  plan("sequential")
+  
+  saveRDS(l_kalman_ru_thompson, file = "data/empirical-parameter-recovery-kalman-ru-thompson-fit.rds")
+  
+  tbl_kalman_ru_thompson <- reduce(l_kalman_ru_thompson, rbind) %>%
+    as.data.frame() %>% as_tibble() %>% rename(beta = V1, w_mix = V2, ll = V3)
+  
+  l_params_decision <- pmap(
+    tbl_kalman_ru_thompson[, c("beta", "w_mix")],
+    ~ list(beta = ..1, w_mix = ..2, choicemodel = "ru_thompson", no = 4)
+  )
+  
+  tbl_participants_kalman_ru_thompson <- my_participants_tbl_kalman(l_params_decision, FALSE, l_choices_made)
+  tbl_results_kalman_ru_thompson <- simulate_and_fit_mixture(
+    tbl_participants_kalman_ru_thompson, nr_vars = 0, cond_on_choices = TRUE, 
+    nr_trials = nr_trials, bds = bds_mix_th_ru, tbl_rewards = tbl_rewards
+  )
+  
+  saveRDS(tbl_results_kalman_ru_thompson, file = "data/empirical-parameter-recovery-kalman-ru-thompson-recovery.rds")
+  
+} else if (fit_or_load == "load") {
+  l_kalman_ru_thompson <- readRDS(file = "data/empirical-parameter-recovery-kalman-ru-thompson-fit.rds")
+  tbl_results_kalman_ru_thompson <- readRDS(file = "data/empirical-parameter-recovery-kalman-ru-thompson-recovery.rds")
+}
+
+
+tbl_results_kalman_ru_thompson <- tbl_results_kalman_ru_thompson %>%
+  unnest_wider(params_decision)
+tbl_recovery_kalman_ru_thompson <- tbl_results_kalman_ru_thompson %>%
+  #filter(between(beta, -3, 3)) %>%
+  summarize(
+    r_beta = cor(beta, beta_ml),
+    r_w_mix = cor(w_mix, w_mix_ml),
+    r_beta_w_mix = cor(beta, w_mix_ml),
+    r_w_mix_beta = cor(w_mix, beta_ml)
+  ) %>% ungroup()
+
+tbl_recovery_kalman_ru_thompson_long <- tbl_recovery_kalman_ru_thompson  %>% 
+  mutate(
+    beta_mn = "empirical",
+    w_mix_mn = "empirical"
+  ) %>%
+  rename(
+    "Beta" = r_beta,
+    "w(mix)" = r_w_mix,
+    "Beta in w(mix) out" = r_beta_w_mix,
+    "w(mix) in Beta out" = r_w_mix_beta
+  ) %>%
+  pivot_longer(cols = c(Beta, `w(mix)`, `Beta in w(mix) out`, `w(mix) in Beta out`)) %>%
+  mutate(
+    param_in = rep(c("Beta", "w(mix)"), 2),
+    param_out = c("Beta", "w(mix)",  "w(mix)",  "Beta")
+  )
+
+pl_recov_ru_thompson <- ggplot(tbl_recovery_kalman_ru_thompson_long, aes(param_in, param_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_text(aes(label = round(value, 2))) +
+  scale_fill_gradient2(name = "") +
+  geom_label(aes(label = str_c("r = ", round(value, 2)))) +
+  theme_bw() +
+  #theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = "Parameter In", y = "Parameter Out")
+
+
+
+save_my_pdf_and_tiff(
+  pl_recov_ru_thompson, "figures/4arlb-ru-thompson-param-correlations-empirical", 5.5, 3
+)
+
+tbl_results_kalman_ru_thompson %>%
+  #filter(between(beta, -3, 3)) %>%
+  pivot_longer(c(beta, w_mix), names_to = "Parameter In", values_to = "p_val_in") %>%
+  pivot_longer(c(beta_ml, w_mix_ml), names_to = "Parameter Out", values_to = "p_val_out") %>%
+  ggplot(aes(p_val_in, p_val_out)) +
+  geom_abline(linewidth = 1, color = "grey") +
+  geom_point(shape = 1) +
+  facet_wrap(`Parameter In` ~ `Parameter Out`, scales = "free") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Parameter Value In", y = "Parameter Value Out") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
+
 
 
 # for delta and decay, check that prior mu is set to 50 in all functions
-cat("\nfitting delta")
-l_delta <- future_map2(
-  map(l_choices_simulated, "tbl_return"),
-  map(l_choices_simulated, "tbl_rewards"),
-  safely(fit_delta_softmax_wrapper),
-  is_decay = FALSE,
-  condition_on_observed_choices = cond_on_choices,
-  .progress = TRUE,
-  .options = furrr_options(seed = NULL)
+
+# for comparability with Kalman recovery, only re-fit choices for recovery data set
+
+## Delta Rule -----------------------------------------------------------
+
+bds_delta <- list(delta = list(lo = 0, hi = 1), gamma = list(lo = 0, hi = .5))
+
+
+if (fit_or_load == "fit") {
+  plan(multisession, workers = availableCores() - 1)
+  l_delta <- furrr:::future_map(
+    l_participants, fit_delta_softmax_wrapper,
+    tbl_rewards = tbl_rewards, is_decay = FALSE,
+    condition_on_observed_choices = TRUE,
+    mu_prior = mu_prior,
+    bds = bds_delta, 
+    .progress = TRUE, .options = furrr_options(seed = NULL)
+  )
+  plan("sequential")
+  
+  saveRDS(l_delta, file = "data/empirical-parameter-recovery-delta-fit.rds")
+  
+  tbl_delta <- reduce(l_delta, rbind) %>%
+    as.data.frame() %>% as_tibble() %>% rename(delta = V1, gamma = V2, ll = V3)
+  
+  l_params_decision <- pmap(
+    tbl_delta[, c("gamma")],
+    ~ list(gamma = ..1, choicemodel = "softmax", no = 4)
+  )
+  
+  tbl_participants_delta <- my_participants_tbl_delta(l_params_decision, tbl_delta$delta, FALSE, l_choices_made)
+  tbl_results_delta <- simulate_and_fit_delta(
+    tbl_participants_delta, is_decay = FALSE, cond_on_choices = TRUE, 
+    nr_trials = nr_trials, bds = bds_delta, tbl_rewards = tbl_rewards
+  )
+  
+  saveRDS(tbl_results_delta, file = "data/empirical-parameter-recovery-delta-recovery.rds")
+  
+} else if (fit_or_load == "load") {
+  l_delta <- readRDS(file = "data/empirical-parameter-recovery-delta-fit.rds")
+  tbl_results_delta <- readRDS(file = "data/empirical-parameter-recovery-delta-recovery.rds")
+}
+
+tbl_results_delta <- tbl_results_delta %>%
+  unnest_wider(params_decision)
+tbl_recovery_delta <- tbl_results_delta %>%
+  #filter(between(beta, -3, 3)) %>%
+  summarize(
+    r_delta = cor(delta, delta_ml),
+    r_gamma = cor(gamma, gamma_ml),
+    r_delta_gamma = cor(delta, gamma_ml),
+    r_gamma_delta = cor(gamma, delta_ml)
+  ) %>% ungroup()
+
+tbl_recovery_delta_long <- tbl_recovery_delta  %>% 
+  mutate(
+    delta_mn = "empirical",
+    gamma_mn = "empirical"
+  ) %>%
+  rename(
+    "Delta" = r_delta,
+    "Gamma" = r_gamma,
+    "Delta in Gamma out" = r_delta_gamma,
+    "Gamma in Delta out" = r_gamma_delta
+  ) %>%
+  pivot_longer(cols = c(Delta, Gamma, `Delta in Gamma out`, `Gamma in Delta out`)) %>%
+  mutate(
+    param_in = rep(c("Delta", "Gamma"), 2),
+    param_out = c("Delta", "Gamma",  "Gamma",  "Delta")
+  )
+
+pl_recov_delta <- ggplot(tbl_recovery_delta_long, aes(param_in, param_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_text(aes(label = round(value, 2))) +
+  scale_fill_gradient2(name = "") +
+  geom_label(aes(label = str_c("r = ", round(value, 2)))) +
+  theme_bw() +
+  #theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = "Parameter In", y = "Parameter Out")
+
+
+
+save_my_pdf_and_tiff(
+  pl_recov_delta, "figures/4arlb-delta-param-correlations-empirical", 5.5, 3
 )
 
-cat("\nfitting decay")
-l_decay <- future_map2(
-  map(l_choices_simulated, "tbl_return"),
-  map(l_choices_simulated, "tbl_rewards"),
-  safely(fit_delta_softmax_wrapper),
-  is_decay = TRUE,
-  condition_on_observed_choices = cond_on_choices,
-  .progress = TRUE,
-  .options = furrr_options(seed = NULL)
+tbl_results_delta %>%
+  #filter(between(beta, -3, 3)) %>%
+  pivot_longer(c(delta, gamma), names_to = "Parameter In", values_to = "p_val_in") %>%
+  pivot_longer(c(delta_ml, gamma_ml), names_to = "Parameter Out", values_to = "p_val_out") %>%
+  ggplot(aes(p_val_in, p_val_out)) +
+  geom_abline(linewidth = 1, color = "grey") +
+  geom_point(shape = 1) +
+  facet_wrap(`Parameter In` ~ `Parameter Out`, scales = "free") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Parameter Value In", y = "Parameter Value Out") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
+
+
+## Decay Rule ----------------------------------------------------------
+
+
+if (fit_or_load == "fit") {
+  plan(multisession, workers = availableCores() - 1)
+  l_decay <- furrr:::future_map(
+    l_participants, fit_delta_softmax_wrapper,
+    tbl_rewards = tbl_rewards, is_decay = TRUE,
+    condition_on_observed_choices = TRUE,
+    mu_prior = mu_prior,
+    bds = bds_delta, 
+    .progress = TRUE, .options = furrr_options(seed = NULL)
+  )
+  plan("sequential")
+  
+  saveRDS(l_decay, file = "data/empirical-parameter-recovery-decay-fit.rds")
+  
+  tbl_decay <- reduce(l_decay, rbind) %>%
+    as.data.frame() %>% as_tibble() %>% rename(delta = V1, gamma = V2, ll = V3)
+  
+  l_params_decision <- pmap(
+    tbl_decay[, c("gamma")],
+    ~ list(gamma = ..1, choicemodel = "softmax", no = 4)
+  )
+  
+  tbl_participants_decay <- my_participants_tbl_delta(l_params_decision, tbl_decay$delta, FALSE, l_choices_made)
+  tbl_results_decay <- simulate_and_fit_delta(
+    tbl_participants_decay, is_decay = TRUE, cond_on_choices = TRUE, 
+    nr_trials = nr_trials, bds = bds_delta, tbl_rewards = tbl_rewards
+  )
+  
+  saveRDS(tbl_results_decay, file = "data/empirical-parameter-recovery-decay-recovery.rds")
+  
+} else if (fit_or_load == "load") {
+  l_decay <- readRDS(file = "data/empirical-parameter-recovery-decay-fit.rds")
+  tbl_results_decay <- readRDS(file = "data/empirical-parameter-recovery-decay-recovery.rds")
+}
+
+
+tbl_results_decay <- tbl_results_decay %>%
+  unnest_wider(params_decision)
+tbl_recovery_decay <- tbl_results_decay %>%
+  #filter(between(beta, -3, 3)) %>%
+  summarize(
+    r_delta = cor(delta, delta_ml),
+    r_gamma = cor(gamma, gamma_ml),
+    r_delta_gamma = cor(delta, gamma_ml),
+    r_gamma_delta = cor(gamma, delta_ml)
+  ) %>% ungroup()
+
+tbl_recovery_decay_long <- tbl_recovery_decay  %>% 
+  mutate(
+    delta_mn = "empirical",
+    gamma_mn = "empirical"
+  ) %>%
+  rename(
+    "Delta" = r_delta,
+    "Gamma" = r_gamma,
+    "Delta in Gamma out" = r_delta_gamma,
+    "Gamma in Delta out" = r_gamma_delta
+  ) %>%
+  pivot_longer(cols = c(Delta, Gamma, `Delta in Gamma out`, `Gamma in Delta out`)) %>%
+  mutate(
+    param_in = rep(c("Delta", "Gamma"), 2),
+    param_out = c("Delta", "Gamma",  "Gamma",  "Delta")
+  )
+
+pl_recov_decay <- ggplot(tbl_recovery_decay_long, aes(param_in, param_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_text(aes(label = round(value, 2))) +
+  scale_fill_gradient2(name = "") +
+  geom_label(aes(label = str_c("r = ", round(value, 2)))) +
+  theme_bw() +
+  #theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = "Parameter In", y = "Parameter Out")
+
+
+
+save_my_pdf_and_tiff(
+  pl_recov_decay, "figures/4arlb-decay-param-correlations-empirical", 5.5, 3
 )
 
-
-## Mixture Thompson Sampling with Softmax ---------------------------------
-
-
-
+tbl_results_decay %>%
+  #filter(between(beta, -3, 3)) %>%
+  pivot_longer(c(delta, gamma), names_to = "Parameter In", values_to = "p_val_in") %>%
+  pivot_longer(c(delta_ml, gamma_ml), names_to = "Parameter Out", values_to = "p_val_out") %>%
+  ggplot(aes(p_val_in, p_val_out)) +
+  geom_abline(linewidth = 1, color = "grey") +
+  geom_point(shape = 1) +
+  facet_wrap(`Parameter In` ~ `Parameter Out`, scales = "free") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Parameter Value In", y = "Parameter Value Out") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
 
 
 

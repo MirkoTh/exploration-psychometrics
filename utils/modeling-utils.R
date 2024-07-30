@@ -695,7 +695,8 @@ simulate_kalman <- function(
 
 simulate_delta <- function(
     delta, lambda, nr_trials, params_decision,
-    simulate_data, seed, tbl_rewards, mu_prior, is_decay = FALSE) {
+    simulate_data, seed, tbl_rewards, mu_prior, is_decay = FALSE,
+    choices_made = NULL) {
   #'
   #' @description simulate choices from a Kalman filter with some choice model
   #' @param delta learning rate
@@ -723,7 +724,7 @@ simulate_delta <- function(
   rewards <- rep(0.0, nt + 1) # to hold the obtained rewards by the RL agent
   
   if (!is_decay) {
-    f_update <- function() {
+    f_update <- function(choices) {
       # set the learning rate only for the chosen option
       lr[choices[t]] <- delta
       choices_oh[choices[t]] <- 1
@@ -738,18 +739,33 @@ simulate_delta <- function(
     }
   }
   
-  for (t in 1:nt) {
-    # variance components are just set to NA
-    p <- choice_prob(matrix(m[t, ], 1, ncol(m)), matrix(NA, 1, ncol(m)), NA, params_decision)
-    # choose an option according to these probabilities
-    choices[t] <- sample(1:4, size = 1, prob = p)
-    # get the reward of the choice
-    rewards[t] <- tbl_rewards[t, choices[t]] %>% as_vector()
-    choices_oh <- lr <- rep(0, no)
+  if (is.null(choices_made)){
     
-    # compute the posterior means
-    m[t + 1, ] <- f_update()
-  }
+    for (t in 1:nt) {
+      # variance components are just set to NA
+      p <- choice_prob(matrix(m[t, ], 1, ncol(m)), matrix(NA, 1, ncol(m)), NA, params_decision)
+      # choose an option according to these probabilities
+      choices[t] <- sample(1:4, size = 1, prob = p)
+      # get the reward of the choice
+      rewards[t] <- tbl_rewards[t, choices[t]] %>% as_vector()
+      choices_oh <- lr <- rep(0, no)
+      
+      # compute the posterior means
+      m[t + 1, ] <- f_update(choices)
+    }} else if (!is.null(choices_made)) {
+      for (t in 1:nt) {
+        # variance components are just set to NA
+        p <- choice_prob(matrix(m[t, ], 1, ncol(m)), matrix(NA, 1, ncol(m)), NA, params_decision)
+        # choose an option according to these probabilities
+        choices[t] <- sample(1:4, size = 1, prob = p)
+        # get the reward of the choice
+        rewards[t] <- tbl_rewards[t, choices[t]] %>% as_vector()
+        choices_oh <- lr <- rep(0, no)
+        
+        # compute the posterior means
+        m[t + 1, ] <- f_update(choices_made)
+      }
+    }
   
   tbl_m <- as.data.frame(m)
   colnames(tbl_m) <- str_c("m_", 1:no)
@@ -768,8 +784,9 @@ choice_prob <- function(m, v, sigma_xi_sq, pars) {
          softmax = softmax_choice_prob(m, pars$gamma),
          thompson = thompson_choice_prob_map(m, v, pars$no),
          ucb = ucb_choice_prob(m, v, sigma_xi_sq, pars$gamma, pars$beta),
+         # gamma drops out in ru thompson, set to arbitrary value
          ru_thompson = ru_and_thompson_choice_prob(
-           m, v, sigma_xi_sq, pars$gamma, pars$beta, pars$w_mix, ncol(m)
+           m, v, sigma_xi_sq, gamma = 1, pars$beta, pars$w_mix, ncol(m)
          ),
          ucb_thompson = ucb_and_thompson_choice_prob(
            m, v, sigma_xi_sq, pars$gamma, pars$beta, pars$w_mix, ncol(m)
@@ -1178,9 +1195,8 @@ fit_kalman_ru_thompson_no_variance <- function(
   #' fix Kalman variances to the true value
   #'
   
-  gamma <- upper_and_lower_bounds_revert(x[[1]], bds$gamma$lo, bds$gamma$hi)
-  beta <- upper_and_lower_bounds_revert(x[[2]], bds$beta$lo, bds$beta$hi)
-  w_mix <- upper_and_lower_bounds_revert(x[[3]], bds$w_mix$lo, bds$w_mix$hi)
+  beta <- upper_and_lower_bounds_revert(x[[1]], bds$beta$lo, bds$beta$hi)
+  w_mix <- upper_and_lower_bounds_revert(x[[2]], bds$w_mix$lo, bds$w_mix$hi)
   
   
   # if the means and variances already have been learned, take those
@@ -1200,10 +1216,11 @@ fit_kalman_ru_thompson_no_variance <- function(
     
   }
   
+  # gamma drops out. set to arbitrary value
   p_choices_mix <- ru_and_thompson_choice_prob(
     as.matrix(tbl_learned[1:nrow(tbl_results), ] %>% select(starts_with("m_"))),
     as.matrix(tbl_learned[1:nrow(tbl_results), ] %>% select(starts_with("v_"))),
-    sigma_xi_sq, gamma, beta, w_mix, nr_options
+    sigma_xi_sq, gamma = 1, beta, w_mix, nr_options
   )
   lik <- pmap_dbl(as.data.frame(cbind(p_choices_mix, tbl_results$choices)), ~ c(..1, ..2, ..3, ..4)[..5])
   llik <- log(lik)
@@ -1254,15 +1271,16 @@ fit_kalman_ucb_thompson_no_variance <- function(
 }
 
 
-fit_delta_softmax <- function(x, tbl_results, nr_options, mu_prior = 0, s_decay = FALSE) {
+fit_delta_softmax <- function(x, tbl_results, nr_options, mu_prior = 0, is_decay = FALSE, bds) {
   #'
   #' @description delta rule soft max fitting wrapper
   #' conditioned on ground truth responses
   #' can be used for delta rule or decay rule
   #' @param is_decay flags what learning rule is used (i.e., delta or decay)
   #'
-  delta <- upper_and_lower_bounds_revert(x[[1]], 0, 1)
-  gamma <- upper_and_lower_bounds_revert(x[[2]], 0, 3)
+  
+  delta <- upper_and_lower_bounds_revert(x[[1]], bds$delta$lo, bds$delta$hi)
+  gamma <- upper_and_lower_bounds_revert(x[[2]], bds$gamma$lo, bds$gamma$hi)
   
   # if the means and variances already have been learned, take those
   colnames_learned <- c("m_1", "m_2", "m_3", "m_4")
@@ -1548,7 +1566,7 @@ fit_mixture_no_variance_wrapper <- function(
   tbl_results <- tbl_results[1:(nrow(tbl_results) - 1), ]
   
   if (is.null(params_init)) {
-    params_init <- c(.25, 0.001, .5)
+    params_init <- c(0.001, .5)
   }
   
   params_init_tf <- pmap_dbl(
@@ -1556,9 +1574,7 @@ fit_mixture_no_variance_wrapper <- function(
     upper_and_lower_bounds
   )
   
-  
   if (condition_on_observed_choices) {
-    
     result_optim <- optim(
       params_init_tf, f_fit,
       tbl_results = tbl_results, nr_options = 4,
@@ -1566,7 +1582,6 @@ fit_mixture_no_variance_wrapper <- function(
       sigma_prior = sigma_prior, mu_prior = mu_prior,
       bds = bds, lambda = lambda, decay_center = decay_center
     )
-    
     r <- c(
       pmap_dbl(list(
         result_optim$par, 
@@ -1583,30 +1598,37 @@ fit_mixture_no_variance_wrapper <- function(
 }
 
 
-
-
-fit_delta_softmax_wrapper <- function(tbl_results, tbl_rewards, is_decay, condition_on_observed_choices, mu_prior = 0) {
+fit_delta_softmax_wrapper <- function(tbl_results, tbl_rewards, is_decay, condition_on_observed_choices, mu_prior = 0, bds, params_init = NULL) {
   #'
   #' @description wrapper around delta rule soft max fitting wrapper
   #' conditioned on ground truth responses
   #'
   
   tbl_results <- tbl_results[1:(nrow(tbl_results) - 1), ]
-  params_init <- c(
-    upper_and_lower_bounds(.5, 0, 1),
-    upper_and_lower_bounds(.2, 0, 3)
+  
+  if (is.null(params_init)) {
+    params_init <- c(.5, .25)
+  }
+  
+  params_init_tf <- pmap_dbl(
+    list(params_init, map_dbl(bds, "lo"), map_dbl(bds, "hi")),
+    upper_and_lower_bounds
   )
+  
   if (condition_on_observed_choices) {
     result_optim <- optim(
       params_init, fit_delta_softmax,
       tbl_results = tbl_results, nr_options = 4,
       mu_prior = mu_prior,
-      is_decay = is_decay
+      is_decay = is_decay,
+      bds = bds
     )
     r <- c(
-      upper_and_lower_bounds_revert(result_optim$par[1], 0, 1),
-      upper_and_lower_bounds_revert(result_optim$par[2], 0, 3),
-      result_optim$value
+      pmap_dbl(list(
+        result_optim$par, 
+        map_dbl(bds, "lo"), map_dbl(bds, "hi")
+      ), upper_and_lower_bounds_revert
+      ), result_optim$value
     )
   } else if (!condition_on_observed_choices) {
     stop("not developed without conditioning on given responses")
@@ -1650,7 +1672,7 @@ kalman_softmax_experiment <- function(
 }
 
 simulate_and_fit_softmax <- function(
-    tbl_params_participants, nr_vars, cond_on_choices, nr_trials, bds, tbl_rewards = NULL, decay_center = NULL
+    tbl_params_participants, nr_vars, cond_on_choices, nr_trials, bds, tbl_rewards = NULL
 ) {
   
   if (is.null(tbl_rewards)) {
@@ -1661,7 +1683,7 @@ simulate_and_fit_softmax <- function(
       select(-trial_id)
   }
   list2env(
-    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq")],
+    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq", "decay_center")],
     environment()
   )
   
@@ -1670,7 +1692,6 @@ simulate_and_fit_softmax <- function(
     tbl_params_participants,
     simulate_kalman,
     tbl_rewards = tbl_rewards,
-    decay_center = decay_center,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
@@ -1758,6 +1779,10 @@ simulate_and_fit_thompson <- function(
     tbl_params_participants, nr_vars, cond_on_choices, nr_trials) {
   # create a tbl with simulation & model parameters
   
+  list2env(
+    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq", "decay_center")],
+    environment()
+  )
   
   # simulate data
   tbl_rewards <- generate_restless_bandits(
@@ -1845,7 +1870,7 @@ simulate_and_fit_ucb <- function(
     tbl_params_participants, nr_vars, cond_on_choices, nr_trials, bds, tbl_rewards = NULL
 ) {
   list2env(
-    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq")],
+    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq", "decay_center")],
     environment()
   )
   if (is.null(tbl_rewards)) {
@@ -1862,7 +1887,6 @@ simulate_and_fit_ucb <- function(
     tbl_params_participants,
     simulate_kalman,
     tbl_rewards = tbl_rewards,
-    decay_center = mu_prior,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
@@ -1876,7 +1900,7 @@ simulate_and_fit_ucb <- function(
     safely(fit_ucb_no_variance_wrapper),
     condition_on_observed_choices = cond_on_choices,
     sigma_xi_sq, sigma_epsilon_sq, sigma_prior, mu_prior,
-    bds,
+    bds, decay_center = decay_center,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
@@ -1916,7 +1940,7 @@ simulate_and_fit_mixture <- function(
 ) {
   
   list2env(
-    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq")],
+    tbl_params_participants[1, c("sigma_prior", "mu_prior", "sigma_xi_sq", "sigma_epsilon_sq", "decay_center")],
     environment()
   )
   
@@ -1934,7 +1958,6 @@ simulate_and_fit_mixture <- function(
     tbl_params_participants,
     simulate_kalman,
     tbl_rewards = tbl_rewards,
-    decay_center = mu_prior,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
@@ -1950,8 +1973,12 @@ simulate_and_fit_mixture <- function(
     safely(fit_mixture_no_variance_wrapper),
     condition_on_observed_choices = cond_on_choices,
     f_fit = f_fit,
-    sigma_xi_sq, sigma_epsilon_sq, sigma_prior, mu_prior,
-    bds,
+    sigma_xi_sq = sigma_xi_sq,
+    sigma_epsilon_sq = sigma_epsilon_sq,
+    sigma_prior = sigma_prior,
+    mu_prior = mu_prior,
+    bds = bds, 
+    decay_center = decay_center,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
@@ -1969,13 +1996,24 @@ simulate_and_fit_mixture <- function(
   
   tbl_results_mixture <- as.data.frame(reduce(l_results, rbind)) %>% as_tibble()
   
-  if (nr_vars == 0) {
-    colnames(tbl_results_mixture) <- c("gamma_ml", "beta_ml", "w_mix_ml", "neg_ll")
-  } else if (nr_vars == 1) {
-    colnames(tbl_results_mixture) <- c("sigma_xi_sq_ml", "gamma_ml", "beta_ml", "w_mix_ml", "neg_ll")
-  } else if (nr_vars == 2) {
-    colnames(tbl_results_mixture) <- c("sigma_xi_sq_ml", "sigma_epsilon_sq_ml", "gamma_ml", "beta_ml", "w_mix_ml", "neg_ll")
+  if (mixturetype == "ucb_thompson") {
+    if (nr_vars == 0) {
+      colnames(tbl_results_mixture) <- c("gamma_ml", "beta_ml", "w_mix_ml", "neg_ll")
+    } else if (nr_vars == 1) {
+      colnames(tbl_results_mixture) <- c("sigma_xi_sq_ml", "gamma_ml", "beta_ml", "w_mix_ml", "neg_ll")
+    } else if (nr_vars == 2) {
+      colnames(tbl_results_mixture) <- c("sigma_xi_sq_ml", "sigma_epsilon_sq_ml", "gamma_ml", "beta_ml", "w_mix_ml", "neg_ll")
+    }
+  } else if (mixturetype == "ru_thompson") {
+    if (nr_vars == 0) {
+      colnames(tbl_results_mixture) <- c("beta_ml", "w_mix_ml", "neg_ll")
+    } else if (nr_vars == 1) {
+      colnames(tbl_results_mixture) <- c("sigma_xi_sq_ml", "beta_ml", "w_mix_ml", "neg_ll")
+    } else if (nr_vars == 2) {
+      colnames(tbl_results_mixture) <- c("sigma_xi_sq_ml", "sigma_epsilon_sq_ml", "beta_ml", "w_mix_ml", "neg_ll")
+    }
   }
+  
   
   
   tbl_results_mixture <- as_tibble(cbind(tbl_params_participants, tbl_results_mixture)) %>%
@@ -2037,39 +2075,42 @@ delta_experiment <- function(
 
 
 simulate_and_fit_delta <- function(
-    tbl_params_participants, is_decay, cond_on_choices, nr_trials) {
+    tbl_params_participants, is_decay, cond_on_choices, nr_trials, bds, tbl_rewards = NULL) {
   
   list2env(
     tbl_params_participants[1, c("mu_prior")],
     environment()
   )
   
-  # simulate fixed data set
-  tbl_rewards <- generate_restless_bandits(
-    sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials
-  ) %>%
-    select(-trial_id)
+  if (is.null(tbl_rewards)) {
+    # simulate fixed data set
+    tbl_rewards <- generate_restless_bandits(
+      sigma_xi_sq, sigma_epsilon_sq, mu1, lambda, nr_trials
+    ) %>%
+      select(-trial_id)
+  }
   
   plan(multisession, workers = availableCores() / 2)
   l_choices_simulated <- future_pmap(
     tbl_params_participants,
     simulate_delta,
     tbl_rewards = tbl_rewards,
-    mu_prior = mu_prior,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
   
-  plan(multisession, workers = availableCores() / 2)
   l_softmax <- future_map2(
     map(l_choices_simulated, "tbl_return"),
     map(l_choices_simulated, "tbl_rewards"),
     safely(fit_delta_softmax_wrapper),
     is_decay = is_decay,
     condition_on_observed_choices = cond_on_choices,
+    mu_prior = mu_prior,
+    bds = bds,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
+  plan("sequential")
   
   # replace empty results with NAs
   l_results <- map(l_softmax, "result")
