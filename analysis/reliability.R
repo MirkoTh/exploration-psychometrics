@@ -10,7 +10,7 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-load("analysis/bandits/banditsWave1full.Rda")
+load("analysis/bandits/banditsWave1.Rda")
 horizon1 <- horizon
 sam1 <- sam
 restless1 <- restless
@@ -19,18 +19,21 @@ horizon2 <- horizon
 sam2 <- sam
 restless2 <- restless
 
-##### kick out everyone that did not do second part ####
-horizon1 <- subset(horizon1, is.element(ID, horizon2$ID))
-horizon1$optimal <- NA # need to already add these columns bc apparently horizon2 has them
-horizon1$chooseBest <- NA
+### get IDs that are in both sessions
+
+IDs <- intersect(horizon1$ID, horizon2$ID)
+
+
+horizon1 <- subset(horizon1, is.element(ID, IDs))
+horizon2 <- subset(horizon2, is.element(ID, IDs))
 horizon <- rbind(horizon1, horizon2)
 
-sam1 <- subset(sam1, is.element(ID, sam2$ID))
-sam1$optimal <- NA
-sam1$chooseBest <- NA
+sam1 <- subset(sam1, is.element(ID, IDs))
+sam2 <- subset(sam2, is.element(ID,IDs))
 sam <- rbind(sam1, sam2)
 
-restless1 <- subset(restless1, is.element(ID, restless2$ID))
+restless1 <- subset(restless1, is.element(ID, IDs))
+restless2 <- subset(restless2, is.element(ID, IDs))
 restless <- rbind(restless1, restless2)
 
 #source("analysis/recovery_utils.R")
@@ -51,29 +54,31 @@ rel_collect <- data.frame(task = c("horizon", "sam", "restless"),
 ############### performance reliability ###########
 
 ############# P (optimal)
+best <- function(df){
+  
+  rewards <- subset(df, select = grepl("reward", colnames(df)))
+  rewards <- subset(rewards, select = -reward)
+  
+  best <- apply(as.array(1:nrow(rewards)), 1, function(x) max(rewards[x,]))
+  
+  return(best)
+  
+} 
 
 
-horizon$optimal <- ifelse(horizon$reward1 > horizon$reward2, 0, 1)
-horizon$chooseBest <- ifelse(horizon$chosen == horizon$optimal, 1, 0)
+horizon$best <- best(horizon)
+sam$best <- best(sam)
+restless$best <- best(restless)
+
+horizon$chooseBest <- ifelse(horizon$reward == horizon$best, 1, 0)
 
 Hperf <- ddply(horizon[horizon$trial > 4, ], ~ID+session,summarise, Poptim = meann(chooseBest))
 
-sam$optimal <- ifelse(sam$reward1 > sam$reward2, 0, 1)
-sam$chooseBest <- ifelse(sam$chosen == sam$optimal, 1, 0)
-
-
+sam$chooseBest <- ifelse(sam$reward == sam$best, 1, 0)
 Sperf <- ddply(sam, ~ID + session, summarise, Poptim = meann(chooseBest))
 
 
-restrewards <- subset(restless, ID == 1, c(reward1, reward2, reward3, reward4, trial, session))
-restrewards$best <- apply(as.array(1:nrow(restrewards)), 1, function(x) max(c(restrewards$reward1[x],
-                                                                              restrewards$reward2[x],
-                                                                              restrewards$reward3[x],
-                                                                              restrewards$reward4[x])))
-  
-  
-restless$optimalR <- restrewards$best[match(paste(restless$trial, restless$session), paste(restrewards$trial, restrewards$session))]
-restless$chooseBest <- ifelse(restless$reward == restless$optimalR, 1, 0)
+restless$chooseBest <- ifelse(restless$reward == restless$best, 1, 0)
 
 Rperf <- ddply(restless, ~ID+session, summarise, Poptim = meann(chooseBest))
 
@@ -103,9 +108,13 @@ rel_collect$Poptimal <- cors$cor[cors$session1 == cors$session2]
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$Poptim[Perfs$model == cors$session1[x] & Perfs$session == 1],
                                                              Perfs$Poptim[Perfs$model == cors$session2[x] & Perfs$session == 1], use = "pairwise.complete.obs"))
 
-ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of P(optimal) between bandit tasks session 1")
+p1 <- ggplot(cors, aes(session1, session2, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
+  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + labs(title = "P(optimal)",
+                                                                         x = element_blank(), y = element_blank())+
+  scale_x_discrete(labels = as_labeller(c("horizon" = "Horizon", "restless" = "Restless", "sam" = "2AB")))+
+  scale_y_discrete(labels = as_labeller(c("horizon" = "Horizon", "restless" = "Restless", "sam" = "2AB")))
 
+p1
 
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(Perfs$Poptim[Perfs$model == cors$session1[x] & Perfs$session == 2],
                                                              Perfs$Poptim[Perfs$model == cors$session2[x] & Perfs$session == 2], use = "pairwise.complete.obs"))
@@ -116,18 +125,16 @@ ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scal
 
 ############### regret
 
-horizon$maxR <- ifelse(horizon$reward1 > horizon$reward2, horizon$reward1, horizon$reward2)
-horizon$regret <- horizon$maxR - horizon$reward
+horizon$regret <- horizon$best - horizon$reward
 
 Hperf <- ddply(horizon[horizon$trial > 4, ], ~ID+session,summarise, regret = meann(regret))
 
-sam$maxR <- ifelse(sam$reward1 > sam$reward2, sam$reward1, sam$reward2)
-sam$regret <- sam$maxR - sam$reward
+sam$regret <- sam$best - sam$reward
 
 
 Sperf <- ddply(sam, ~ID + session, summarise, regret = meann(regret))
 
-restless$regret <-restless$optimalR - restless$reward
+restless$regret <-restless$best - restless$reward
 
 Rperf <- ddply(restless, ~ID+session, summarise, regret = meann(regret))
 
@@ -218,8 +225,13 @@ rel_collect$Pswitch <- cors$cor[cors$session1 == cors$session2]
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(switch$Pswitch[switch$model == cors$session1[x] & switch$session == 1],
                                                              switch$Pswitch[switch$model == cors$session2[x] & switch$session == 1], use = "pairwise.complete.obs"))
 
-ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scale_fill_gradient2(low = "red", mid = "white", high = "blue")+
-  geom_text(aes(label = round(cor, digits = 2))) + labs(title = "agreement of switch probability within session 1")
+p2 <- ggplot(cors, aes(session1, session2, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
+  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + labs(title = "P(switch)",
+                                                                         x = element_blank(), y = element_blank())+
+  scale_x_discrete(labels = as_labeller(c("horizon" = "Horizon", "restless" = "Restless", "sam" = "2AB")))+
+  scale_y_discrete(labels = as_labeller(c("horizon" = "Horizon", "restless" = "Restless", "sam" = "2AB")))
+
+p2
 
 cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(switch$Pswitch[switch$model == cors$session1[x] & switch$session == 2],
                                                              switch$Pswitch[switch$model == cors$session2[x] & switch$session == 2], use = "pairwise.complete.obs"))
@@ -251,11 +263,80 @@ ggplot(switch, aes(trial, Pswitch, color = as.factor(session))) + geom_line() +
   geom_linerange(aes(ymin = Pswitch -se, ymax = Pswitch +se))+
   facet_wrap(vars(model), scales = "free_x")
 
+
+####################### convergent validity plots for BAP poster ##########
+
+#### get model parameters
+
+load("analysis/bandits/modellingResults/fitHorizonSession1UCB_full_horizon10only.Rda")
+
+Hparams <- trueParams
+Hparams$ID <- parse_number(rownames(Hparams))
+
+load("analysis/bandits/modellingResults/fitSamSession1UCB_hierarchical.Rda")
+Sparams <- trueParams
+Sparams$ID <- parse_number(rownames(Sparams))
+
+restparams <- readRDS("analysis/bandits/4arlb-maps-hierarchical.RDS")
+Rparams <- subset(restparams, select = grepl(1, colnames(restparams)) )
+Rparams$ID <- restparams$ID
+
+
+# get all IDs to be the same ones and in the same order
+
+IDs <- intersect(Hparams$ID, Sparams$ID)
+IDs <- intersect(IDs, Rparams$ID)
+IDs <- IDs[order(IDs)]
+
+Hparams <- Hparams[order(Hparams$ID), ]
+Sparams <- Sparams[order(Sparams$ID), ]
+Rparams <- Rparams[order(Rparams$ID), ]
+
+params <- data.frame(ID = rep(IDs, 3),
+                     task = rep(c("Horizon", "Restless", "2AB"), each = length(IDs)),
+                     V = c(Hparams$estimate[Hparams$predictor == "V" & is.element(Hparams$ID, IDs)],
+                           Sparams$estimate[Sparams$predictor == "V" & is.element(Sparams$ID, IDs)],
+                           Rparams$rlb_map_1_v[is.element(Rparams$ID, IDs)]),
+                     RU = c(Hparams$estimate[Hparams$predictor == "RU" & is.element(Hparams$ID, IDs)],
+                            Sparams$estimate[Sparams$predictor == "RU" & is.element(Sparams$ID, IDs)],
+                            Rparams$rlb_map_1_ru[is.element(Rparams$ID, IDs)]))
+
+tasks <- c("Horizon", "Restless", "2AB")
+
+cors <- data.frame(x = rep(tasks, length(tasks)),
+                   y = rep(tasks, each = length(tasks)),
+                   cor = NA)
+
+cors$x <- factor(cors$x, levels = cors$x, labels = cors$x)
+cors$y <- factor(cors$y, levels = cors$y, labels = cors$y)
+# V
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(params$V[params$task == cors$x[x]],
+                                                            params$V[params$task == cors$y[x]]))
+
+p3 <- ggplot(cors, aes(x,y, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
+  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + labs(title = "V",
+                                                                         x = element_blank(), y = element_blank())
+
+p3
+
+# RU
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(params$RU[params$task == cors$x[x]],
+                                                             params$RU[params$task == cors$y[x]]))
+
+p4 <- ggplot(cors, aes(x,y, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
+  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + labs(title = "RU",
+                                                                         x = element_blank(), y = element_blank())
+
+p4
+
+ggpubr::ggarrange(p1,p2,p3,p4, ncol = 2, nrow = 2, labels = "AUTO", common.legend = T, legend = "right")
+
 ################ reliability of model parameters #############
 
 ################ Horizon
 
-load("analysis/bandits/modellingResults/fitHorizonSession1UCBfullno_horizon.Rda") ## change to session 1 once I have it!!!!
+load("analysis/bandits/modellingResults/fitHorizonSession1UCBfullno_horizon.Rda") 
 
 HParams1 <- trueParams
 
@@ -394,13 +475,13 @@ ggplot(cors, aes(x = session1, y = session2, fill = cor)) + geom_raster() + scal
 
 ################### reliability of questionnaire scores ############
 
-load("analysis/qsWave1Full.Rda")
+load("analysis/qsWave1.Rda")
 qdat1 <- qdat
 load("analysis/qsWave2.Rda")
 qdat2 <- qdat
 
-qdat1 <- subset(qdat1, is.element(ID, qdat2$ID))
-qdat2 <- subset(qdat2, is.element(ID, qdat1$ID))
+qdat1 <- subset(qdat1, is.element(ID, IDs))
+qdat2 <- subset(qdat2, is.element(ID, IDs))
 qdat1$session <- 1
 qdat2$session <- 2
 
@@ -432,6 +513,11 @@ PANASneg <- c(2,4,6,7,8,11,13,15,18,20)
 
 qs$Measure[qs$Measure == "PANAS" & is.element((qs$Qnum+1), PANASpos)] <- "PANASpos"
 qs$Measure[qs$Measure == "PANAS" & is.element((qs$Qnum+1), PANASneg)] <- "PANASneg"
+
+# split sticsa cognitive and somatic
+
+qs$Measure[qs$Measure == "STICSA" & qs$sticsaSubscale == "s"] <- "STICSAsoma"
+qs$Measure[qs$Measure == "STICSA" & qs$sticsaSubscale == "c"] <- "STICSAcog"
 
 responses$measure <- qs$Measure[match(responses$Q, qs$Q)]
 
@@ -490,7 +576,7 @@ p1 <- ggplot(rel_questionnaires, aes(rel, measure)) +
   labs(title = "Reliability of the questionnaire measures",
        x = "correlation between session 1 and session2",
        y = element_blank()) +
-  scale_y_discrete(labels = c("openness", "exploration", "negative mood", "positive mood", "depression", "anxiety"))
+  scale_y_discrete(labels = c("openness", "exploration", "negative mood", "positive mood", "depression", "cognitive anxiety", "somatic anxiety"))
 
 p1
 ######### tasks

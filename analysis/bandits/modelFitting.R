@@ -5,13 +5,14 @@ library(tidyverse)
 library(ggplot2)
 #library(jsonlite)
 library(brms)
+library(here)
 theme_set(theme_classic(base_size = 14))
-
-setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
+here()
 
 session <- 1
 
-load(paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
+load(here("analysis", "bandits", sprintf("banditsWave%i.Rda", session)))
+
 
 source("analysis/recovery_utils.R")
 
@@ -90,8 +91,8 @@ res_list
 
 # in orig wilson paper they fit the two horizons separately so let's do that here
 
-res_list2 <- recovery_horizon(horizon[horizon$Horizon == -0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
-res_list3 <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
+res_list2 <- recovery_horizon(horizon[horizon$Horizon == -0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = F)
+res_list3 <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = F)
 res_list2
 res_list3
 
@@ -128,6 +129,22 @@ res_list1
 res_list2 <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "UCB", bayesian = T, full = T, it = 8000, no_intercept = F, no_horizon = T, save = T, use_saved = T)
 res_list2
 
+### horizon 10 but using all free choices
+
+
+for (i in horizon$row[horizon$trial > 5]){
+  if (i %% 1000 == 0){print(sprintf("%.2f percent done", (i/nrow(horizon)*100)))}
+  horizon[horizon$row == i, grep("bay", colnames(horizon))] <- bayIncrAtOnce(i, horizon)
+}
+
+horizon$V <- scale(getV(horizon$bayMeanL, horizon$bayMeanR))
+horizon$RU <- scale(getRU(horizon$bayVarL, horizon$bayVarR))
+
+res_list <- fit_model_horizon(horizon[horizon$Horizon == 0.5 & horizon$trial > 4, ], model = "UCB", full = T, it = 8000, no_horizon = T, save = F, no_intercept = F, use_saved = F, use_all = T)
+
+res_list[[1]]
+
+save(res_list, file = sprintf("analysis/bandits/modellingResults/fitHorizon10allChoicesSession%i.Rda", session))
 
 ############ how does the modelfit of UCB compare to the classic wilson model?
 
@@ -234,35 +251,275 @@ refit
 ################# Sam's task ########
 
 
-res_list1 <- recovery_sam(sam, "hybrid", hierarchical = T, it = 6000, no_intercept = F, save = T, use_saved = T)
+res_list1 <- recovery_sam(sam, "hybrid", hierarchical = T, it = 8000, no_intercept = F, save = T, use_saved = T, iterative = F)
 res_list1
 
+res_list2 <- recovery_sam(sam, "UCB", hierarchical = T, it = 8000, no_intercept = F, save = T, use_saved = T, iterative = F)
+res_list2
 
-# hierarchical
+################ test identifiability of hybrid model ###########
 
-trueParams <- res_list1[[1]]
-# # get parameters fitted to simulated data
-simParams <- res_list1[[2]]
+### leaving out VTU
 
-pars <- rbind(trueParams, simParams)
-pars$estimate <- pars$`colMeans(as.data.frame(posterior_samples(trueModel)))`
-pars$source <- rep(c("observed", "recovered"), each = nrow(pars)/2)
-ggplot(pars, aes(estimate, fill = source)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(predictor), scale= "free")
+fit <- fit_model_sam(sam, "UCB", hierarchical = T, it = 8000, save = F, use_saved = T)[[1]]
 
-# 
-# # subject-level
-# 
-# pars <- pivot_longer(trueParams, cols = 2:3, names_to = "parameter", values_to = "estimate")
-# pars <- rbind(pars, pivot_longer(simParams, cols = 2:3, names_to = "parameter", values_to = "estimate"))
-# 
-# pars$source <- rep(c("observed", "recovered"), each = nrow(pars)/2)
-# 
-# pars <- subset(pars, bothConverged)
-# 
-# ggplot(pars, aes(estimate, fill = source)) + geom_histogram(alpha = 0.5, position = "identity") + facet_wrap(vars(parameter), scale= "free")
-# 
-# 
-# 
+simdat <- data.frame()# for hierarchical model bc that one needs the simdat of all subjects at once
+
+## iterate through subjects to simulate for each subject
+for (i in unique(sam$ID)){
+  if (i %% 10 == 0) {print(paste("subject", i, "of", max(sam$ID)))}
+  
+  ### simulate data
+  
+  # create data
+  simdat_temp <- sim_data_sam(sam, fit, i, hierarchical= T, bootstrapped = F, newRewards = F, iterative = F)
+  simdat <- rbind(simdat, simdat_temp)
+  
+}
+
+
+
+refit <- fit_model_sam(simdat, "hybrid", hierarchical = T, it = 8000, save = F, use_saved = F)[[1]]
+
+refit
+
+# compared to when fit to regular data
+fit_model_sam(sam, "hybrid", hierarchical = T, it = 8000, save = F, use_saved = T)[[1]]
+
+
+
+### leaving out V (and simulating using the old method that retains the old kalman filter output)
+
+fit <- brm(chosen ~ RU + VTU + (RU + VTU | ID),
+           data = sam,
+           family = "bernoulli",
+           iter = 4000,
+           cores = 2,
+           chains = 2)
+
+simdat <- sam
+
+simdat$chosen <- predict(fit)[ ,1]
+
+hist(simdat$chosen)
+
+simdat$chosen <- ifelse(runif(nrow(simdat), 0, 1) > simdat$chosen, 0, 1)
+
+refit <- fit_model_sam(simdat, "hybrid", hierarchical = T, it = 4000, save = F, use_saved = F)[[1]]
+
+refit
+
+############ same thing for fan et al data
+
+fan <- read.csv("~/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/PrelimReliabilities/FanEtAl/exp1_bandit_task_scale.csv")
+
+# cond: 1:Fluctuating/Stable; 2:SF; 3:FF; 4:SS
+
+fan$cond <- factor(fan$cond, levels = c(1,2,3,4), labels = c("FS", "SF", "FF", "SS"))
+
+# they rescaled V, VTU, RU but the on-rescaled variables are still in the dataframe called _old
+fan$VTU <- fan$V_old / fan$TU_old
+fan$V <- fan$V_old
+fan$RU <- fan$RU_old
+
+fan$ID <- fan$sub
+
+fan$chosen <- fan$C
+
+### leaving out VTU
+
+fit <- fit_model_sam(fan, "UCB", hierarchical = T, it = 2000, save = F, use_saved = F)[[1]]
+
+simdat <- fan
+
+simdat$chosen <- predict(fit)[ ,1]
+
+hist(simdat$chosen)
+
+simdat$chosen <- ifelse(runif(nrow(simdat), 0, 1) > simdat$chosen, 0, 1)
+
+refit <- fit_model_sam(simdat, "hybrid", hierarchical = T, it = 4000, save = F, use_saved = F)[[1]]
+
+refit
+
+# compared to when fit to regular data
+fit_model_sam(fan, "hybrid", hierarchical = T, it = 8000, save = F, use_saved = F)[[1]]
+
+
+### leaving out V 
+
+fit <- brm(chosen ~ RU + VTU + (RU + VTU | ID),
+           data = fan,
+           family = "bernoulli",
+           iter = 4000,
+           cores = 2,
+           chains = 2)
+
+simdat <- fan
+
+simdat$chosen <- predict(fit)[ ,1]
+
+hist(simdat$chosen)
+
+simdat$chosen <- ifelse(runif(nrow(simdat), 0, 1) > simdat$chosen, 0, 1)
+
+refit <- fit_model_sam(simdat, "hybrid", hierarchical = T, it = 4000, save = F, use_saved = F)[[1]]
+
+refit
+
+
+########### comparative model fit of hybrid vs ucb
+
+# hybrid
+out <- fit_model_sam(sam, model = "hybrid", hierarchical = T, it = 8000, save = T, no_intercept = F, use_saved = T)
+hybrid <- add_criterion(out[[1]], "loo")
+hybrid$criteria
+
+modelFits <- data.frame(model = rep(c("hybrid", "UCB")),
+                        loo = NA,
+                        se = NA)
+
+modelFits[modelFits$model == "hybrid", c(2,3)] <- hybrid$criteria$loo$estimates[3, ]
+
+# model fit of UCB
+out <- fit_model_sam(sam, model = "ucb", hierarchical = T, it = 8000, save = T, no_intercept = F, use_saved = T)
+ucb <- add_criterion(out[[1]], "loo")
+ucb$criteria
+
+modelFits[modelFits$model == "UCB", c(2,3)] <- ucb$criteria$loo$estimates[3, ]
+
+
+p3 <- ggplot(modelFits, aes(model, loo)) +
+  geom_col(fill = "#66C2A5")+
+  geom_errorbar(aes(ymin = loo -se, ymax = loo+se), width = 0.3)+
+  labs(title = "Model comparison",
+       subtitle = "UCB and the classic hybrid model do not differ in their model fit",
+       y = "Leave one out information criterion")
+
+p3
+
+
+#################### making a csv with all model parameters ###############
+
+
+load("analysis/bandits/banditsWave1.Rda")
+
+allParams <- data.frame(ID = unique(c(horizon$ID, sam$ID, restless$ID)))
+
+fixedEffects <- data.frame(task = rep(rep(c("horizon_5", "horizon_10", "sam"), each = 2), 2),
+                           param = rep(c("RU", "V"), 3*2),
+                           session = rep(c(1,2), each = 2*3),
+                           estim = NA,
+                           lower = NA,
+                           upper = NA)
+
+
+for (s in c(1,2)){
+  
+  for(task in c("sam", "horizon")){
+    
+    if (task == "horizon"){
+      for (h in c(5,10)){
+        
+        load(sprintf("analysis/bandits/modellingResults/fitHorizonSession%iUCB_full_horizon%ionly.Rda", s, h))
+        
+        trueParams$ID <- readr::parse_number(rownames(trueParams))
+        
+        trueParams <- subset(trueParams, is.element(trueParams$ID, allParams$ID))
+        allParams[ ,paste(task, "ucb_V", h,s, sep = "_")] <- NA
+        allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_V", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "V"]
+        allParams[ ,paste(task, "ucb_RU", h,s, sep = "_")] <- NA
+        allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_RU", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "RU"]
+        allParams[ ,paste(task, "ucb_Intercept", h,s, sep = "_")] <- NA
+        allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_Intercept", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "Intercept"]
+        
+        ## get fixed effects
+        fixed <- summary(baymodel)$fixed
+        fixedEffects$estim[fixedEffects$task == paste0("horizon_", h) & fixedEffects$session == s] <- fixed$Estimate[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
+        fixedEffects$lower[fixedEffects$task == paste0("horizon_", h)& fixedEffects$session == s] <- fixed$`l-95% CI`[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
+        fixedEffects$upper[fixedEffects$task == paste0("horizon_", h)& fixedEffects$session == s] <- fixed$`u-95% CI`[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
+      }
+    }
+    else if (task == "sam"){
+      
+      load(sprintf("analysis/bandits/modellingResults/fitSamSession%iUCB_hierarchical.Rda", s))
+      
+      trueParams$ID <- readr::parse_number(rownames(trueParams))
+      
+      trueParams <- subset(trueParams, is.element(trueParams$ID, allParams$ID))
+      allParams[ ,paste(task, "ucb_V", h,s, sep = "_")] <- NA
+      allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_V", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "V"]
+      allParams[ ,paste(task, "ucb_RU", h,s, sep = "_")] <- NA
+      allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_RU", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "RU"]
+      allParams[ ,paste(task, "ucb_Intercept", h,s, sep = "_")] <- NA
+      allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_Intercept", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "Intercept"]
+     
+      
+      ## get fixed effects
+      fixed <- summary(trueModel)$fixed
+      fixedEffects$estim[fixedEffects$task == "sam"& fixedEffects$session == s] <- fixed$Estimate[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
+      fixedEffects$lower[fixedEffects$task == "sam"& fixedEffects$session == s] <- fixed$`l-95% CI`[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
+      fixedEffects$upper[fixedEffects$task == "sam"& fixedEffects$session == s] <- fixed$`u-95% CI`[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
+       
+    }
+    
+  }
+  
+}
+
+
+write.csv(allParams,"analysis/bandits/AllModelParameters.csv")
+write.csv(fixedEffects, "analysis/bandits/AllFixedEffects.csv")
+
+
+#################### correlations among VTU, V, RU across trials in our data vs Fan et al ##########
+our_cor <- plyr::ddply(sam[sam$trial > 1, ], ~trial, summarise, V_VTU = cor(V, VTU), V_RU = cor(V, RU), VTU_RU = cor(VTU, RU))
+
+fan <- read.csv("~/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/PrelimReliabilities/FanEtAl/exp1_bandit_task_scale.csv")
+
+# cond: 1:Fluctuating/Stable; 2:SF; 3:FF; 4:SS
+
+fan$cond <- factor(fan$cond, levels = c(1,2,3,4), labels = c("FS", "SF", "FF", "SS"))
+
+# they rescaled V, VTU, RU but the on-rescaled variables are still in the dataframe called _old
+fan$VTU <- fan$V_old / fan$TU_old
+
+fan_cor <-  plyr::ddply(fan[fan$trial > 1, ], ~trial, summarise, V_VTU = cor(V_old, VTU), V_RU = cor(V_old, RU_old), VTU_RU = cor(VTU, RU_old))
+
+our_cor$source <- "session1"
+
+fan_cor$source <- "fan"
+
+cors <- rbind(our_cor, fan_cor)
+
+cors <- pivot_longer(cors, cols = grep("V", colnames(cors)), names_to = "predictors", values_to = "cor")
+
+ggplot(cors, aes(trial, cor, color = predictors)) + geom_point()+
+  geom_line()+
+  facet_grid(cols = vars(source))
+
+
+### split up by condition
+
+our_cor <- plyr::ddply(sam[sam$trial > 1, ], ~trial+cond, summarise, V_VTU = cor(V, VTU), V_RU = cor(V, RU), VTU_RU = cor(VTU, RU))
+
+fan_cor <-  plyr::ddply(fan[fan$trial > 1, ], ~trial+cond, summarise, V_VTU = cor(V_old, VTU), V_RU = cor(V_old, RU_old), VTU_RU = cor(VTU, RU_old))
+
+our_cor$source <- "session1"
+
+fan_cor$source <- "fan"
+
+cors <- rbind(our_cor, fan_cor)
+
+cors <- pivot_longer(cors, cols = grep("V", colnames(cors)), names_to = "predictors", values_to = "cor")
+
+ggplot(cors, aes(trial, cor, color = predictors)) + geom_point()+
+  geom_line()+
+  facet_grid(cols = vars(source), rows = vars(cond))
+
+
+
+
 # 
 # ################# bootstrapped parameter recovery ###############
 # 

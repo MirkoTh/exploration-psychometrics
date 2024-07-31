@@ -1018,7 +1018,6 @@ exclusion_criteria <- function(session) {
   lookup$exclude <- ifelse(lookup$totalExclude == 0, 0, 1)
   print(table(lookup$exclude))
   
-  
   write_csv(lookup, str_c("data/exclusions", session, ".csv"))
   
   excl_ID <- lookup$ID[lookup$exclude == 1]

@@ -10,7 +10,7 @@ theme_set(theme_classic(base_size = 14))
 
 setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
 
-session <- 2
+session <- 1
 
 load(sprintf("analysis/bandits/banditsWave%i.Rda", session))
 source("analysis/recovery_utils.R")
@@ -221,29 +221,28 @@ bandits <- rbind(bestH, bestS, bestR)
 
 ############# prep regret ########
 
+best <- function(df){
+  
+  rewards <- subset(df, select = grepl("reward", colnames(df)))
+  rewards <- subset(rewards, select = -reward)
+  
+  best <- apply(as.array(1:nrow(rewards)), 1, function(x) max(rewards[x,]))
+  
+  return(best)
+  
+} 
 
-horizon$maxR <- ifelse(horizon$reward1 > horizon$reward2, horizon$reward1, horizon$reward2)
-horizon$regret <- horizon$maxR - horizon$reward
+
+horizon$best <- best(horizon)
+sam$best <- best(sam)
+restless$best <- best(restless)
+
+horizon$regret <- horizon$best - horizon$reward
+sam$regret <- sam$best - sam$reward
+restless$regret <- restless$best - restless$reward
 
 Hperf <- ddply(horizon[horizon$trial > 4, ], ~ID,summarise, regret = meann(regret))
-
-sam$maxR <- ifelse(sam$reward1 > sam$reward2, sam$reward1, sam$reward2)
-sam$regret <- sam$maxR - sam$reward
-
-
 Sperf <- ddply(sam, ~ID, summarise, regret = meann(regret))
-
-restrewards <- subset(restless, ID == 1, c(reward1, reward2, reward3, reward4, trial, session))
-restrewards$best <- apply(as.array(1:nrow(restrewards)), 1, function(x) max(c(restrewards$reward1[x],
-                                                                              restrewards$reward2[x],
-                                                                              restrewards$reward3[x],
-                                                                              restrewards$reward4[x])))
-
-
-restless$optimalR <- restrewards$best[match(paste(restless$trial, restless$session), paste(restrewards$trial, restrewards$session))]
-
-restless$regret <-restless$optimalR - restless$reward
-
 Rperf <- ddply(restless, ~ID, summarise, regret = meann(regret))
 
 Hperf$model <- "horizon"
@@ -251,7 +250,6 @@ Sperf$model <- "sam"
 Rperf$model <- "restless"
 
 regret <- rbind(Hperf, Sperf, Rperf)
-
 
 ###### prep Poptimal ######
 
@@ -295,12 +293,10 @@ Rswitch$model <- "restless"
 
 switch <- rbind(Hswitch, Sswitch, Rswitch)
 
-
-
 ########## get to comparing #########
 
 questionnaires <- unique(avg$measure)
-tasks <- unique(bandits$task)
+tasks <- unique(regret$task)
 
 ### compare tasks to each other
 
@@ -655,9 +651,127 @@ ggplot(cors, aes(x = var1, y = var2, fill = cor)) + geom_raster() + scale_fill_g
                                                         x = element_blank(), y = element_blank())+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+############### validity plot for BAP poster #########
+
+#### get model parameters
+
+load(sprintf("analysis/bandits/modellingResults/fitHorizonSession%iUCB_full_horizon10only.Rda", session))
+
+Hparams <- trueParams
+Hparams$ID <- parse_number(rownames(Hparams))
+
+load(sprintf("analysis/bandits/modellingResults/fitSamSession%iUCB_hierarchical.Rda", session))
+Sparams <- trueParams
+Sparams$ID <- parse_number(rownames(Sparams))
+
+restparams <- readRDS("analysis/bandits/4arlb-maps-hierarchical.RDS")
+Rparams <- subset(restparams, select = grepl(session, colnames(restparams)) )
+Rparams$ID <- restparams$ID
+
+
+# get all IDs to be the same ones and in the same order
+
+IDs <- intersect(Hparams$ID, Sparams$ID)
+IDs <- intersect(IDs, Rparams$ID)
+IDs <- intersect(IDs, restless$ID)
+IDs <- intersect(IDs, avg$ID)
+
+Hparams <- Hparams[order(Hparams$ID), ]
+Sparams <- Sparams[order(Sparams$ID), ]
+Rparams <- Rparams[order(Rparams$ID), ]
+
+# for all other data.frames this ordering step is already done
+
+# make dataframe that has all model parameters and task measures and questionnaire scores
+all <- data.frame(ID = IDs,
+                  measure = rep(c("V", "RU"), each = length(IDs)),
+                  value = c(Hparams$estimate[Hparams$predictor == "V" & is.element(Hparams$ID, IDs)],
+                            Hparams$estimate[Hparams$predictor == "RU"& is.element(Hparams$ID, IDs)]),
+                  task = "Horizon")
+# add sams task
+all <- rbind(all, data.frame(ID = IDs,
+                             measure = rep(c("V", "RU"), each = length(IDs)),
+                             value = c(Sparams$estimate[Sparams$predictor == "V"& is.element(Sparams$ID, IDs)],
+                                       Sparams$estimate[Sparams$predictor == "RU"& is.element(Sparams$ID, IDs)]),
+                             task = "2AB"))
+# add restless bandit
+all <- rbind(all,data.frame(ID = IDs,
+                            measure = rep(c("V", "RU"), each = length(IDs)),
+                            value = c(Rparams$rlb_map_1_v[is.element(Rparams$ID, IDs)],
+                                      Rparams$rlb_map_1_ru[is.element(Rparams$ID, IDs)]),
+                            task = "Restless"))
+
+
+# add task measures
+
+all <- rbind(all, data.frame(ID = IDs,
+                             measure = "regret",
+                             value = regret$regret[is.element(regret$ID, IDs)],
+                             task = regret$model[is.element(regret$ID, IDs)]))
+
+all <- rbind(all, data.frame(ID = IDs,
+                             measure = "p(optimal)",
+                             value = Poptimal$Poptimal[is.element(Poptimal$ID, IDs)],
+                             task = Poptimal$model[is.element(Poptimal$ID, IDs)]))
+
+
+all <- rbind(all, data.frame(ID = IDs,
+                             measure = "p(switch)",
+                             value = switch$Pswitch[is.element(switch$ID, IDs)],
+                             task = switch$model[is.element(switch$ID, IDs)]))
 
 
 
+# add questionnaires
+
+all <- rbind(all, data.frame(ID = IDs,
+                             measure = avg$measure[is.element(avg$ID, IDs)],
+                             value = avg$score[is.element(avg$ID, IDs)],
+                             task = ""))
+
+
+all$task[all$task == "sam"] <- "2AB"
+all$task[all$task == "horizon"] <- "Horizon"
+all$task[all$task == "restless"] <- "Restless"
+
+all$predictor <- paste(all$task, all$measure)
+unique(all$predictor)
+
+# V and RU are reverse coded so I need to switch that back 
+
+all$value[all$measure == "V"] <- -1 * all$value[all$measure == "V"]
+all$value[all$measure == "RU"] <- -1 * all$value[all$measure == "RU"]
+
+## to have it all in the order I want it is easiest to just hard-code
+
+# x <- c("Horizon V", "2AB V", "Restless V", "Horizon RU", "2AB RU", "Restless RU", 
+#        "Horizon regret", "2AB regret", "Restless regret", 
+#        "Horizon p(optimal)", "2AB p(optimal)", "Restless p(optimal)",
+#        "Horizon p(switch)", "2AB p(switch)", "Restless p(switch)")
+
+x <- c("Horizon V", "2AB V", "Restless V", "Horizon RU", "2AB RU", "Restless RU", 
+       "Horizon p(optimal)", "2AB p(optimal)", "Restless p(optimal)",
+       "Horizon p(switch)", "2AB p(switch)", "Restless p(switch)")
+
+y <- c(" CEI", " BIG_5", " STICSAcog", " STICSAsoma", " PHQ_9")
+
+cors <- data.frame(x = rep(x, length(y)),
+                   y = rep(y, each = length(x)),
+                   cor = NA)
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(all$value[all$predictor == cors$x[x]],
+                                                             all$value[all$predictor == cors$y[x]]))
+
+
+cors$x <- factor(cors$x, levels = cors$x, labels = cors$x)
+cors$y <- factor(cors$y, levels = cors$y, labels = cors$y)
+
+ggplot(cors, aes(y, x, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
+  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + labs(title = "correlation of task measures and questionnaire scores",
+                                                        x = element_blank(), y = element_blank())+
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))+
+  scale_x_discrete(labels = as_labeller(c(" CEI" = "exploration", " BIG_5" = "openness", " STICSAcog" = "cog. anxiety", " STICSAsoma" = "soma. anxiety", " PHQ_9" = "depression")))
+  
 
 # ########### regressions #############
 #

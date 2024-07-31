@@ -59,7 +59,7 @@ bayIncrAtOnce <- function(x, horizon){
   #' Bayesian integration
   #' 
   #' @description uses bayesian integration to calculate posterior mean and variance for different options
-  #' @param x current trial in task
+  #' @param x current row in dataframe
   #' @param horizon dataframe task data
   #' @return list of means for both arms and variances for both arms
   #' @references taken from section 3 of: https://people.eecs.berkeley.edu/~jordan/courses/260-spring10/lectures/lecture5.pdf
@@ -102,7 +102,7 @@ bayIncrAtOnce <- function(x, horizon){
   return(c(muLeft,muRight,sqrt(1/tauLeft), sqrt(1/tauRight)))
 }
 
-sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F, newRewards = T) {
+sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F, newRewards = F, iterative = T) {
   
   #' simulate data for sam's task from whatever model
   #' 
@@ -111,6 +111,7 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F,
   #' @param trueModel Model fit to true choices of that subject
   #' @param i index of subject to simulate data for
   #' @param bootstrapped boolean, if T, trueModel is simply the parameter estimates to build an equation from
+  #' @param iterative boolean; simulate data iteratively or only simulate choices from existing learning
   #' @return data.frame with simulated data for that subject
   
   id <- ifelse(bootstrapped, 1, i)
@@ -146,8 +147,6 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F,
     noise <- rnorm(trials*blocks, 0, 1)
     simdat$reward2 <- simdat$reward2 + noise
   }
-  
-  
   
   ## iteratively make choices
   # learning part initialisations
@@ -231,8 +230,8 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T, no_int
   #' @return list containing model object and if hierarchical == F also a data.frame with coefficients
   
   # preparing data saving
-  h <- ifelse(hierarchical, "hierarchical", "subject-level")
-  i <- ifelse(no_intercept, "no_intercept", "")
+  h <- ifelse(hierarchical, "_hierarchical", "_subject-level")
+  i <- ifelse(no_intercept, "_no_intercept", "")
   session <- data$session[1]
   path <- paste("analysis/bandits/modellingResults/fitSamSession", session, model, h, i, ".Rda", sep = "")
   if (save){
@@ -378,7 +377,7 @@ get_KL_into_df <- function(data){
 }
 
 
-recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_intercept = F, use_saved = F){
+recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_intercept = F, use_saved = F, iterative = T){
   #' parameter recovery for data from Sam's task
   #' 
   #' @description fits model to data; simulates data based on subjects' estimates; re-fits that data
@@ -389,13 +388,17 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
   #' @param save whether or not to save the output
   #' @param no_intercept boolean; if T intercept is omitted from model
   #' @param use_saved boolean; if T, attempts to load model recovery output saved under path
+  #' @param iterative boolean; simulate data iteratively or only simulate choices from existing learning
   #' @return a list containing a data.frame with subject-level estimates fitted to the observed data, a data.frame with the recovered estimates, a ggplot element plotting the recovery
+  
+  if(!hierarchical){warning("Some things might not be adjusted to the subject-level implementation. Check the code before you run it.")}
   
   # preparing data saving
   h <- ifelse(hierarchical, "_hierarchical", "_subject-level")
   i <- ifelse(no_intercept, "_no_intercept", "")
+  I <- ifelse(iterative, "_iterative", "_notIterative")
   session <- data$session[1]
-  path <- paste("analysis/bandits/modellingResults/recoverySamSession", session, model, h,i, ".Rda", sep = "")
+  path <- paste("analysis/bandits/modellingResults/recoverySamSession", session, model, h,i,I, ".Rda", sep = "")
   if (save){
     print(paste("save location: ", path, sep = ""))
   }
@@ -449,9 +452,10 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
       trueModel <- out[[1]]
       trueParams <- out[[2]]
     }
-    
+
     simdatCollect <- data.frame()# for hierarchical model bc that one needs the simdat of all subjects at once
     
+    if (iterative){
     ## iterate through subjects to simulate for each subject
     for (i in unique(data$ID)){
       if (i %% 10 == 0) {print(paste("subject", i, "of", max(data$ID)))}
@@ -468,13 +472,25 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
       ### simulate data
       
       # create data
-      simdat <- sim_data_sam(data, trueModel, i, hierarchical= hierarchical)
+      simdat <- sim_data_sam(data, trueModel, i, hierarchical= hierarchical, iterative = iterative, bootstrapped = F, newRewards = F)
       
       if (!hierarchical) { # if it's not hierarchical then we do this for every subject separately, otherwise only in end
         simParams[simParams$ID == i, ] <- fit_model_sam(simdat, model, F, save = F)[[2]]
       } else {simdatCollect <- rbind(simdatCollect, simdat)} # collect simdat for later for hierarchical model
       
 
+    }
+      
+    } else{ # if not iterative then simulate them all at once
+      
+      if(!hierarchical){warning("the non-iterative recovery is not implemented for the subject-level model!"); return(list())}
+      
+      simdatCollect <- subset(data, select = -chosen)
+      
+      simdatCollect$chosen <- predict(trueModel)[ ,1]
+      
+      simdatCollect$chosen <- ifelse(runif(nrow(simdatCollect), 0, 1) > simdatCollect$chosen, 0, 1)
+      
     }
     
     params <- predictors
@@ -513,7 +529,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
     # plot them
     
     p <- ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white")+
-      geom_label(aes(label = round(cor, digits = 2)), fill = "white") + labs(title = paste("Recovery of Sam's task using ", model),
+      geom_label(aes(label = round(cor, digits = 2)), fill = "white") + labs(title = paste("Recovery of 2-armed bandit using ", model),
                                                                              subtitle = sprintf("session %i", session))
     
     if (save){
@@ -525,7 +541,7 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
   
 }
 
-fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, save = T, no_intercept = F, use_saved = F){
+fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, save = T, no_intercept = F, use_saved = F, use_all = F){
   #' parameter recovery for data from Horizon task
   #' 
   #' @description fits model to data
@@ -537,6 +553,7 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   #' @param no_horizon if true, the data contains only the long or the short horizon so we estimate no effect of horizon
   #' @param save whether or not to save the output to the path that is being defined in path
   #' @param use_saved boolean; whether or not to look for a saved version of the model
+  #' @param use_all boolean; whether to use all trials (as opposed to only the 5th one); defaults to false
   #' @return a brms model object
   #' 
   # create some variables for the save path only
@@ -618,8 +635,12 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   
   formula <- as.formula(formula)
   
+  if (use_all == F){
+    data <- subset(data, trial == 5)
+  }
+  
   baymodel <- brm(formula, family = "bernoulli", 
-                  data = data[data$trial == 5, ],
+                  data = data,
                   chains = 2,
                   cores = 2,
                   iter = it)
