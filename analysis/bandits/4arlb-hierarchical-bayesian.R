@@ -7,6 +7,7 @@ library(rutils)
 library(grid)
 library(gridExtra)
 library(cmdstanr)
+library(mvtnorm)
 
 
 is_fit <- FALSE#TRUE#
@@ -49,55 +50,31 @@ posteriors_and_maps <- function(tbl_draws, s, pars_interest, ids_sample) {
 # Read and Preprocess Data ------------------------------------------------
 
 
-load(file = "analysis/bandits/banditsWave1full.Rda")
+load(file = "analysis/bandits/banditsWave1.Rda")
 restless1 <- restless
 horizon1 <- horizon
 sam1 <- sam
-load(file = "analysis/bandits/banditsWave2full.Rda")
+load(file = "analysis/bandits/banditsWave2.Rda")
 restless2 <- restless
 horizon2 <- horizon
 sam2 <- sam
 
-tbl_wm <- readRDS("data/all-data/tbl-performance-wm.rds")
-#tbl_exclude <- readRDS(file = "analysis/wm/subjects-excl-wm.rds")
+tbl_exclude2 <- read_csv(file = "data/exclusions2.csv")
+tbl_exclude1 <- read_csv(file = "data/exclusions1.csv")
 
-# some IDs do not yet have data for session 1 because of loading restless data from temporary files (work in progress)
-# in the meantime, just exclude IDs without complete data sets for both sessions
-
-n_valid_session1 <- restless1 %>% group_by(ID) %>% 
-  summarize(n_valid_1 = sum(chosen >= 0)) %>% ungroup() %>% 
-  replace_na(list(n_valid_1 = 0)) %>% arrange(n_valid_1)
-n_valid_session2 <- restless2 %>% group_by(ID) %>% 
-  summarize(n_valid_2 = sum(chosen >= 0)) %>% ungroup() %>% 
-  replace_na(list(n_valid_2 = 0)) %>% arrange(n_valid_2)
-
-tbl_valid_restless <- tibble(ID = unique(n_valid_session1$ID, n_valid_session2$ID)) %>%
-  left_join(n_valid_session1, by = "ID") %>%
-  left_join(n_valid_session2, by = "ID") %>%
-  replace_na(list(n_valid_1 = 0, n_valid_2 = 0)) %>%
-  filter(n_valid_1 == 200 & n_valid_2 == 200)
-restless1 <- restless1 %>% inner_join(tbl_valid_restless %>% select(ID), by = "ID")
-restless2 <- restless2 %>% inner_join(tbl_valid_restless %>% select(ID), by = "ID")
+# seems like two people were invited to session 2, who should not have been
+tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
+  left_join(tbl_exclude2 %>% select(ID, exclude), by = "ID", suffix = c("_1", "_2")) %>%
+  filter(exclude_2 == 0 & exclude_1 == 0)
 
 
-
-tbl_excl_bandits_1 <- read_csv("data/exclusions1.csv")
-tbl_excl_bandits_2 <- read_csv("data/exclusions2.csv")
-tbl_excl_wm <- readRDS("analysis/wm/subjects-excl-wm.rds")
-
-
-
-
-tbl_exclude <- tbl_excl_wm %>%
-  left_join(tbl_excl_bandits_1 %>% select(ID, exclude), by = c("participant_id" = "ID")) %>%
-  left_join(tbl_excl_bandits_2 %>% select(ID, exclude), by = c("participant_id" = "ID"), suffix = c("_1", "_2")) %>%
-  mutate(exclude_all = ifelse((excl_subject + exclude_1 + exclude_2) > 0, TRUE, FALSE))
+tbl_restless1 <- read_csv("data/finalRestlessSession1.csv")
+tbl_restless2 <- read_csv("data/finalRestlessSession2.csv")
 
 
 # combine data from session 1 and session 2
-tbl_restless <- as_tibble(rbind(restless1, restless2)) %>%
-  left_join(tbl_exclude, by = c("ID" = "participant_id")) %>%
-  filter(exclude_all == 0) %>%
+tbl_restless <- rbind(tbl_restless1, tbl_restless2) %>%
+  inner_join(tbl_exclude, by = "ID") %>%
   arrange(ID, session, trial) %>%
   group_by(ID, session) %>%
   mutate(
@@ -148,6 +125,10 @@ pars_group <- c("mu_beta", "mu_tau")
 pars_pred <- c("choice_pred", "log_lik")
 
 
+ids_sample <- tibble(
+  ID = unique(tbl_restless$ID),
+  id_stan = 1:length(unique(tbl_restless$ID))
+)
 
 # by-participant ----------------------------------------------------------
 
@@ -191,11 +172,6 @@ if (!is_fit) {
   tbl_draws_s2 <- readRDS(file_loc_s2)
 }
 
-ids_sample <- tibble(
-  ID = unique(tbl_restless$ID),
-  id_stan = 1:length(unique(tbl_restless$ID))
-)
-
 
 l_posterior_1 <- posteriors_and_maps(tbl_draws_s1, 1, c("beta", "tau"))
 l_posterior_2 <- posteriors_and_maps(tbl_draws_s2, 2, c("beta", "tau"))
@@ -235,7 +211,7 @@ l_posterior_1$tbl_map %>%
 
 file_loc_hc_s1 <- "data/restless-hierarchical-model-posterior-s1.RDS"
 file_loc_hc_s2 <- "data/restless-hierarchical-model-posterior-s2.RDS"
-ucb_stan_hc_txt <- ucb_stan_hierarchical()
+ucb_stan_hc_txt <- ucb_stan_hierarchical_generate()
 mod_ucb_stan_hc <- cmdstan_model(ucb_stan_hc_txt)
 
 if (is_fit & is_hierarchical) {
@@ -277,7 +253,9 @@ tbl_map_hc <- l_posterior_hc_1[[2]] %>% select(-session) %>%
     by = c("ID", "parameter"), suffix = c("_1", "_2")
   ) %>% 
   pivot_wider(names_from = parameter, values_from = c(map_1, map_2))
-saveRDS(tbl_map_hc, "data/4arlb-maps-hierarchical.RDS")
+tbl_save <- tbl_map_hc
+colnames(tbl_save)[2:5] <- str_c("rlb_", colnames(tbl_save)[2:5])
+write_csv(tbl_save, "data/4arlb-maps-hierarchical.csv")
 
 tbl_map_hc %>%
   summarize(
@@ -337,7 +315,7 @@ grid.arrange(
 
 params_bf <- c("RU", "V")
 library(kde1d)
-plot_hdi_etc <- function(tbl_draws, ttl) {
+hdi_etc <- function(tbl_draws) {
   tbl_posterior <- tbl_draws %>% 
     dplyr::select(starts_with(c("mu_beta", "mu_tau")), .chain) %>%
     rename(chain = .chain) %>%
@@ -347,16 +325,25 @@ plot_hdi_etc <- function(tbl_draws, ttl) {
   limits <- c(0.0025, 0.9975)
   par_lims <- limit_axes(kdes, limits = limits)
   bfs <- map2_dbl(kdes, c(dt(0, 1, 1), dnorm(0, 0, 1)), ~ (..2)/dkde1d(0, ..1))
+  return(
+    list(
+      par_lims = par_lims,
+      bfs = bfs
+    )
+  )
   
-  plot_map_hdi_bf(par_lims, bfs, ttl) + coord_cartesian(xlim = c(-1.25, .5))
 }
 
-pl_fixed_s1 <- plot_hdi_etc(tbl_draws_hc_s1, "Restless Bandit Session 1")
-pl_fixed_s2 <- plot_hdi_etc(tbl_draws_hc_s2, "Restless Bandit Session 2")
+l_hdi_etc_s1 <- hdi_etc(tbl_draws_hc_s1)
+l_hdi_etc_s2 <- hdi_etc(tbl_draws_hc_s2)
+
+pl_fixed_s1 <- plot_map_hdi_bf(l_hdi_etc_s1$par_lims, l_hdi_etc_s1$bfs, "Session 1") + coord_cartesian(xlim = c(-1.25, .5))
+pl_fixed_s2 <- plot_map_hdi_bf(l_hdi_etc_s2$par_lims, l_hdi_etc_s2$bfs, "Session 2") + coord_cartesian(xlim = c(-1.25, .5))
 pl_fixed_both <- arrangeGrob(
   pl_fixed_s1 + scale_y_discrete(expand = c(.3, 0)),
   pl_fixed_s2 + scale_y_discrete(expand = c(.3, 0)),
-  nrow = 2)
+  nrow = 1)
+
 
 grid.draw(pl_fixed_both)
 
@@ -386,7 +373,7 @@ my_bayesian_preds <- function(tbl_draws) {
   tbl_trial <- tbl_pred[1, ] %>% 
     mutate(it = 1:nrow(.)) %>% 
     pivot_longer(-it, names_pattern = "([0-9]+)\\]$", names_to = "trial") %>%
-    mutate(trial = as.numeric(trial))  %>% select(-it)
+    mutate(trial = as.numeric(trial)) %>% select(-it)
   
   tbl_lookup_id <- tibble(
     ID_stan = sort(unique(tbl_subj$ID)),
@@ -409,24 +396,36 @@ tbl_restless_s1 <- as_tibble(left_join(tbl_restless_s1, tbl_preds_s1, by = c("ID
 tbl_restless_s2 <- as_tibble(left_join(tbl_restless_s2, tbl_preds_s2, by = c("ID", "trial")))
 
 
-tbl_restless_s1$reward_pred_map <- pmap_dbl(
-  tbl_restless_s1[, c("reward1", "reward2", "reward3", "reward4", "choice_pred_map")], 
-  ~ c(..1, ..2, ..3, ..4)[..5]
-)
-tbl_restless_s2$reward_pred_map <- pmap_dbl(
-  tbl_restless_s2[, c("reward1", "reward2", "reward3", "reward4", "choice_pred_map")], 
-  ~ c(..1, ..2, ..3, ..4)[..5]
-)
+# tbl_restless_s1$reward_pred_map <- pmap_dbl(
+#   tbl_restless_s1[, c("reward1", "reward2", "reward3", "reward4", "choice_pred_map")], 
+#   ~ c(..1, ..2, ..3, ..4)[..5]
+# )
+# tbl_restless_s2$reward_pred_map <- pmap_dbl(
+#   tbl_restless_s2[, c("reward1", "reward2", "reward3", "reward4", "choice_pred_map")], 
+#   ~ c(..1, ..2, ..3, ..4)[..5]
+# )
+# tbl_restless_s1$reward_pred <- pmap_dbl(
+#   tbl_restless_s1[, c("reward1", "reward2", "reward3", "reward4", "choice_pred")], 
+#   ~ c(..1, ..2, ..3, ..4)[..5]
+# )
+# tbl_restless_s2$reward_pred <- pmap_dbl(
+#   tbl_restless_s2[, c("reward1", "reward2", "reward3", "reward4", "choice_pred")], 
+#   ~ c(..1, ..2, ..3, ..4)[..5]
+# )
 
 # fit same model again on predicted data
-l_data_s1$choice <- pivot_wider(tbl_restless_s1[, c("ID", "trial", "choice_pred_map")], names_from = "trial", values_from = "choice_pred_map") %>% select(-ID) %>% as.matrix()
-l_data_s1$reward  <- pivot_wider(tbl_restless_s1[, c("ID", "trial", "reward_pred_map")], names_from = "trial", values_from = "reward_pred_map") %>% select(-ID) %>% as.matrix()
+l_data_s1$choice_gen <- pivot_wider(tbl_restless_s1[, c("ID", "trial", "choice_pred")], names_from = "trial", values_from = "choice_pred") %>% select(-ID) %>% as.matrix()
+# l_data_s1$reward  <- pivot_wider(tbl_restless_s1[, c("ID", "trial", "reward_pred_map")], names_from = "trial", values_from = "reward_pred_map") %>% select(-ID) %>% as.matrix()
 
-l_data_s2$choice <- pivot_wider(tbl_restless_s2[, c("ID", "trial", "choice_pred_map")], names_from = "trial", values_from = "choice_pred_map") %>% select(-ID) %>% as.matrix()
-l_data_s2$reward  <- pivot_wider(tbl_restless_s2[, c("ID", "trial", "reward_pred_map")], names_from = "trial", values_from = "reward_pred_map") %>% select(-ID) %>% as.matrix()
+l_data_s2$choice_gen <- pivot_wider(tbl_restless_s2[, c("ID", "trial", "choice_pred")], names_from = "trial", values_from = "choice_pred") %>% select(-ID) %>% as.matrix()
+# l_data_s2$reward  <- pivot_wider(tbl_restless_s2[, c("ID", "trial", "reward_pred_map")], names_from = "trial", values_from = "reward_pred_map") %>% select(-ID) %>% as.matrix()
 
 file_loc_hc_s1_recovery <- "data/restless-hierarchical-model-recovery-posterior-s1.RDS"
 file_loc_hc_s2_recovery <- "data/restless-hierarchical-model-recovery-posterior-s2.RDS"
+
+# use the model just fitting the choices, without changing the learning
+ucb_stan_hc_fixed_txt <- ucb_stan_hierarchical_fit_fixed_learning()
+mod_ucb_stan_hc <- cmdstan_model(ucb_stan_hc_fixed_txt)
 
 if (is_fit & is_hierarchical) {
   
@@ -435,8 +434,8 @@ if (is_fit & is_hierarchical) {
     data = l_data_s1, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
-  tbl_draws_hc_s1_recovery <- fit_restless_ucb_hc_s1_recovery$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
-  tbl_summary_hc_s1_recovery <- fit_restless_ucb_hc_s1_recovery$summary(variables = c(pars_interest, pars_group, pars_pred))
+  tbl_draws_hc_s1_recovery <- fit_restless_ucb_hc_s1_recovery$draws(variables = c(pars_interest, pars_group), format = "df")
+  tbl_summary_hc_s1_recovery <- fit_restless_ucb_hc_s1_recovery$summary(variables = c(pars_interest, pars_group))
   tbl_summary_hc_s1_recovery %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_s1_recovery, file_loc_hc_s1_recovery)
   
@@ -446,8 +445,8 @@ if (is_fit & is_hierarchical) {
     data = l_data_s2, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
-  tbl_draws_hc_s2_recovery <- fit_restless_ucb_hc_s2_recovery$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
-  tbl_summary_hc_s2_recovery <- fit_restless_ucb_hc_s2_recovery$summary(variables = c(pars_interest, pars_group, pars_pred))
+  tbl_draws_hc_s2_recovery <- fit_restless_ucb_hc_s2_recovery$draws(variables = c(pars_interest, pars_group), format = "df")
+  tbl_summary_hc_s2_recovery <- fit_restless_ucb_hc_s2_recovery$summary(variables = c(pars_interest, pars_group))
   tbl_summary_hc_s2_recovery %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_s2_recovery, file_loc_hc_s2_recovery)
   
@@ -532,3 +531,210 @@ grid.draw(pl_heatmaps)
 save_my_pdf_and_tiff(
   pl_heatmaps, "figures/4arlb-hierarchical-ucb-recovery", 10, 4
 )  
+
+
+
+
+
+tbl_sam <- as_tibble(rbind(sam1, sam2)) %>%
+  inner_join(tbl_exclude %>% select(ID), by = "ID") %>%
+  arrange(ID, session, block, trial) %>%
+  group_by(block) %>%
+  mutate(
+    prev_chosen = lag(chosen, 1),
+    is_repetition = chosen == prev_chosen) %>%
+  rowwise() %>%
+  mutate(
+    is_optimal = reward == max(c(reward1, reward2)),
+    regret = max(c(reward1, reward2)) - reward
+  )
+
+tbl_horizon <-  as_tibble(rbind(horizon1, horizon2)) %>%
+  inner_join(tbl_exclude %>% select(ID), by = "ID") %>%
+  arrange(ID, session, block, trial) %>%
+  group_by(block) %>%
+  mutate(
+    prev_chosen = lag(chosen, 1),
+    is_repetition = chosen == prev_chosen
+  ) %>%
+  rowwise() %>%
+  mutate(
+    is_optimal = reward == max(c(reward1, reward2)),
+    regret = max(c(reward1, reward2)) - reward
+  )
+tbl_horizon$is_repetition[tbl_horizon$trial == 5] <- NA
+
+
+tbl_reliability_rl <- tbl_restless %>%
+  rowwise() %>%
+  mutate(
+    is_optimal = rewards == max(c(reward1, reward2, reward3, reward4)),
+    regret = max(c(reward1, reward2, reward3, reward4)) - rewards
+  ) %>%
+  group_by(ID, session) %>%
+  summarize(
+    p_switch = mean(is_repetition, na.rm = TRUE),
+    p_optimal = mean(is_optimal),
+    regret = sum(regret)
+  ) %>%
+  ungroup() %>%
+  pivot_wider(names_from = session, values_from = c(p_switch, p_optimal, regret)) %>%
+  mutate(task = "Restless")
+tbl_reliability_sam <- tbl_sam %>%
+  group_by(ID, session) %>%
+  summarize(
+    p_switch = mean(is_repetition, na.rm = TRUE),
+    p_optimal = mean(is_optimal, na.rm = TRUE),
+    regret = sum(regret, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  pivot_wider(names_from = session, values_from = c(p_switch, p_optimal, regret)) %>%
+  mutate(task = "Sam")
+tbl_reliability_horizon <- tbl_horizon %>%
+  group_by(ID, session) %>%
+  summarize(
+    p_switch = mean(is_repetition, na.rm = TRUE),
+    p_optimal = mean(is_optimal, na.rm = TRUE),
+    regret = sum(regret, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  pivot_wider(names_from = session, values_from = c(p_switch, p_optimal, regret)) %>%
+  mutate(task = "Horizon")
+
+tbl_all_three <- rbind(tbl_reliability_horizon, tbl_reliability_sam, tbl_reliability_rl)
+
+tbl_reliability_measures <- tbl_all_three %>%
+  group_by(task) %>%
+  summarize(
+    reliability_switching = cor(p_switch_1, p_switch_2),
+    reliability_optimal = cor(p_optimal_1, p_optimal_2),
+    reliability_regret = cor(regret_1, regret_2)
+  ) %>% pivot_longer(-task) %>%
+  mutate(
+    parameter = str_remove(name, "reliability_")
+  )
+tbl_reliability_measures$parameter <- factor(tbl_reliability_measures$parameter, labels = c("p(optimal)", "regret", "p(switch)"))
+tbl_reliability_measures <- tbl_reliability_measures %>% select(-name)
+write_csv(tbl_reliability_measures, file = "analysis/reliability-task-measures.csv")
+write_csv(tbl_all_three, file = "analysis/bandits-task-measures.csv")
+
+tbl_all_three %>%
+  select(-c(p_optimal_1, p_optimal_2, regret_1, regret_2)) %>%
+  pivot_wider(id_cols = ID, names_from = task, values_from = c(p_switch_1, p_switch_2)) %>%
+  select(-ID) %>%
+  cor()
+
+write_csv(tbl_all_three, file = "analysis/bandits-task-measures.csv")
+
+
+# Fixed Effects All Three Bandit Tasks ------------------------------------
+
+
+load("analysis/fitHorizonSession1UCB_full.Rda")
+coefs_full_s1 <- summary(baymodel)$fixed
+load("analysis/fitHorizonSession2UCBfull.Rda")
+coefs_full_s2 <- summary(baymodel)$fixed
+
+tbl_ia_both <- coefs_full_s1 %>% filter(str_detect(rownames(.), ":")) %>% mutate(param = rownames(.), session = "Session 1") %>%
+  rbind(
+    coefs_full_s2 %>% filter(str_detect(rownames(.), ":")) %>% mutate(param = rownames(.), session = "Session 2")
+  ) %>% mutate(
+    Estimate = -Estimate,
+    dummy = -`u-95% CI`,
+    `u-95% CI` = -`l-95% CI`,
+    `l-95% CI` = dummy
+  ) %>% select(-dummy)
+
+ggplot(tbl_ia_both, aes(Estimate, param)) +
+  geom_segment(aes(x = `l-95% CI`, xend = `u-95% CI`), linewidth = 3.5, lineend = "round") +
+  geom_vline(xintercept = 0) +
+  geom_point(color = "white", size = 4) +
+  geom_point(color = "skyblue2", size = 3) +
+  facet_wrap(~ session) +
+  coord_cartesian(xlim = c(-1, 1)) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.05, 0)) +
+  scale_y_discrete(expand = c(0.5, 0)) +
+  labs(x = "", y = "") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
+
+
+tbl_fixed_sam_horizon <- read_csv("analysis/AllFixedEffects.csv") %>% select(-`...1`)
+tbl_fixed_rlb <- l_hdi_etc_s1$par_lims %>% 
+  pivot_wider(id_cols = parameter, names_from = variable, values_from = value) %>%
+  mutate(session = 1, task = "Restless") %>%
+  rbind(
+    l_hdi_etc_s2$par_lims %>% mutate(session = 2) %>%
+      pivot_wider(id_cols = parameter, names_from = variable, values_from = value) %>%
+      mutate(session = 2, task = "Restless")
+  ) %>% relocate(session, .after = parameter) %>% relocate(task, .before = parameter) %>%
+  select(-c(max_dens, zero_dens))
+colnames(tbl_fixed_rlb) <- c("task", "param", "session", "lower", "upper")
+tbl_fixed_rlb$estim <- (tbl_fixed_rlb$upper + tbl_fixed_rlb$lower) / 2
+tbl_fixed_rlb <- tbl_fixed_rlb %>% relocate(estim, .before = lower)
+
+tbl_fixed <- rbind(tbl_fixed_sam_horizon, tbl_fixed_rlb)
+
+# first show diagnostic effects
+# horizon: diff in ru and v between short and long horizon
+# sam: main effects of v and ru
+
+tbl_fixed_sam_horizon %>% filter(task == "sam") %>%
+  mutate(estim = -estim, upper_new = -lower, lower = -upper, session = factor(session, labels = c("Session 1", "Session 2"))) %>%
+  mutate(upper = upper_new) %>% select(-upper_new) %>%
+  ggplot(aes(estim, param)) +
+  geom_vline(xintercept = 0) +
+  geom_segment(aes(x = lower, xend = upper), linewidth = 3.5, lineend = "round") +
+  geom_point(color = "white", size = 4) +
+  geom_point(color = "skyblue2", size = 3) +
+  facet_wrap(~ session) +
+  coord_cartesian(xlim = c(-.2, .2)) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.1, 0)) +
+  scale_y_discrete(expand = c(.2, 0)) +
+  labs(x = "Posterior", y = "") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  ) + 
+  scale_fill_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
+tbl_fixed_sam_horizon %>% filter(task == "horizon_5" & param == "RU") %>%
+  mutate(task = "Horizon (1)", estim = -estim, upper_new = -lower, lower = -upper) %>%
+  select(-upper) %>% rename(upper = upper_new) %>%
+  rbind(
+    tbl_fixed_rlb %>% filter(param == "RU")
+  ) %>%
+  rbind(
+    tbl_fixed_sam_horizon %>% filter(task == "sam" & param == "RU") %>%
+      mutate(task = "Sam", estim = -estim, upper_new = -lower, lower = -upper) %>%
+      select(-upper) %>% rename(upper = upper_new)
+  ) %>%
+  rbind(
+    tbl_fixed_sam_horizon %>% filter(task == "horizon_10" & param == "RU") %>%
+      mutate(task = "Horizon (6)", estim = -estim, upper_new = -lower, lower = -upper) %>%
+      select(-upper) %>% rename(upper = upper_new)
+  ) %>%
+  mutate(session = factor(session, labels = c("Session 1", "Session 2"))) %>%
+  ggplot(aes(estim, task)) +
+  geom_vline(xintercept = 0) +
+  geom_segment(aes(x = lower, xend = upper), linewidth = 3.5, lineend = "round") +
+  geom_point(color = "white", size = 4) +
+  geom_point(color = "skyblue2", size = 3) +
+  facet_wrap(~ session) +
+  coord_cartesian(xlim = c(-1, 1)) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.1, 0)) +
+  scale_y_discrete(expand = c(.2, 0)) +
+  labs(x = "Posterior", y = "") + 
+  theme(
+    strip.background = element_rect(fill = "white"), text = element_text(size = 22)
+  ) + 
+  scale_fill_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
