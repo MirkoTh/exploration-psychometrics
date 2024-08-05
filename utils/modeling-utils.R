@@ -1961,11 +1961,12 @@ simulate_and_fit_mixture <- function(
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
   )
+  plan("sequential")
   
   # fit
   mixturetype <- tbl_params_participants$params_decision[[1]][["choicemodel"]]
-  if (mixturetype == "ucb_thompson") f_fit <- fit_kalman_ucb_thompson_no_variance
-  if (mixturetype == "ru_thompson") f_fit <- fit_kalman_ru_thompson_no_variance
+  if (mixturetype == "ucb_thompson") {f_fit <- fit_kalman_ucb_thompson_no_variance; params_init <- c(.25, 0, .5)}
+  if (mixturetype == "ru_thompson") {f_fit <- fit_kalman_ru_thompson_no_variance; params_init <- c(0, .5)}
   plan(multisession, workers = availableCores() - 2)
   l_mixture <- future_map2(
     map(l_choices_simulated, "tbl_return"),
@@ -1978,6 +1979,7 @@ simulate_and_fit_mixture <- function(
     sigma_prior = sigma_prior,
     mu_prior = mu_prior,
     bds = bds, 
+    params_init = params_init,
     decay_center = decay_center,
     .progress = TRUE,
     .options = furrr_options(seed = NULL)
@@ -3068,4 +3070,104 @@ ucb_stan_hierarchical_fit_fixed_learning <- function() {
   return(m_txt)
 }
 
+
+mix_thompson_ucb_stan_hierarchical_generate <- function() {
+  m_txt <- write_stan_file("
+    data {
+      int<lower=1> nSubjects;
+      int<lower=1> nTrials;               
+      array[nSubjects, nTrials] int choice;     
+      matrix[nSubjects, nTrials] reward;
+      array[nSubjects] matrix[nTrials, 4] m;   // pre-calculated means of the mean
+      array[nSubjects] matrix[nTrials, 4] var_mean; // pre-calculated variances of the mean
+      array[nSubjects] matrix[nTrials, 4] th_ch_pr; // pre-calculated thompson choice probs
+      }
+
+    transformed data {
+      real<lower=0> var_xi;
+      var_xi = 7.84; // innovation variance
+    }
+    
+    parameters {
+      vector<lower=0,upper=7>[nSubjects] tau; 
+      vector[nSubjects] beta;
+      vector<lower=0,upper=1>[nSubjects] w_mix;
+      real <lower=0> sigma_tau;
+      real <lower=0> sigma_beta;
+      real <lower=0> sigma_w_mix;
+      real mu_tau;
+      real mu_beta;
+      real mu_w_mix;
+    }
+
+    model {
+      for (s in 1:nSubjects) {
+        tau[s] ~ normal(mu_tau, sigma_tau);
+        beta[s] ~ normal(mu_beta, sigma_beta);
+        w_mix[s] ~ normal(mu_w_mix, sigma_w_mix);
+      }
+      
+      sigma_tau ~ uniform(0.001, 10);
+      sigma_beta ~ uniform(0.001, 10);
+      sigma_w_mix ~ uniform(0.001, .2);
+      mu_tau ~ normal(0, 1);
+      mu_beta ~ student_t(1, 0, 1);
+      mu_w_mix ~ normal(0.5, .15);
+    
+      for (s in 1:nSubjects) {
+
+        vector[4] eb;  // exploration bonus
+
+
+        for (t in 1:nTrials) {        
+        
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            eb = beta[s] * sqrt(to_vector(var_mean[s][t]) + var_xi);
+            target += categorical_logit_lupmf(choice[s, t] | w_mix[s] * tau[s] * (to_vector(m[s][t]) + eb)) + (1 - w_mix[s]) * th_ch_pr[s][t];
+            //choice[s,t] ~ categorical_logit(tau[s] * (m[s][t] + eb));
+            
+          }
+        }  
+      }
+    }
+  ")
+  return(m_txt)
+}
+
+
+posteriors_and_maps_bandits <- function(tbl_draws, s, pars_interest, ids_sample) {
+  #'
+  #' @description extract posterior distributions and maps from stan object for bandit models
+  #' note. stan id and id outside do not match
+  #' @param tbl_draws the mcmc samples
+  #' @param s session id
+  #' @param pars_interest character vector with names of parameters of interest
+  #' @param ids_sample tibble with columns id_stan (i.e., id in stan model) and ID (id outside stan model)
+  #' @returns list with tibble of posteriors, and tibble with maps
+  #'  
+  tbl_posterior <- tbl_draws %>% 
+    dplyr::select(starts_with(pars_interest), .chain) %>%
+    rename(chain = .chain) %>%
+    pivot_longer(starts_with(pars_interest), names_to = "parameter", values_to = "value") %>%
+    mutate(
+      id_stan = as.integer(str_extract(parameter, "[0-9]+")),
+      parameter = str_extract(parameter, "^[a-z]+")
+    ) %>%
+    left_join(ids_sample, by = "id_stan") %>%
+    relocate(ID, .before = parameter) %>%
+    select(-c(id_stan))
+  
+  tbl_map <- tbl_posterior %>% group_by(ID, parameter) %>% 
+    summarize(map = mean(value)) %>%
+    ungroup() %>%
+    mutate(
+      parameter = factor(parameter, labels = pars_interest),
+      session = s
+    )
+  
+  return(list(tbl_posterior = tbl_posterior, tbl_map = tbl_map))
+  
+}
 
