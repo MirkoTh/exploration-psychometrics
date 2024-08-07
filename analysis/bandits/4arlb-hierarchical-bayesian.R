@@ -22,6 +22,9 @@ walk(dirs_homegrown, source)
 
 posteriors_and_maps <- function(tbl_draws, s, pars_interest, ids_sample) {
   
+  n_params <- length(pars_interest)
+  if (n_params == 2) filt <- 1:2 else filt <- 2
+  
   tbl_posterior <- tbl_draws %>% 
     dplyr::select(starts_with(pars_interest), .chain) %>%
     rename(chain = .chain) %>%
@@ -38,7 +41,7 @@ posteriors_and_maps <- function(tbl_draws, s, pars_interest, ids_sample) {
     summarize(map = mean(value)) %>%
     ungroup() %>%
     mutate(
-      parameter = factor(parameter, labels = c("ru", "v")),
+      parameter = factor(parameter, labels = c("ru", "v")[filt]),
       session = s
     )
   
@@ -206,11 +209,14 @@ l_posterior_1$tbl_map %>%
 
 
 
-# hierarchical ------------------------------------------------------------
+# hierarchical ucb --------------------------------------------------------
 
 
 file_loc_hc_s1 <- "data/restless-hierarchical-model-posterior-s1.RDS"
 file_loc_hc_s2 <- "data/restless-hierarchical-model-posterior-s2.RDS"
+loo_loc_ucb_s1 <- "data/loo-ucb-hc-1.RDS"
+loo_loc_ucb_s2 <- "data/loo-ucb-hc-2.RDS"
+
 ucb_stan_hc_txt <- ucb_stan_hierarchical_generate()
 mod_ucb_stan_hc <- cmdstan_model(ucb_stan_hc_txt)
 
@@ -226,6 +232,9 @@ if (is_fit & is_hierarchical) {
   tbl_summary_hc_s1 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_s1, file_loc_hc_s1)
   
+  loo_ucb_1 <- fit_restless_ucb_hc_s1$loo(variables = "log_lik")
+  saveRDS(loo_ucb_1, file = loo_loc_ucb_s1)
+  
   
   # session 2
   fit_restless_ucb_hc_s2 <- mod_ucb_stan_hc$sample(
@@ -237,19 +246,24 @@ if (is_fit & is_hierarchical) {
   tbl_summary_hc_s2 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_s2, file_loc_hc_s2)
   
+  loo_ucb_2 <- fit_restless_ucb_hc_s2$loo(variables = "log_lik")
+  saveRDS(loo_ucb_2, file = loo_loc_ucb_s2)
+  
 }
 if (!is_fit) {
   tbl_draws_hc_s1 <- readRDS(file_loc_hc_s1)
   tbl_draws_hc_s2 <- readRDS(file_loc_hc_s2)
+  loo_ucb_1 <- readRDS(loo_loc_ucb_s1)
+  loo_ucb_2 <- readRDS(loo_loc_ucb_s2)
 }
 
-l_posterior_hc_1 <- posteriors_and_maps(tbl_draws_hc_s1, 1, c("beta", "tau"), ids_sample)
-l_posterior_hc_2 <- posteriors_and_maps(tbl_draws_hc_s2, 2, c("beta", "tau"), ids_sample)
+l_posterior_hc_ucb_1 <- posteriors_and_maps(tbl_draws_hc_s1, 1, c("beta", "tau"), ids_sample)
+l_posterior_hc_ucb_2 <- posteriors_and_maps(tbl_draws_hc_s2, 2, c("beta", "tau"), ids_sample)
 
 # test-retest reliability
-tbl_map_hc <- l_posterior_hc_1[[2]] %>% select(-session) %>% 
+tbl_map_hc <- l_posterior_hc_ucb_1[[2]] %>% select(-session) %>% 
   left_join(
-    l_posterior_hc_2[[2]] %>% select(-session),
+    l_posterior_hc_ucb_2[[2]] %>% select(-session),
     by = c("ID", "parameter"), suffix = c("_1", "_2")
   ) %>% 
   pivot_wider(names_from = parameter, values_from = c(map_1, map_2))
@@ -264,9 +278,9 @@ tbl_map_hc %>%
   )
 
 # distribution of maps
-hist_maps <- l_posterior_hc_1[[2]] %>% select(-session) %>% 
+hist_maps <- l_posterior_hc_ucb_1[[2]] %>% select(-session) %>% 
   left_join(
-    l_posterior_hc_2[[2]] %>% select(-session),
+    l_posterior_hc_ucb_2[[2]] %>% select(-session),
     by = c("ID", "parameter"), suffix = c("_1", "_2")
   ) %>% pivot_longer(cols = c(map_1, map_2)) %>%
   mutate(name = factor(name, labels = c("Session 1", "Session 2"))) %>%
@@ -737,4 +751,88 @@ tbl_fixed_sam_horizon %>% filter(task == "horizon_5" & param == "RU") %>%
   ) + 
   scale_fill_manual(values = c("skyblue2", "tomato4"), name = "")
 
+
+
+# hierarchical softmax ----------------------------------------------------
+
+
+
+file_loc_hc_sm_s1 <- "data/restless-hierarchical-softmax-posterior-s1.RDS"
+file_loc_hc_sm_s2 <- "data/restless-hierarchical-softmax-posterior-s2.RDS"
+loo_loc_sm_s1 <- "data/loo-sm-hc-1.RDS"
+loo_loc_sm_s2 <- "data/loo-sm-hc-2.RDS"
+sm_stan_hc_txt <- softmax_stan_hierarchical_generate()
+sm_stan_hc_txt <- cmdstan_model(sm_stan_hc_txt)
+
+
+if (is_fit & is_hierarchical) {
+  
+  # session 1
+  fit_restless_sm_hc_s1 <- sm_stan_hc_txt$sample(
+    data = l_data_s1, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
+  )
+  
+  vars_sm <- c("tau", "mu_tau", "log_lik")
+  tbl_draws_hc_sm_s1 <- fit_restless_sm_hc_s1$draws(variables = vars_sm, format = "df")
+  tbl_summary_hc_sm_s1 <- fit_restless_sm_hc_s1$summary(variables = vars_sm)
+  tbl_summary_hc_sm_s1 %>% arrange(desc(rhat))
+  saveRDS(tbl_draws_hc_sm_s1, file_loc_hc_sm_s1)
+  
+  loo_sm_1 <- fit_restless_sm_hc_s1$loo(variables = "log_lik")
+  saveRDS(loo_sm_1, file = loo_loc_sm_s1)
+  
+  # session 2
+  fit_restless_sm_hc_s2 <- sm_stan_hc_txt$sample(
+    data = l_data_s2, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
+  )
+  
+  tbl_draws_hc_sm_s2 <- fit_restless_sm_hc_s2$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
+  tbl_summary_hc_s2 <- fit_restless_sm_hc_s2$summary(variables = c(pars_interest, pars_group, pars_pred))
+  tbl_summary_hc_s2 %>% arrange(desc(rhat))
+  saveRDS(tbl_draws_hc_sm_s2, file_loc_hc_sm_s2)
+  
+  loo_sm_2 <- fit_restless_sm_hc_s2$loo(variables = "log_lik")
+  saveRDS(loo_sm_2, file = loo_loc_sm_s2)
+  
+}
+if (!is_fit) {
+  tbl_draws_hc_sm_s1 <- readRDS(file_loc_hc_sm_s1)
+  tbl_draws_hc_sm_s2 <- readRDS(file_loc_hc_sm_s2)
+  loo_sm_1 <- readRDS(loo_loc_sm_s1)
+  loo_sm_2 <- readRDS(loo_loc_sm_s2)
+}
+
+l_posterior_hc_sm_1 <- posteriors_and_maps(tbl_draws_hc_sm_s1, 1, c("tau"), ids_sample)
+l_posterior_hc_sm_2 <- posteriors_and_maps(tbl_draws_hc_sm_s2, 2, c("tau"), ids_sample)
+
+
+
+tbl_two_tau <- l_posterior_hc_ucb_1$tbl_map %>% mutate(model = "ucb") %>%
+  rbind(
+    l_posterior_hc_sm_1$tbl_map %>% mutate(model = "softmax")
+  ) %>%
+  filter(parameter == "v") %>%
+  pivot_wider(id_cols = c(ID, session, parameter), names_from = model, values_from = map)
+
+
+tbl_tau_cor <- tbl_two_tau %>%
+  summarize(r = cor(ucb, softmax))
+
+ggplot(tbl_two_tau, aes(softmax, ucb)) +
+  geom_abline() +
+  geom_point() +
+  geom_label(data = tbl_tau_cor, aes(.3, .1, label = str_c("r = ", round(r, 2)))) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "V (Softmax)", y = "V (UCB)") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  )
+
+tbl_draws_hc_s1$log_lik[1]
+
+loo_softmax <- fit_restless_sm_hc_s1$loo(variables = "log_lik")
 
