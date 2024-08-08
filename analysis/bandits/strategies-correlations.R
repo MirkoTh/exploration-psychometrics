@@ -147,7 +147,7 @@ ggplot(tbl_cor_trial_horizon1, aes(trial, value)) +
     ), color = as.factor(name))) +
   facet_wrap( ~ Horizon) +
   theme_bw() +
-  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_x_continuous(expand = c(0.03, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
   labs(x = "Trial ID", y = "Correlation") + 
   theme(
