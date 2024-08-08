@@ -786,8 +786,8 @@ if (is_fit & is_hierarchical) {
     data = l_data_s2, iter_sampling = 1000, iter_warmup = 200, chains = 3, parallel_chains = 3
   )
   
-  tbl_draws_hc_sm_s2 <- fit_restless_sm_hc_s2$draws(variables = c(pars_interest, pars_group, pars_pred), format = "df")
-  tbl_summary_hc_s2 <- fit_restless_sm_hc_s2$summary(variables = c(pars_interest, pars_group, pars_pred))
+  tbl_draws_hc_sm_s2 <- fit_restless_sm_hc_s2$draws(variables = vars_sm, format = "df")
+  tbl_summary_hc_s2 <- fit_restless_sm_hc_s2$summary(variables = vars_sm)
   tbl_summary_hc_s2 %>% arrange(desc(rhat))
   saveRDS(tbl_draws_hc_sm_s2, file_loc_hc_sm_s2)
   
@@ -810,18 +810,27 @@ l_posterior_hc_sm_2 <- posteriors_and_maps(tbl_draws_hc_sm_s2, 2, c("tau"), ids_
 tbl_two_tau <- l_posterior_hc_ucb_1$tbl_map %>% mutate(model = "ucb") %>%
   rbind(
     l_posterior_hc_sm_1$tbl_map %>% mutate(model = "softmax")
-  ) %>%
+  ) %>% rbind(
+    l_posterior_hc_ucb_2$tbl_map %>% mutate(model = "ucb") %>%
+      rbind(
+        l_posterior_hc_sm_2$tbl_map %>% mutate(model = "softmax")
+      )
+  ) %>% 
   filter(parameter == "v") %>%
   pivot_wider(id_cols = c(ID, session, parameter), names_from = model, values_from = map)
 
 
 tbl_tau_cor <- tbl_two_tau %>%
+  group_by(session) %>%
   summarize(r = cor(ucb, softmax))
+tbl_tau_cor$session <- factor(tbl_tau_cor$session, labels = c("Session 1", "Session 2"))
+tbl_two_tau$session <- factor(tbl_two_tau$session, labels = c("Session 1", "Session 2"))
 
-ggplot(tbl_two_tau, aes(softmax, ucb)) +
+pl_v_across_models <- ggplot(tbl_two_tau, aes(softmax, ucb)) +
   geom_abline() +
   geom_point() +
   geom_label(data = tbl_tau_cor, aes(.3, .1, label = str_c("r = ", round(r, 2)))) +
+  facet_wrap(~ session) +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
@@ -832,7 +841,27 @@ ggplot(tbl_two_tau, aes(softmax, ucb)) +
     legend.position = "bottom"
   )
 
-tbl_draws_hc_s1$log_lik[1]
+grid.draw(pl_v_across_models)
+saveRDS(pl_v_across_models, file = "data/restless-v-across-ucb-sm.Rds")
+
+
+
+
+# Model Comparison --------------------------------------------------------
+
 
 loo_softmax <- fit_restless_sm_hc_s1$loo(variables = "log_lik")
+
+
+loo::loo_model_weights(
+  list(loo_ucb_1, loo_sm_1), #, loo_mixture_group
+  method = "stacking"
+)
+
+loo::loo_model_weights(
+  list(loo_ucb_2, loo_sm_2), #, loo_mixture_group
+  method = "stacking"
+)
+
+
 
