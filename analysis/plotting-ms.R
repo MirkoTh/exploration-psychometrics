@@ -17,6 +17,8 @@ my_dir <- "figures/figures-ms/submission-1"
 pl_restless_group_patterns <- readRDS("data/restless-group-patterns-across-methods.Rds")
 pl_restless_params_across_methods <- readRDS("data/restless-params-across-methods.RDS")
 tbl_restless_reliability_across_methods <- readRDS("data/restless-reliabilities-across-methods.Rds")
+tbl_restless_reliability_across_methods <- tbl_restless_reliability_across_methods %>%
+  mutate(Reliability = round(Reliability, 2))
 
 table_rl_reliab <- tableGrob(tbl_restless_reliability_across_methods)
 pl_table_rl_reliab <- ggplot() + annotation_custom(table_rl_reliab)
