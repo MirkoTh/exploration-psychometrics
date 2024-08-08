@@ -143,15 +143,15 @@ mod_th_ucb_stan_hc <- cmdstan_model(th_ucb_stan_hc_txt)
 
 
 init_fun <- function() list(
-  mu_tau = 5.25,
-  mu_beta = 0,
-  mu_w_mix = .05,
+  mu_tau = 1,
+  mu_beta = -2,
+  mu_w_mix = .9,
   sigma_tau = .5,
   sigma_beta = 1,
   sigma_w_mix = .1,
-  tau = rnorm(n_subjects, 5.5, .01),
-  beta = rnorm(n_subjects, 0, .01),
-  w_mix = rnorm(n_subjects, .04, .01)
+  tau = rnorm(n_subjects, 1, .01),
+  beta = rnorm(n_subjects, -2, .01),
+  w_mix = rnorm(n_subjects, .9, .01)
 )
 
 if (is_fit) {
@@ -159,15 +159,15 @@ if (is_fit) {
   # session 1
   fit_restless_thompson_ucb_mix_hc_s1 <- mod_th_ucb_stan_hc$sample(
     data = l_data_s1, iter_sampling = 400, iter_warmup = 200, chains = 3, 
-    parallel_chains = 3, init = init_fun
+    parallel_chains = 3#, init = init_fun
   )
   
   tbl_draws_hc_s1 <- fit_restless_thompson_ucb_mix_hc_s1$draws(
-    variables = c(pars_interest, pars_group), format = "df"
+    variables = c(pars_interest, pars_group, pars_pred), format = "df"
     )
-  tbl_summary_hc_s1 <- fit_restless_thompson_ucb_mix_hc_s1$summary(variables = c(pars_interest, pars_group))
+  tbl_summary_hc_s1 <- fit_restless_thompson_ucb_mix_hc_s1$summary(variables = c(pars_interest, pars_group, pars_pred))
   tbl_summary_hc_s1 %>% arrange(desc(rhat))
-  # , pars_pred
+  # 
   saveRDS(tbl_draws_hc_s1, file_loc_hc_s1)
   
 }
@@ -175,6 +175,13 @@ if (!is_fit) {
   tbl_draws_hc_s1 <- readRDS(file_loc_hc_s1)
   tbl_draws_hc_s2 <- readRDS(file_loc_hc_s2)
 }
+
+
+library(bayesplot)
+p <- mcmc_trace(tbl_draws_hc_s1,  pars = c("mu_beta", "mu_tau", "mu_w_mix"), n_warmup = 200,
+                facet_args = list(nrow = 3, labeller = label_parsed))
+p + facet_text(size = 15)
+
 
 
 l_posterior_hc_1 <- posteriors_and_maps_bandits(tbl_draws_hc_s1, 1, c("beta", "tau", "w_mix"), ids_sample)
