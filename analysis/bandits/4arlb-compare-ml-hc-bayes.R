@@ -110,14 +110,14 @@ tbl_jitter <- tbl_ucb_plot %>%
 tbl_ucb_cor <- tbl_ucb_cor %>%
   left_join(tbl_jitter, by = c("parameter", "Session"))
 
-tbl_ucb_plot %>% pivot_wider(names_from = method, values_from = value) %>%
+pl_params_across_methods <- tbl_ucb_plot %>% pivot_wider(names_from = method, values_from = value) %>%
   ggplot(aes(`Max. Lik.`, `Hierarch. Bayes`)) +
   geom_abline() +
   geom_point(aes(color = parameter)) +
   geom_label(data = tbl_ucb_cor, aes(my_base + .5 * my_jitter, my_base - 2*my_jitter, label = str_c("r = ", round(value, 2)))) +
   facet_wrap(Session ~ parameter, scales = "free") +
   theme_bw() +
-  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_x_continuous(expand = c(0.04, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
   theme(
     strip.background = element_rect(fill = "white"), 
@@ -125,6 +125,10 @@ tbl_ucb_plot %>% pivot_wider(names_from = method, values_from = value) %>%
     legend.position = "bottom"
   ) + 
   scale_color_brewer(palette = "Set2", name = "")
+
+grid.draw(pl_params_across_methods)
+saveRDS(pl_params_across_methods, "data/restless-params-across-methods.RDS")
+
 
 
 # Compare Reliabilities of Parameters -------------------------------------
@@ -136,8 +140,17 @@ tbl_reliabilities <- tbl_ucb_compare %>% select(-NLL) %>% pivot_longer(-c(ID, Se
   ) %>% pivot_wider(names_from = Session, values_from = value) %>%
   group_by(parameter, method) %>%
   summarize(reliability = cor(`1`, `2`))
+tbl_reliabilities <- tbl_reliabilities %>%
+  rename(Parameter = parameter, Method = method, Reliability = reliability)
 
-DT:::datatable(tbl_reliabilities %>% mutate(reliability = round(reliability, 2)))
+DT:::datatable(tbl_reliabilities %>% mutate(Reliability = round(Reliability, 2)))
+
+table_reliabilities <- grid.table(
+  tbl_reliabilities %>% 
+    mutate(Reliability = round(Reliability, 2)),
+  rows = rep("  ", 4)
+  )
+saveRDS(tbl_reliabilities, "data/restless-reliabilities-across-methods.Rds")
 
 
 
@@ -162,7 +175,6 @@ hdi_etc <- function(tbl_draws, names_orig) {
       bfs = bfs
     )
   )
-  
 }
 
 tbl_hc_prep <- tbl_draws_hc_s1 %>% select(c(mu_beta, mu_tau)) %>% summarize(RU = mean(mu_beta), V = mean(mu_tau)) %>%
@@ -176,7 +188,7 @@ tbl_ml_prep$Session <- factor(tbl_ml_prep$Session, labels = c("Session 1", "Sess
 tbl_prep <- rbind(tbl_hc_prep, tbl_ml_prep)
 tbl_prep$method <- factor(tbl_prep$method, levels = c("Max. Lik.", "Hierarch. Bayes"), ordered = TRUE)
 
-ggplot(tbl_prep %>% pivot_longer(c(RU, V)), aes(name, value)) +
+pl_group_pattern <- ggplot(tbl_prep %>% pivot_longer(c(RU, V)), aes(name, value)) +
   geom_col(aes(color = name), fill = "white") +
   geom_line(aes(group = 1)) +
   geom_point(color = "white", size = 4) +
@@ -193,4 +205,5 @@ ggplot(tbl_prep %>% pivot_longer(c(RU, V)), aes(name, value)) +
   ) + 
   scale_color_brewer(palette = "Set2", name = "")
 
+saveRDS(pl_group_pattern, "data/restless-group-patterns-across-methods.Rds")
 
