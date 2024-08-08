@@ -3,6 +3,7 @@
 library(brms)
 library(docstring)
 library(ggplot2)
+library(here)
 theme_set(theme_bw(base_size = 14))
 set.seed(123)
 
@@ -15,6 +16,70 @@ getRU <- function(s1, s2){
   
   return(sqrt(s1) - sqrt(s2))
 }
+
+load_and_prep_bandit_data <- function(session){
+  
+  load(sprintf("analysis/bandits/banditsWave%i.Rda", session))
+  
+  if (!is.element("KLM0", colnames(sam))) {
+    sam <- get_KL_into_df(sam) 
+    
+    save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
+  }
+  
+  if (!is.element("bayMeanL", colnames(horizon))) {
+    horizon$bayMeanL <- NA
+    horizon$bayMeanR <- NA
+    horizon$bayVarL <- NA
+    horizon$bayVarR <- NA
+    horizon$row <- 1:nrow(horizon)
+    
+    for (i in horizon$row[horizon$trial == 5]){
+      horizon[horizon$row == i, grep("bay", colnames(horizon))] <- bayIncrAtOnce(i, horizon)
+    }
+    
+    horizon$V <- scale(getV(horizon$bayMeanL, horizon$bayMeanR))
+    horizon$RU <- scale(getRU(horizon$bayVarL, horizon$bayVarR))
+    
+    
+    save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
+    
+    
+  }
+  
+  if (!is.element("delta_mean", colnames(horizon))){
+    horizon$mean_L <- NA
+    horizon$mean_R <- NA
+    
+    horizon$row <- 1:nrow(horizon)
+    horizon$mean_L[horizon$trial == 5] <- apply(as.array(horizon$row[horizon$trial == 5]), 1, function(x) meann(horizon$reward[horizon$ID == horizon$ID[x]&
+                                                                                                                                 horizon$block == horizon$block[x] &
+                                                                                                                                 horizon$chosen == 0 & 
+                                                                                                                                 horizon$trial < 5]))
+    horizon$mean_R[horizon$trial == 5] <- apply(as.array(horizon$row[horizon$trial == 5]), 1, function(x) meann(horizon$reward[horizon$ID == horizon$ID[x]&
+                                                                                                                                 horizon$block == horizon$block[x] &
+                                                                                                                                 horizon$chosen == 1& 
+                                                                                                                                 horizon$trial < 5]))
+    ## calculate deltas
+    horizon$delta_mean <- scale(horizon$mean_L - horizon$mean_R)
+    
+    save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
+  }
+  
+  ### remove the person that has no data
+  
+  horizon <- subset(horizon,!is.na(info))
+  sam <- subset(sam, !is.na(chosen))
+  
+  print(unique(horizon$Horizon))
+  print(unique(horizon$info))
+  
+  horizon$Horizon <- ifelse(horizon$Horizon == 5, -0.5, 0.5)
+  horizon$info <- horizon$info/2
+  
+  return(list(horizon = horizon, sam = sam, restless = restless))
+}
+
 
 kalman_learning <- function(tbl_df, no, sigma_xi_sq, sigma_epsilon_sq) {
   #' Kalman filter without choice model given chosen options by participants
@@ -541,13 +606,14 @@ recovery_sam <- function(data, model, hierarchical, it = 2000, save = T, no_inte
   
 }
 
-fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, save = T, no_intercept = F, use_saved = F, use_all = F){
+fit_model_horizon <- function(data, model,bayesian = T, full = T, it = 2000, no_horizon = F, save = T, no_intercept = F, use_saved = F, use_all = F){
   #' parameter recovery for data from Horizon task
   #' 
   #' @description fits model to data
   #' @usage model = fit_model_horizon(data, model, full)
   #' @param data data.frame containing all the task data
   #' @param model UCB, Wilson
+  #' @param bayesian boolean; T for hierarchical implementation, F for subject-level
   #' @param full boolean; T for full random effects; F for reduced random effects
   #' @param it iterations of brms
   #' @param no_horizon if true, the data contains only the long or the short horizon so we estimate no effect of horizon
@@ -557,12 +623,12 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
   #' @return a brms model object
   #' 
   # create some variables for the save path only
-  
+  b <- ifelse(bayesian, "", "_subject_level")
   f <- ifelse(full, "_full", "_reduced")
   h <- ifelse(no_horizon, ifelse(data$Horizon[1] == -0.5, "_horizon5only", "_horizon10only"), "")
   i <- ifelse(no_intercept, "_no_intercept", "")
   session <- data$session[1]
-  path <- paste("analysis/bandits/modellingResults/fitHorizonSession", session, model, f, h, i, ".Rda", sep = "")
+  path <- paste("analysis/bandits/modellingResults/fitHorizonSession", session, model, f, h, i,b, ".Rda", sep = "")
   if (save){
     print(paste("save location: ", path, sep = ""))
   }
@@ -631,6 +697,11 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
     f_temp <- strsplit(formula, "~|\\(")
     formula <- as.formula(paste(f_temp[[1]][1], "~-1+", f_temp[[1]][2], "(-1+", f_temp[[1]][3], collapse = " "))
   }
+  
+  if (!bayesian){
+    formula <- strsplit(formula, "\\+ \\(")[[1]][1]
+  }
+  
   print(formula)
   
   formula <- as.formula(formula)
@@ -639,39 +710,72 @@ fit_model_horizon <- function(data, model, full = T, it = 2000, no_horizon = F, 
     data <- subset(data, trial == 5)
   }
   
-  baymodel <- brm(formula, family = "bernoulli", 
-                  data = data,
-                  chains = 2,
-                  cores = 2,
-                  iter = it)
-  
-  ## get posterior estimates of subject-level parameters
-  
-  trueParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(baymodel))))
-  trueParams$predictor <- NA
-  fixed <- data.frame(summary(baymodel)$fixed)
-  # for some reason, in fixed the ordering of the interactions is swapped such that it is Horizon:RU and V:Horizon and not the other way round like in the random effects
-  rows <- rownames(fixed)
-  rows[rows == "V:Horizon"] <- "Horizon:V"
-  rows[rows == "Horizon:RU"] <- "RU:Horizon"
-  rows[rows == "Horizon:delta_mean"] <- "delta_mean:Horizon"
-  rows[rows == "Horizon:info"] <- "info:Horizon"
-  rownames(fixed) <- rows
-  # for true params flip it too bc this is just too annoying and I want to be sure
-  rows <- rownames(trueParams)
-  rows[grepl("Horizon:delta_mean", rows) & grepl("r_ID", rows)] <- paste0(rows[grepl("Horizon:delta_mean", rows) & grepl("r_ID", rows)], "delta_mean:Horizon")
-  rows[grepl("Horizon:info", rows) & grepl("r_ID", rows)] <- paste0(rows[grepl("Horizon:info", rows) & grepl("r_ID", rows)], "info:Horizon")
-  rownames(trueParams) <- rows
-  
-  for (i in predictors){
-    trueParams$predictor[grepl(i, rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- i
-    ## transform random effects into subject-level slopes
-    trueParams$estimate[grepl(i, rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodel)))`[grepl(i, rownames(trueParams))& grepl("r_ID", rownames(trueParams))] +
-      fixed$Estimate[rownames(fixed) == i]
+  if (bayesian){
+    baymodel <- brm(formula, family = "bernoulli", 
+                    data = data,
+                    chains = 2,
+                    cores = 2,
+                    iter = it)
+    
+    ## get posterior estimates of subject-level parameters
+    
+    trueParams <- as.data.frame(colMeans(as.data.frame(posterior_samples(baymodel))))
+    trueParams$predictor <- NA
+    fixed <- data.frame(summary(baymodel)$fixed)
+    # for some reason, in fixed the ordering of the interactions is swapped such that it is Horizon:RU and V:Horizon and not the other way round like in the random effects
+    rows <- rownames(fixed)
+    rows[rows == "V:Horizon"] <- "Horizon:V"
+    rows[rows == "Horizon:RU"] <- "RU:Horizon"
+    rows[rows == "Horizon:delta_mean"] <- "delta_mean:Horizon"
+    rows[rows == "Horizon:info"] <- "info:Horizon"
+    rownames(fixed) <- rows
+    # for true params flip it too bc this is just too annoying and I want to be sure
+    rows <- rownames(trueParams)
+    rows[grepl("Horizon:delta_mean", rows) & grepl("r_ID", rows)] <- paste0(rows[grepl("Horizon:delta_mean", rows) & grepl("r_ID", rows)], "delta_mean:Horizon")
+    rows[grepl("Horizon:info", rows) & grepl("r_ID", rows)] <- paste0(rows[grepl("Horizon:info", rows) & grepl("r_ID", rows)], "info:Horizon")
+    rownames(trueParams) <- rows
+    
+    for (i in predictors){
+      trueParams$predictor[grepl(i, rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- i
+      ## transform random effects into subject-level slopes
+      trueParams$estimate[grepl(i, rownames(trueParams))& grepl("r_ID", rownames(trueParams))] <- trueParams$`colMeans(as.data.frame(posterior_samples(baymodel)))`[grepl(i, rownames(trueParams))& grepl("r_ID", rownames(trueParams))] +
+        fixed$Estimate[rownames(fixed) == i]
+    }
+    
+    trueParams <- subset(trueParams, !is.na(predictor)& !grepl("ID__", rownames(trueParams)))
+    
+    
+  } else { # subject-level implementation
+    
+    for (i in unique(data$ID)){
+      
+      trueModel <- glm(formula ,
+                       data = data[data$trial ==5 & data$ID == i, ],
+                       family = binomial(link = "probit"))
+      
+      
+      if (i == data$ID[1]){
+        
+        trueParams <- data.frame(t(trueModel$coefficients))
+        trueParams$converged <- trueModel$converged
+        trueParams$ID <- i
+        
+        baymodel <- list(trueModel)
+        
+      } else {
+        
+        tem <- data.frame(t(trueModel$coefficients))
+        tem$converged <- trueModel$converged
+        tem$ID <- i
+        trueParams <- rbind(trueParams, tem)
+        
+        baymodel <- append(baymodel, list(trueModel))
+      }
+      
+      
+    }
+    
   }
-  
-  trueParams <- subset(trueParams, !is.na(predictor)& !grepl("ID__", rownames(trueParams)))
-  
   
   
   if (save){
@@ -780,6 +884,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
       
       out <- fit_model_horizon(data = data, 
                                model = model, 
+                               bayesian = bayesian,
                                full = full, 
                                it = it, 
                                no_horizon = no_horizon, 
@@ -795,6 +900,7 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
     
       out <- fit_model_horizon(data = simdat, 
                                model = model, 
+                               bayesian = bayesian,
                                full = full, 
                                it = it, 
                                no_horizon = no_horizon, 
@@ -818,81 +924,59 @@ recovery_horizon <- function(data, model, full = T, bayesian = T, it = 2000, no_
       
     } else { # non-bayesian implementation
       
-      if (model == "Wilson"){
-        warning("A non-bayesian version of the wilson model has not yet been implemented.")
-      } else {
-        warning("here I did not yet implement the version that does not have the Horizon")
+      ## fit model
+      out <- fit_model_horizon(data = data, 
+                                      model = model, 
+                                      bayesian = F,
+                                      full = full, 
+                                      it = it, 
+                                      no_horizon = no_horizon, 
+                                      save = F, 
+                                      no_intercept = no_intercept,
+                                      use_saved = F) # returns a list with model parameters as first item and a list of model objects as second item
+      
+      trueParams <- out[[2]]
+      ## simulate data
+      
+      simdat <- subset(data, trial == 5, -chosen)
+      simdat$chosen <- NA
         
-        trueParams <- data.frame(ID = unique(data$ID),
-                                 V = NA,
-                                 RU = NA,
-                                 Horizon = NA,
-                                 VH = NA,
-                                 RUH = NA,
-                                 converged = NA)
-        
-        simParams <- data.frame(ID = unique(data$ID),
-                                V = NA,
-                                RU = NA,
-                                Horizon = NA,
-                                VH = NA,
-                                RUH =NA,
-                                converged = NA)
-        
-        
-        for (i in unique(data$ID)){
-          
-          trueModel <- glm(chosen ~ V*Horizon + RU*Horizon ,
-                           data = data[data$trial ==5 & data$ID == i, ],
-                           family = binomial(link = "probit"))
-          # save coefficients
-          trueParams$V[trueParams$ID == i] <- trueModel$coefficients[2]
-          trueParams$RU[trueParams$ID == i] <- trueModel$coefficients[4]
-          trueParams$Horizon[trueParams$ID == i] <- trueModel$coefficients[3]
-          trueParams$VH[trueParams$ID == i] <- trueModel$coefficients[5]
-          trueParams$RUH[trueParams$ID == i] <- trueModel$coefficients[6]
-          trueParams$converged[trueParams$ID == i] <- trueModel$converged
-          
-          # simulate data
-          simdat <- subset(data, trial == 5 & ID == i, -chosen)
-          simdat$chosen <- predict(trueModel, type = "response")
-          simdat$chosen <- ifelse(simdat$chosen < runif(nrow(simdat)), 0, 1)
-          
-          simModel <- glm(chosen ~ V*Horizon + RU*Horizon ,
-                          data = simdat,
-                          family = binomial(link = "probit"))
-          
-          
-          simParams$V[simParams$ID == i] <- simModel$coefficients[2]
-          simParams$RU[simParams$ID == i] <- simModel$coefficients[4]
-          simParams$Horizon[simParams$ID == i] <- simModel$coefficients[3]
-          simParams$VH[simParams$ID == i] <- simModel$coefficients[5]
-          simParams$RUH[simParams$ID == i] <- simModel$coefficients[6]
-          simParams$converged[simParams$ID == i] <- simModel$converged
-          
-        }
-        
-        simParams$bothConverged <- ifelse(simParams$converged & trueParams$converged, T, F)
-        
-        trueParams$bothConverged <- simParams$bothConverged
-        
-        
-        # get correlations
-        cors <- data.frame(true = rep(c("RU", "V", "Horizon", "RUH", "VH"), 5),
-                           recovered =  rep(c("RU", "V", "Horizon", "RUH", "VH"), each = 5),
-                           cor = NA)
-        
-        cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams[trueParams$bothConverged,grep(cors$true[x], colnames(trueParams))[1]],# converged rows, cols with correct variable name (first instance)
-                                                                     simParams[simParams$bothConverged, grep(cors$recovered[x], colnames(simParams))[1]]))
-        
-        
-        recoveredParams <- simParams
-        
-        
+      
+      for (i in 1:length(unique(data$ID))){
+        id <- unique(data$ID)[i]
+        trueModel <- out[[1]][[i]]
+        simdat$chosen[simdat$ID == id] <- predict(trueModel, type = "response")
+        simdat$chosen[simdat$ID == id] <- ifelse(simdat$chosen[simdat$ID == id] < runif(nrow(simdat[simdat$ID == id, ])), 0, 1)
         
       }
-     
       
+      ## refit model
+      
+      simParams <- fit_model_horizon(data = simdat, 
+                               model = model, 
+                               bayesian = F,
+                               full = full, 
+                               it = it, 
+                               no_horizon = no_horizon, 
+                               save = F, 
+                               no_intercept = no_intercept,
+                               use_saved = F)[[2]]
+      
+      simParams$bothConverged <- ifelse(simParams$converged & trueParams$converged, T, F)
+      
+      trueParams$bothConverged <- simParams$bothConverged
+      
+      
+      # get correlations
+      cors <- data.frame(true = rep(predictors, length(predictors)),
+                         recovered =  rep(predictors, each = length(predictors)),
+                         cor = NA)
+      
+      cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams[trueParams$bothConverged,grep(cors$true[x], colnames(trueParams))[1]],# converged rows, cols with correct variable name (first instance)
+                                                                   simParams[simParams$bothConverged, grep(cors$recovered[x], colnames(simParams))[1]]))
+      
+      
+      recoveredParams <- simParams
       
     }
 

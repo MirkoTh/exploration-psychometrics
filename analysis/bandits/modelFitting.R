@@ -343,19 +343,27 @@ refit <- fit_model_sam(simdat, "hybrid", hierarchical = T, it = 4000, save = F, 
 refit
 
 # compared to when fit to regular data
-fit_model_sam(fan, "hybrid", hierarchical = T, it = 8000, save = F, use_saved = F)[[1]]
+hybFit <-  fit_model_sam(fan, "hybrid", hierarchical = T, it = 2000, save = F, use_saved = F)[[1]]
+hybFit
 
+save(fit, refit, hybFit, file = "analysis/bandits/identifyVTUFan.Rda")
 
-### leaving out V 
+### leaving out V and RU
 
-fit <- brm(chosen ~ RU + VTU + (RU + VTU | ID),
-           data = fan,
+## subsampling data to speed this up
+N = 100
+inclSubs <- sample(unique(fan$sub), N, replace = F)
+
+fan_subset <- subset(fan, is.element(sub, inclSubs))
+
+fit <- brm(chosen ~  VTU + (VTU | ID),
+           data = fan_subset,
            family = "bernoulli",
-           iter = 4000,
+           iter = 2000,
            cores = 2,
            chains = 2)
 
-simdat <- fan
+simdat <- fan_subset
 
 simdat$chosen <- predict(fit)[ ,1]
 
@@ -363,7 +371,7 @@ hist(simdat$chosen)
 
 simdat$chosen <- ifelse(runif(nrow(simdat), 0, 1) > simdat$chosen, 0, 1)
 
-refit <- fit_model_sam(simdat, "hybrid", hierarchical = T, it = 4000, save = F, use_saved = F)[[1]]
+refit <- fit_model_sam(simdat, "hybrid", hierarchical = T, it = 2000, save = F, use_saved = F)[[1]]
 
 refit
 
