@@ -1,9 +1,19 @@
 # final plotting for MS
 
-
+rm(list = ls())
 library(grid)
 library(gridExtra)
 library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(brms)
+library(here)
+theme_set(theme_bw(base_size = 14))
+
+source("analysis/recovery_utils.R")
+
+se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
+meann <- function(x){mean(x, na.rm = T)}
 
 # Which Models? -----------------------------------------------------------
 
@@ -34,4 +44,41 @@ save_my_pdf_and_tiff(
   str_c(my_dir, "/arrive-restless-model"),
   20, 7
 )
+
+
+## horizon task ------------------------------------------------------
+
+load("analysis/bandits/model_selection_horizon.Rda")
+
+lims = c(min(c(params_t1$subject_level, params_t1$hierarchical)), max(c(params_t1$subject_level, params_t1$hierarchical)))
+
+# Plot
+ggplot(params_t1, aes(subject_level, hierarchical, color = predictor)) + 
+  geom_jitter(alpha = 0.5) +
+  geom_abline(aes(slope = 1, intercept = 0)) +
+  coord_cartesian(xlim = lims, ylim = lims) + 
+  geom_label(aes(x = Inf, y = -Inf, label = sprintf("cor = %.2f", cor)), hjust = "inward", vjust = "inward", color = "black") +
+  facet_grid(cols = vars(predictor), rows = vars(horizon))+
+  scale_color_manual(values = c("#66C2A5", "#FC8D62"))+
+  theme(strip.background = element_rect(fill = "white"),
+        legend.position = "none") 
+
+
+ggplot(fixed, aes(predictor, Estimate, fill = horizon)) + geom_col(position = position_dodge(0.9)) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(0.9), width = 0.25)+
+  facet_wrap(vars(method)) + 
+  scale_fill_manual(values = c("#66C2A5", "#FC8D62")) +
+  theme(strip.background = element_rect(fill = "white"))
+
+cors <- params_all %>%
+  group_by(method, predictor, horizon) %>%
+  summarize(correlation = cor(session1, session2, use = "pairwise.complete.obs"))
+
+print(cors)
+print(log_liks)
+
+
+
+
+
 
