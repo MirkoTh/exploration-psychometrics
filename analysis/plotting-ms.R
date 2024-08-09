@@ -5,6 +5,13 @@ library(grid)
 library(gridExtra)
 library(tidyverse)
 
+dirs_homegrown <- c(
+  "utils/analysis-utils.R", "utils/plotting-utils.R", 
+  "utils/modeling-utils.R"
+)
+walk(dirs_homegrown, source)
+
+
 # Which Models? -----------------------------------------------------------
 
 my_dir <- "figures/figures-ms/submission-1"
@@ -34,4 +41,47 @@ save_my_pdf_and_tiff(
   str_c(my_dir, "/arrive-restless-model"),
   20, 7
 )
+
+
+## horizon task -----------------------------------------------------------
+
+
+
+
+
+## two-armed bd -----------------------------------------------------------
+
+
+
+
+
+
+# Recoverability ----------------------------------------------------------
+
+
+
+
+## restless bd ------------------------------------------------------------
+
+
+file_loc_hc_s1 <- "data/restless-hierarchical-model-posterior-s1.RDS"
+file_loc_hc_s1_recovery <- "data/restless-hierarchical-model-recovery-posterior-s1.RDS"
+tbl_draws_hc_s1 <- readRDS(file_loc_hc_s1)
+tbl_draws_hc_s1_recovery <- readRDS(file_loc_hc_s1_recovery)
+
+l_recovery_s1 <- map_cor(tbl_draws_hc_s1, tbl_draws_hc_s1_recovery, c("beta", "tau"))
+pl_heatmap_s1 <- recovery_heatmap(l_recovery_s1, "Restless Bandit", c("RU", "V"))
+
+save_my_pdf_and_tiff(
+  pl_heatmap_s1,
+  str_c(my_dir, "/restless-ucb-recovery"),
+  5, 4
+)
+
+
+
+
+
+
+
 
