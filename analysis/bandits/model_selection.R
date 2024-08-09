@@ -29,7 +29,8 @@ dfs <- list(short = res_list_5[[2]], long = res_list_10[[2]])
 
 hf_params <- dfs %>% bind_rows(.id = 'horizon')
 hf_params$ID <- parse_number(rownames(hf_params))
-hf_params <- subset(hf_params, select = c("predictor", "estimate", "horizon", "ID"))
+hf_params <- subset(hf_params, select = c("predictor", "estimate", "horizon", "ID")) %>% 
+  rename(hierarchical = estimate)
 
 ####### subject-level implementation of Standard Wilson model
 
@@ -59,34 +60,28 @@ dfs <- list(short = short, long = long)
 sl_params <- dfs %>% bind_rows(.id = 'horizon')
 sl_params <- sl_params %>% relocate(horizon, .after = last_col())
 
-sl_params <- subset(sl_params, is.element(ID, convergedIDs), select = -converged)
+sl_params <- subset(sl_params, is.element(ID, convergedIDs), select = -converged) %>% 
+  pivot_longer(cols = -c("ID", "horizon"),names_to = "predictor", values_to = "subject_level")
 
-sl_params <- pivot_longer(sl_params, cols = 1:(ncol(sl_params)-2),names_to = "predictor", values_to = "estimate")
-
-hf_params <- subset(hf_params, is.element(ID, convergedIDs))
-
-sl_params$subject_level <- sl_params$estimate
-params <- subset(sl_params,predictor != "X.Intercept.", select = -estimate)
-
-hf_params <- subset(hf_params, predictor !="Intercept")
-params$hierarchical <- hf_params$estimate[match(paste(params$ID, params$predictor, params$horizon), paste(hf_params$ID, hf_params$predictor, hf_params$horizon))]
+params_t1 <- left_join(sl_params, hf_params, by = c("ID", "predictor", "horizon")) %>% 
+  subset(is.element(ID, convergedIDs) & !grepl("intercept", predictor, ignore.case = T))
 
 
-######### plot correlation between subject-level estimates (T1)
+######### plot correlation between subject-level estimates (T1) ########
 
 # Calculate correlations for each subset
-params_cor <- params %>%
+params_cor <- params_t1 %>%
   group_by(predictor, horizon) %>%
   summarize(cor = cor(subject_level, hierarchical))
 
 # Merge correlations back to original data
-params <- left_join(params, params_cor, by = c("predictor", "horizon"))
+params_t1 <- left_join(params_t1, params_cor, by = c("predictor", "horizon"))
 
 
-lims = c(min(c(params$subject_level, params$hierarchical)), max(c(params$subject_level, params$hierarchical)))
+lims = c(min(c(params_t1$subject_level, params_t1$hierarchical)), max(c(params_t1$subject_level, params_t1$hierarchical)))
 
 # Plot
-ggplot(params, aes(subject_level, hierarchical)) + 
+ggplot(params_t1, aes(subject_level, hierarchical)) + 
   geom_jitter(alpha = 0.5) +
   geom_abline(aes(slope = 1, intercept = 0)) +
   coord_cartesian(xlim = lims, ylim = lims) + 
@@ -100,71 +95,53 @@ ggplot(params, aes(subject_level, hierarchical)) +
 res_list_5 <- fit_model_horizon(horizon_2[horizon_2$Horizon == -0.5, ], model = "Wilson", full = T, it = 8000, save = T, use_saved = T, no_horizon = T)
 res_list_10 <- fit_model_horizon(horizon_2[horizon_2$Horizon == 0.5, ], model = "Wilson", full = T, it = 8000, save = T, use_saved = T, no_horizon = T)
 
-dfs <- list(short = res_list_5[[2]], long = res_list_10[[2]])
-
-hf_params2 <- dfs %>% bind_rows(.id = 'horizon')
-hf_params2$ID <- parse_number(rownames(hf_params2))
-hf_params2 <- subset(hf_params2, select = c("predictor", "estimate", "horizon", "ID"))
-
-## combine the two sessions
-
-hf_params <- hf_params %>% rename(session1 = estimate)
-hf_params2 <- hf_params2 %>% rename(session2 = estimate)
-
-hf_params_all <- hf_params  %>% full_join(hf_params2, by = c("predictor", "horizon", "ID"))
-
+hf_params <- list(short = res_list_5[[2]], long = res_list_10[[2]]) %>% bind_rows(.id = 'horizon')
+hf_params$ID <- parse_number(rownames(hf_params))
+hf_params <- subset(hf_params, select = c("predictor", "estimate", "horizon", "ID")) %>% 
+  rename(hierarchical = estimate)
 
 ####### subject-level implementation of Standard Wilson model
 
-subj_level_5 <- fit_model_horizon(horizon_2[horizon_2$Horizon == -0.5, ], 
+short <- fit_model_horizon(horizon_2[horizon_2$Horizon == -0.5, ], 
                                   model = "Wilson",
                                   bayesian = F,
                                   full = T,
                                   save = F,
                                   use_saved = F,
-                                  no_horizon = T)
+                                  no_horizon = T)[[2]]
 
-subj_level_10 <- fit_model_horizon(horizon_2[horizon_2$Horizon == 0.5, ], 
+long <- fit_model_horizon(horizon_2[horizon_2$Horizon == 0.5, ], 
                                    model = "Wilson",
                                    bayesian = F,
                                    full = T,
                                    save = F,
                                    use_saved = F,
-                                   no_horizon = T)
-
-short <- subj_level_5[[2]]
-long <- subj_level_10[[2]]
+                                   no_horizon = T)[[2]]
 
 convergedIDs <- intersect(unique(short$ID[short$converged]), unique(long$ID[long$converged]))
 
-dfs <- list(short = short, long = long)
+sl_params <- list(short = short, long = long) %>% bind_rows(.id = 'horizon')
+sl_params <- sl_params %>% relocate(horizon, .after = last_col())
 
-sl_params2 <- dfs %>% bind_rows(.id = 'horizon')
-sl_params2 <- sl_params2 %>% relocate(horizon, .after = last_col())
+sl_params <- subset(sl_params, is.element(ID, convergedIDs), select = -converged) %>% 
+  pivot_longer(cols = -c("ID", "horizon"),names_to = "predictor", values_to = "subject_level")
 
-sl_params2 <- subset(sl_params2, is.element(ID, convergedIDs), select = -converged)
-
-sl_params2 <- pivot_longer(sl_params2, cols = 1:(ncol(sl_params2)-2),names_to = "predictor", values_to = "session2")
-
-sl_params <- sl_params %>% rename(session1 = estimate)
-
-sl_params_all <- hf_params  %>% full_join(sl_params2, by = c("predictor", "horizon", "ID"))
-
-dfs <- list(sl = sl_params_all, hb = hf_params_all)
-
-params <- dfs %>% bind_rows(.id = 'method')
-
-params <- subset(params, is.element(ID, convergedIDs) & !grepl("intercept", predictor, ignore.case = T))
+params_t2 <- left_join(sl_params, hf_params, by = c("ID", "predictor", "horizon")) %>% 
+  subset(is.element(ID, convergedIDs) & !grepl("intercept", predictor, ignore.case = T))
 
 
-cors <- params %>%
+params_all <- list(session1 = params_t1, session2 = params_t2) %>% 
+  bind_rows(.id = "session") %>% 
+  pivot_longer(cols = c("subject_level", "hierarchical"), values_to = "estimate", names_to = "method") %>%
+  pivot_wider(values_from = "estimate", names_from = "session", id_cols = c("ID", "method", "predictor", "horizon"))
+
+cors <- params_all %>%
   group_by(method, predictor, horizon) %>%
   summarize(correlation = cor(session1, session2, use = "pairwise.complete.obs"))
 
-
+print(cors)
 
 ################# are the fixed effects consistent ? ########
-
 
 ##### hierarchical bayesian fixed effects
 
@@ -191,33 +168,26 @@ sl_10 <- fit_model_horizon(horizon_1[horizon_1$Horizon == 0.5, ], model = "Wilso
 
 convergedIDs <- intersect(sl_5$ID[sl_5$converged], sl_10$ID[sl_10$converged])
 
-sl_by_subject <- list(short = sl_5, long = sl_10) %>% bind_rows(.id = "horizon")
-
-sl_by_subject <- pivot_longer(sl_by_subject, cols = -c("ID", "converged", "horizon"), names_to = "predictor", values_to = "estimate")
-
-sl_by_subject <- subset(sl_by_subject, is.element(ID, convergedIDs), -c(converged))
+sl_by_subject <- list(short = sl_5, long = sl_10) %>% bind_rows(.id = "horizon") %>% 
+  pivot_longer(cols = -c("ID", "converged", "horizon"), names_to = "predictor", values_to = "estimate") %>% 
+  subset(is.element(ID, convergedIDs), -c(converged))
 
 # this is coded weirdly so I will recode it to be higher number = more value seeking and more information seeking
 sl_by_subject$estimate[sl_by_subject$predictor == "delta_mean"] <- -1 * sl_by_subject$estimate[sl_by_subject$predictor == "delta_mean"]
 
-sl <- plyr::ddply(sl_by_subject, ~predictor+horizon, summarise, lower = mean(estimate) - 1.96*se(estimate), upper = mean(estimate) + 1.96*se(estimate), Estimate = mean(estimate))
+sl <- sl_by_subject %>% group_by(predictor, horizon) %>% 
+  summarise(lower = mean(estimate) - 1.96*se(estimate), upper = mean(estimate) + 1.96*se(estimate), Estimate = mean(estimate))
 
-
-fixed <- list(hb = subset(hb, select = c("horizon", "predictor", "Estimate", "lower", "upper")), sl = sl) %>% bind_rows(.id = "method")
-
-
-fixed <- subset(fixed, !grepl("intercept", predictor, ignore.case = T))
+fixed <- list(hb = subset(hb, select = c("horizon", "predictor", "Estimate", "lower", "upper")), sl = sl) %>% 
+  bind_rows(.id = "method") %>% 
+  subset(!grepl("intercept", predictor, ignore.case = T))
 
 ggplot(fixed, aes(predictor, Estimate, fill = horizon)) + geom_col(position = position_dodge(0.9)) +
   geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(0.9), width = 0.25)+
   facet_wrap(vars(method)) + scale_fill_manual(values = c("#66C2A5", "#FC8D62"))
 
 
-
-
 ################## model comparison with second session as held-out set #################
-
-############# Horizon task #############
 
 ## subsample to only use the participants where session 1 converged in the subject-level models for both the long and the short horizon
 
@@ -298,6 +268,8 @@ sl <- data.frame(Horizon = c(5,10),
 
 log_liks <- list(hb = hb, sl = sl) %>% bind_rows(.id = "method")
 
+save(params_t1, params_all, fixed, log_liks, file = "analysis/bandits/model_selection_horizon.Rda")
+
 ##################### Sam's task #############
 
 ########## model comparison for hybrid vs ucb in predicting session 2 from session 1 #######
@@ -340,13 +312,15 @@ ucb_2$ID <- parse_number(rownames(ucb_2))
 hybrid_1$ID <- parse_number(rownames(hybrid_1))
 hybrid_2$ID <- parse_number(rownames(hybrid_2))
 
+
 ucb <- ucb_1 %>% rename(estimate_1 = estimate) %>% left_join(ucb_2, by = c("ID", "predictor"))
 hybrid <- hybrid_1 %>% rename(estimate_1 = estimate) %>% left_join(hybrid_2, by = c("ID", "predictor"))
 
 # get test-retest reliability
+rel <- list(ucb = ucb, hybrid = hybrid) %>% bind_rows(.id = "model") %>% 
+  group_by(predictor, model) %>% 
+  summarise(cor = cor(estimate_1, estimate, use = "pairwise.complete.obs"))
 
-ucb_cors <- ucb %>% group_by(predictor) %>% summarise(cor = cor(estimate_1, estimate, use = "pairwise.complete.obs"))
-ucb_cors
+rel
 
-hybrid_cors <- hybrid %>% group_by(predictor) %>% summarise(cor = cor(estimate_1, estimate, use = "pairwise.complete.obs"))
-hybrid_cors
+save(logp_u, logp_h, rel, file = "analysis/bandits/model_selection_sam.Rda")
