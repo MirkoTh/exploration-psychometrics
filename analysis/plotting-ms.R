@@ -115,10 +115,3 @@ save_my_pdf_and_tiff(
 )
 
 
-
-
-
-
-
-
-
