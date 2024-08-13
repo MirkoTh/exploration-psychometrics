@@ -3066,6 +3066,40 @@ ucb_stan_hierarchical_fit_fixed_learning <- function() {
         }  
       }
     }
+    generated quantities{
+      vector [nSubjects] log_lik;
+      array [nSubjects, nTrials] int choice_pred;
+
+      for (s in 1:nSubjects) {
+        vector[4] m;   // value (mu)
+        vector[4] var_mean; // sigma
+        m = rep_vector(m_prior, 4);
+        var_mean = rep_vector(var_mean_prior, 4);
+        
+        log_lik[s] = 0;    
+        for (t in 1:nTrials) {   
+          
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            eb = beta[s] * sqrt(var_mean + var_xi);
+            log_lik[s] = log_lik[s] + categorical_logit_lpmf(choice[s,t] | tau[s] * (m + eb));
+            choice_pred[s, t] = categorical_logit_rng(tau[s] * (m + eb));
+            
+            // learning model
+            pe = reward[s,t] - m[choice[s,t]];  // prediction error 
+            Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
+            m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;
+            var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
+          }
+          
+          m = decay * m + (1 - decay) * decay_center;  
+          for (j in 1:4) {
+            var_mean[j] = decay^2 * var_mean[j] + var_xi;
+          }  
+        }
+      }
+    }
   ")
   return(m_txt)
 }
@@ -3095,12 +3129,15 @@ mix_thompson_ucb_stan_hierarchical_generate <- function() {
       real <lower=0> sigma_tau;
       real <lower=0> sigma_beta;
       real <lower=0> sigma_w_mix;
-      real mu_tau;
+      real <lower=0> mu_tau;
       real mu_beta;
-      real mu_w_mix;
+      real <lower=0,upper=1> mu_w_mix;
     }
 
     model {
+    
+    vector[2] lp;
+    
       for (s in 1:nSubjects) {
         tau[s] ~ normal(mu_tau, sigma_tau);
         beta[s] ~ normal(mu_beta, sigma_beta);
@@ -3112,24 +3149,49 @@ mix_thompson_ucb_stan_hierarchical_generate <- function() {
       sigma_w_mix ~ uniform(0.001, .2);
       mu_tau ~ normal(0, 1);
       mu_beta ~ student_t(1, 0, 1);
-      mu_w_mix ~ normal(0.5, .15);
+      mu_w_mix ~ normal(0.5, .25);
     
       for (s in 1:nSubjects) {
-
+      
         vector[4] eb;  // exploration bonus
-
-
+        vector[4] choice_probs;
+        
+        
         for (t in 1:nTrials) {        
         
           if (choice[s,t] != 0) {
             
-            // choice model
+            // only choice model
             eb = beta[s] * sqrt(to_vector(var_mean[s][t]) + var_xi);
-            target += categorical_logit_lupmf(choice[s, t] | w_mix[s] * tau[s] * (to_vector(m[s][t]) + eb)) + (1 - w_mix[s]) * th_ch_pr[s][t];
-            //choice[s,t] ~ categorical_logit(tau[s] * (m[s][t] + eb));
-            
+            choice_probs = w_mix[s] * softmax(tau[s] * (to_vector(m[s][t]) + eb)) + (1 - w_mix[s]) * to_vector(th_ch_pr[s][t]);
+            // values do not sum up exactly to 1; use categorical_logit again, therefore
+            choice[s, t] ~ categorical_logit(choice_probs);
           }
         }  
+      }
+    }
+    generated quantities{
+      vector [nSubjects] log_lik;
+      array [nSubjects, nTrials] int choice_pred;
+      vector[4] eb;  // exploration bonus
+      vector[4] choice_probs;
+
+      for (s in 1:nSubjects) {
+
+        log_lik[s] = 0;    
+        for (t in 1:nTrials) {   
+          
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            eb = beta[s] * sqrt(to_vector(var_mean[s][t]) + var_xi);
+            choice_probs = w_mix[s] * softmax(tau[s] * (to_vector(m[s][t]) + eb)) + (1 - w_mix[s]) * to_vector(th_ch_pr[s][t]);
+            choice_pred[s, t] = categorical_logit_rng(choice_probs);
+
+            log_lik[s] = log_lik[s] + log(choice_probs[choice[s, t]]);
+
+          }
+        }
       }
     }
   ")
@@ -3171,3 +3233,107 @@ posteriors_and_maps_bandits <- function(tbl_draws, s, pars_interest, ids_sample)
   
 }
 
+
+softmax_stan_hierarchical_generate <- function() {
+  m_txt <- write_stan_file("
+    data {
+      int<lower=1> nSubjects;
+      int<lower=1> nTrials;               
+      array[nSubjects, nTrials] int choice;     
+      matrix[nSubjects, nTrials] reward; 
+    }
+    transformed data {
+      real<lower=0, upper=100> m_prior;
+      real<lower=0> var_mean_prior;
+      real<lower=0> var_epsilon;
+      real<lower=0> var_xi;
+      real<lower=0,upper=1> decay;
+      real<lower=0, upper=100> decay_center;
+      
+      m_prior = 50.0;
+      var_mean_prior = 1000.0; // prior variance of the mean
+      var_epsilon = 16.0; // error variance
+      var_xi = 7.84; // innovation variance
+      decay = 0.9836;
+      decay_center = 50;
+    }
+    parameters {
+      vector<lower=0,upper=3>[nSubjects] tau; 
+      real <lower=0> sigma_tau;
+      real mu_tau;
+
+    }
+    model {
+      for (s in 1:nSubjects) {
+        tau[s] ~ normal(mu_tau, sigma_tau);
+      }
+      
+      sigma_tau ~ uniform(0.001, 10);
+      mu_tau ~ normal(0, 1);
+
+      for (s in 1:nSubjects) {
+        vector[4] m;   // mean of the mean
+        vector[4] var_mean; // variance of the mean
+        real pe;       // prediction error
+        real Kgain;    // Kalman gain
+        m = rep_vector(m_prior, 4);
+        var_mean = rep_vector(var_mean_prior, 4);
+        for (t in 1:nTrials) {        
+        
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            choice[s,t] ~ categorical_logit(tau[s] * (m));
+            
+            // learning model
+            pe = reward[s,t] - m[choice[s,t]];  // prediction error 
+            Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
+            m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;  // value/mu updating (learning)
+            var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
+          }
+          
+          m = decay * m + (1 - decay) * decay_center;  
+          for (j in 1:4) {
+            var_mean[j] = decay^2 * var_mean[j] + var_xi;
+          }
+        }  
+      }
+    }
+    generated quantities{
+      vector [nSubjects] log_lik;
+      //array [nSubjects, nTrials] int choice_pred;
+
+      for (s in 1:nSubjects) {
+        vector[4] m;   // value (mu)
+        vector[4] var_mean; // sigma
+        real pe;       // prediction error
+        real Kgain;    // Kalman gain
+        m = rep_vector(m_prior, 4);
+        var_mean = rep_vector(var_mean_prior, 4);
+        
+        log_lik[s] = 0;    
+        for (t in 1:nTrials) {   
+          
+          if (choice[s,t] != 0) {
+            
+            // choice model
+            log_lik[s] = log_lik[s] + categorical_logit_lpmf(choice[s,t] | tau[s] * (m));
+            //choice_pred[s, t] = categorical_logit_rng(tau[s] * (m));
+            
+            // learning model
+            pe = reward[s,t] - m[choice[s,t]];  // prediction error 
+            Kgain = (var_mean[choice[s,t]] + var_xi) / (var_mean[choice[s,t]] + var_epsilon + var_xi); // Kalman gain
+            m[choice[s,t]] = m[choice[s,t]] + Kgain * pe;
+            var_mean[choice[s,t]] = (1-Kgain) * (var_mean[choice[s,t]] + var_xi);
+          }
+          
+          m = decay * m + (1 - decay) * decay_center;  
+          for (j in 1:4) {
+            var_mean[j] = decay^2 * var_mean[j] + var_xi;
+          }  
+        }
+      }
+    }
+  ")
+  return(m_txt)
+}
