@@ -140,3 +140,42 @@ recovery_heatmap <- function(l_recovery, ttl, param_relabel = NULL) {
     )
   return(pl)
 }
+
+
+my_corr_plot <- function(cortable, x_lab, y_lab, ttl, type = "bandit") {
+  my_tbl <- as.data.frame(cortable) %>%
+    mutate(rwn = rownames(.)) %>%
+    pivot_longer(-rwn)
+  if (type == "bandit") {
+    if (is_ucb) {
+      my_tbl$name <- factor(my_tbl$name, levels = c("V Horizon", "V 2Armed", "V Restless", "RU Horizon", "RU 2Armed", "RU Restless"), ordered = TRUE)
+      my_tbl$rwn <- factor(my_tbl$rwn, levels = c("V Horizon", "V 2Armed", "V Restless", "RU Horizon", "RU 2Armed", "RU Restless"), ordered = TRUE)
+    } else {
+      my_tbl$name <- factor(my_tbl$name, levels = c("V Horizon", "V 2Armed", "V Restless", "RU Horizon", "RU 2Armed", "RU Restless", "VTU 2Armed"), ordered = TRUE)
+      my_tbl$rwn <- factor(my_tbl$rwn, levels = c("V Horizon", "V 2Armed", "V Restless", "RU Horizon", "RU 2Armed", "RU Restless", "VTU 2Armed"), ordered = TRUE)
+    }
+    
+  }
+  if (type == "switch") {
+    my_tbl$name <- factor(my_tbl$name, levels = c("Horizon", "2Armed", "Restless"), ordered = TRUE)
+    my_tbl$rwn <- factor(my_tbl$rwn, levels = c("Horizon", "2Armed", "Restless"), ordered = TRUE)
+    
+  }
+  
+  ggplot(my_tbl, aes(rwn, name)) +
+    geom_tile(aes(fill = value)) +
+    geom_label(aes(label = round(value, 2))) +
+    theme_bw() +
+    scale_x_discrete(expand = c(0.01, 0)) +
+    scale_y_discrete(expand = c(0.01, 0), limits = rev) +
+    labs(x = x_lab, y = y_lab, title = ttl) + 
+    theme(
+      strip.background = element_rect(fill = "white"), 
+      text = element_text(size = 22),
+      axis.text.x = element_text(angle = 90, vjust = .3),
+      legend.position = "bottom"
+    ) +
+    scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white") +
+    guides(fill = "none")
+}
+
