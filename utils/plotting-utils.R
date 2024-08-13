@@ -2,7 +2,7 @@ plot_pc_against_ss <- function(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci, tbl_wmu_ss_ag
   pl <- ggplot(
     rbind(tbl_os_ss_agg_ci, tbl_ss_ss_agg_ci) %>% mutate(session_id = as.character(as.numeric(as.character(session_id)) + 1)),
     aes(set_size, prop_correct, group = session_id)
-    ) +
+  ) +
     geom_hline(yintercept = 1, linetype = "dotdash", alpha = .2) +
     geom_errorbar(aes(x = set_size, y = prop_correct, ymin = prop_correct - ci, ymax = prop_correct + ci, color = session_id), width = .5) +
     geom_line(aes(color = session_id)) +
@@ -73,3 +73,70 @@ plot_my_chance_hist <- function(tbl_overall, ttl, pchance, is_caption = FALSE) {
   return(pl)
 }
 
+by_participant_maps <- function(tbl_draws, f_time, pars_interest) {
+  tbl_draws %>% select(starts_with(pars_interest)) %>%
+    mutate(n_sample = 1:nrow(.)) %>%
+    pivot_longer(-n_sample) %>%
+    mutate(
+      ID = as.integer(str_extract(name, "[0-9]+")),
+      parameter = str_extract(name, "^[a-z]*")
+    ) %>%
+    group_by(ID, parameter) %>%
+    summarize(map = mean(value)) %>%
+    ungroup() %>%
+    mutate(fit_time = f_time)
+}
+
+map_cor <- function(tbl_draws_hc, tbl_draws_hc_recovery, pars_interest) {
+  
+  l_tbl_draws <- list(tbl_draws_hc, tbl_draws_hc_recovery)
+  l_tbl_maps <- map2(l_tbl_draws, c("data", "preds"), by_participant_maps, pars_interest = pars_interest)
+  
+  tbl_recovery <- reduce(
+    l_tbl_maps, 
+    ~ left_join(.x, .y, by = c("ID", "parameter"), suffix = c("_data", "_preds"))
+  )
+  cor_recovery <- tbl_recovery %>%
+    pivot_wider(names_from = parameter, values_from = c(map_data, map_preds)) %>%
+    select(-c(fit_time_data, fit_time_preds)) %>%
+    summarize(
+      beta_in_beta_out = cor(map_data_beta, map_preds_beta),
+      tau_in_tau_out = cor(map_data_tau, map_preds_tau),
+      beta_in_tau_out = cor(map_data_beta, map_preds_tau),
+      tau_in_beta_out = cor(map_data_tau, map_preds_beta)
+    )
+  
+  return(list(tbl_recovery = tbl_recovery, cor_recovery = cor_recovery))
+}
+
+recovery_heatmap <- function(l_recovery, ttl, param_relabel = NULL) {
+  tbl_in_out <- l_recovery$cor_recovery %>%
+    pivot_longer(colnames(.)) %>%
+    mutate(
+      param_in = str_match(name, "([a-z]*)_")[, 2],
+      param_out = str_match(name, "_([a-z]*)_out")[, 2]
+    )
+  if (!is.null(param_relabel)){
+    tbl_in_out$param_in <- factor(tbl_in_out$param_in, labels = param_relabel)
+    tbl_in_out$param_out <- factor(tbl_in_out$param_out, labels = param_relabel)
+    
+  }
+  pl <- ggplot(tbl_in_out, aes(param_in, param_out)) +
+    geom_tile(aes(fill = value)) +
+    geom_text(aes(label = round(value, 2)), size = 6, color = "white") +
+    theme_bw() +
+    scale_x_discrete(expand = c(0.01, 0)) +
+    scale_y_discrete(expand = c(0.01, 0)) +
+    theme(
+      strip.background = element_rect(fill = "white"), 
+      text = element_text(size = 22),
+      legend.position = "bottom"
+    ) + 
+    scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white", midpoint = 0, guide = "none") +
+    labs(x = "MAP (Data)", y = "MAP (Prediction)", title = ttl) + 
+    theme(
+      strip.background = element_rect(fill = "white"), 
+      text = element_text(size = 22)
+    )
+  return(pl)
+}
