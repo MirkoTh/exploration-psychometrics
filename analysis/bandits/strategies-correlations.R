@@ -137,6 +137,7 @@ tbl_cor_trial_horizon1 <- horizon_learned1 %>%
   pivot_longer(cols = -c(Horizon, trial)) %>%
   ungroup()
 
+saveRDS(tbl_cor_trial_horizon1, "analysis/bandits/var-cors-horizon.rds")
 ggplot(tbl_cor_trial_horizon1, aes(trial, value)) +
   geom_line(aes(color = name)) +
   geom_point(color = "white", size = 4) +
@@ -225,14 +226,17 @@ tbl_restless1_info <- tbl_restless1_info %>%
   )
 
 n_excl <- str_c(rep(c("m_", "v_", "th_"), 4), rep(1:4, each = 3))
-
-cor(tbl_restless1_info %>% 
-      select(-n_excl) %>%
-      select(starts_with(c("m_", "v_", "th_")))) %>%
+tbl_restless_cor <- 
+  cor(tbl_restless1_info %>% 
+        select(-n_excl) %>%
+        select(starts_with(c("m_", "v_", "th_")))) %>%
   as.data.frame() %>%
   mutate(var_in = rownames(.)) %>%
-  pivot_longer(-var_in, names_to = "var_out") %>%
-  ggplot(aes(var_in, var_out)) +
+  pivot_longer(-var_in, names_to = "var_out")
+
+
+saveRDS(tbl_restless_cor, "analysis/bandits/var-cors-restless.rds")
+ggplot(tbl_restless_cor, aes(var_in, var_out)) +
   geom_tile(aes(fill = value)) +
   geom_text(aes(label = round(value, 2)), color = "white") +
   theme_bw() +
