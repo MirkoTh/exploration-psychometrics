@@ -30,9 +30,36 @@ my_dir <- "figures/figures-ms/submission-1"
 
 ## restless bd ------------------------------------------------------------
 
+tbl_prep <- readRDS("data/restless-group-patterns-across-methods-data.RDS")
+pl_restless_group_patterns <- ggplot(tbl_prep, aes(name, value)) +
+  geom_col(aes(fill = name)) +
+  facet_wrap(Session ~ method) +
+  theme_bw() +
+  scale_y_continuous(expand = c(0.1, 0)) +
+  labs(x = "Parameter", y = "Group Mean") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) + 
+  scale_fill_brewer(palette = "Set2", name = "")
 
-pl_restless_group_patterns <- readRDS("data/restless-group-patterns-across-methods.Rds")
-pl_restless_params_across_methods <- readRDS("data/restless-params-across-methods.RDS")
+tbl_ucb_ml_hcb <- readRDS("data/restless-params-across-methods-data.RDS")
+pl_params_across_methods <- ggplot(tbl_ucb_ml_hcb, aes(`Max. Lik.`, `Hierarch. Bayes`)) +
+  geom_abline() +
+  geom_point(aes(color = parameter)) +
+  geom_label(data = tbl_ucb_cor, aes(my_base + .5 * my_jitter, my_base - 2*my_jitter, label = str_c("r = ", round(value, 2)))) +
+  facet_wrap(Session ~ parameter, scales = "free") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.04, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) + 
+  scale_color_brewer(palette = "Set2", name = "")
+
 tbl_restless_reliability_across_methods <- readRDS("data/restless-reliabilities-across-methods.Rds")
 tbl_restless_reliability_across_methods <- tbl_restless_reliability_across_methods %>%
   mutate(Reliability = round(Reliability, 2))
@@ -40,7 +67,7 @@ tbl_restless_reliability_across_methods <- tbl_restless_reliability_across_metho
 table_rl_reliab <- tableGrob(tbl_restless_reliability_across_methods)
 pl_table_rl_reliab <- ggplot() + annotation_custom(table_rl_reliab)
 pl_arrive_restless_model <- arrangeGrob(
-  pl_restless_group_patterns, pl_restless_params_across_methods, pl_table_rl_reliab,
+  pl_restless_group_patterns, pl_params_across_methods, pl_table_rl_reliab,
   nrow = 1
 )
 
@@ -146,6 +173,51 @@ save_my_pdf_and_tiff(
 )
 
 
+
+
+# 4. Convergent Validity --------------------------------------------------
+
+tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-hybrid.RDS")
+tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-hybrid.RDS")
+
+pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 1")
+pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 2")
+
+pl_convergent_hybrid <- arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1)
+save_my_pdf_and_tiff(pl_convergent_hybrid, str_c(my_dir, "/bandits-convergent-hybrid"), 10.5, 5.75)
+
+
+tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-ucb.RDS")
+tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-ucb.RDS")
+
+pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 1")
+pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 2")
+
+pl_convergent_ucb <- arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1)
+save_my_pdf_and_tiff(pl_convergent_ucb, str_c(my_dir, "/bandits-convergent-ucb"), 10.5, 5.75)
+
+
+
+l_tbl_wm <- readRDS("analysis/wm/wm-measures.RDS")
+pl_cors_wm_s1 <- my_corr_plot(
+  cor(
+    l_tbl_wm[[1]] %>% 
+      select(-c(ID, session, OS_processing, SS_processing, prop_timeout_os_processing, prop_timeout_ss_processing, rt_os, rt_ss)) %>%
+      rename("OS" = "OS_recall", "SS" = "SS_recall", "WMU" = "WMU_recall")
+  ), "Measure 1", "Measure 2", "Session 1", type = "wm"
+)
+pl_cors_wm_s2 <- my_corr_plot(
+  cor(
+    l_tbl_wm[[2]] %>% 
+      select(-c(ID, session, OS_processing, SS_processing, prop_timeout_os_processing, prop_timeout_ss_processing, rt_os, rt_ss)) %>% 
+      rename("OS" = "OS_recall", "SS" = "SS_recall", "WMU" = "WMU_recall")
+  ), "Measure 1", "Measure 2", "Session 2", type = "wm"
+)
+pl_wm_convergent <- arrangeGrob(pl_cors_wm_s1, pl_cors_wm_s2, nrow = 1)
+
+save_my_pdf_and_tiff(
+  pl_wm_convergent, str_c(my_dir, "/wm-convergent"), 6.5, 3.5
+)
 
 
 
