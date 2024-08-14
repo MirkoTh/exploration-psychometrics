@@ -159,29 +159,33 @@ save_my_pdf_and_tiff(
 # 3. Reliability ----------------------------------------------------------
 
 tbl_reliability_bandits <- readRDS("analysis/bandits/reliabilities-hybrid.csv")
-pl_rel <- ggplot(tbl_rel_both %>% filter(parameter != "IC"), aes(value, fct_rev(parameter))) +
+levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Directed", "Random", "Regret", "p(optimal)", "p(switch)")
+levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
+
+
+pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
   geom_vline(xintercept = .5, color = "red", linewidth = 2, alpha = .3) +
   geom_vline(xintercept = .75, color = "lightgreen", linewidth = 2, alpha = .5) +
   geom_vline(xintercept = .9, color = "darkgreen", linewidth = 2, alpha = .3) +
   geom_point(aes(fill = measure), shape = 23, size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
-  labs(x = "Test-Retest Reliability", y = "Measure") + 
+  labs(title = "Test-Retest Reliability", x = "Pearson Correlation", y = "") + 
   theme_bw() +
-  scale_x_continuous(expand = c(0.025, 0)) +
+  scale_x_continuous(expand = c(0.05, 0)) +
   scale_y_discrete(expand = c(0.025, 0)) +
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 90, vjust = .05)
+    axis.text.x = element_text(angle = 30, hjust = .95, vjust = .95)
   ) + 
   scale_fill_brewer(palette = "Set2", name = "")
 
 save_my_pdf_and_tiff(
   pl_rel,
   str_c(my_dir, "/reliability-bandits"),
-  10, 5
+  12, 5
 )
 
 
@@ -192,21 +196,41 @@ save_my_pdf_and_tiff(
 tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-hybrid.RDS")
 tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-hybrid.RDS")
 
-pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 1")
-pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 2")
+is_ucb <- FALSE
+colnames(tbl_bandits_1) <- c(
+  "ID", "Value-Guided Restless", "Directed Restless", 
+  "Intercept Two-Armed", "Value-Guided Two-Armed", "Directed Two-Armed", "Random Two-Armed", 
+  "Intercept Horizon", "Value-Guided Horizon", "Directed Horizon", "session"
+)
+colnames(tbl_bandits_2) <- colnames(tbl_bandits_1)
+pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "", "", "Convergent Validity Exploration") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
+pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "", "", "Convergent Validity Exploration") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
 
 pl_convergent_hybrid <- arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1)
-save_my_pdf_and_tiff(pl_convergent_hybrid, str_c(my_dir, "/bandits-convergent-hybrid"), 10.5, 5.75)
+save_my_pdf_and_tiff(pl_convergent_hybrid, str_c(my_dir, "/bandits-convergent-hybrid-s1-s2"), 16.5, 7.25)
+save_my_pdf_and_tiff(pl_cors_s1, str_c(my_dir, "/bandits-convergent-hybrid-s1"), 9, 7.25)
 
 
 tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-ucb.RDS")
 tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-ucb.RDS")
+colnames(tbl_bandits_1) <- c(
+  "ID", "Value-Guided Restless", "Directed Restless", 
+  "Intercept Two-Armed", "Value-Guided Two-Armed", "Directed Two-Armed", 
+  "Intercept Horizon", "Value-Guided Horizon", "Directed Horizon", "session"
+)
+colnames(tbl_bandits_2) <- colnames(tbl_bandits_1)
 
-pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 1")
-pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 2")
+is_ucb <- TRUE
+pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "", "", "Convergent Validity Exploration") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
+pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "", "", "Convergent Validity Exploration") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
 
 pl_convergent_ucb <- arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1)
-save_my_pdf_and_tiff(pl_convergent_ucb, str_c(my_dir, "/bandits-convergent-ucb"), 10.5, 5.75)
+save_my_pdf_and_tiff(pl_convergent_ucb, str_c(my_dir, "/bandits-convergent-ucb"), 15, 7.25)
+save_my_pdf_and_tiff(pl_cors_s1, str_c(my_dir, "/bandits-convergent-ucb-s1"), 9, 7.25)
 
 
 
@@ -215,20 +239,20 @@ pl_cors_wm_s1 <- my_corr_plot(
   cor(
     l_tbl_wm[[1]] %>% 
       select(-c(ID, session, OS_processing, SS_processing, prop_timeout_os_processing, prop_timeout_ss_processing, rt_os, rt_ss)) %>%
-      rename("OS" = "OS_recall", "SS" = "SS_recall", "WMU" = "WMU_recall")
-  ), "Measure 1", "Measure 2", "Session 1", type = "wm"
-)
+      rename("Operation Span" = "OS_recall", "Symmetry Span" = "SS_recall", "WM Updating" = "WMU_recall")
+  ), "", "", "Session 1", type = "wm"
+) + theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
 pl_cors_wm_s2 <- my_corr_plot(
   cor(
     l_tbl_wm[[2]] %>% 
       select(-c(ID, session, OS_processing, SS_processing, prop_timeout_os_processing, prop_timeout_ss_processing, rt_os, rt_ss)) %>% 
-      rename("OS" = "OS_recall", "SS" = "SS_recall", "WMU" = "WMU_recall")
-  ), "Measure 1", "Measure 2", "Session 2", type = "wm"
-)
+      rename("Operation Span" = "OS_recall", "Symmetry Span" = "SS_recall", "WM Updating" = "WMU_recall")
+  ), "", "", "Session 2", type = "wm"
+) + theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
 pl_wm_convergent <- arrangeGrob(pl_cors_wm_s1, pl_cors_wm_s2, nrow = 1)
 
 save_my_pdf_and_tiff(
-  pl_wm_convergent, str_c(my_dir, "/wm-convergent"), 6.5, 3.5
+  pl_wm_convergent, str_c(my_dir, "/wm-convergent"), 7.5, 3.5
 )
 
 
