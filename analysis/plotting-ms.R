@@ -30,9 +30,36 @@ my_dir <- "figures/figures-ms/submission-1"
 
 ## restless bd ------------------------------------------------------------
 
+tbl_prep <- readRDS("data/restless-group-patterns-across-methods-data.RDS")
+pl_restless_group_patterns <- ggplot(tbl_prep, aes(name, value)) +
+  geom_col(aes(fill = name)) +
+  facet_wrap(Session ~ method) +
+  theme_bw() +
+  scale_y_continuous(expand = c(0.1, 0)) +
+  labs(x = "Parameter", y = "Group Mean") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) + 
+  scale_fill_brewer(palette = "Set2", name = "")
 
-pl_restless_group_patterns <- readRDS("data/restless-group-patterns-across-methods.Rds")
-pl_restless_params_across_methods <- readRDS("data/restless-params-across-methods.RDS")
+tbl_ucb_ml_hcb <- readRDS("data/restless-params-across-methods-data.RDS")
+pl_params_across_methods <- ggplot(tbl_ucb_ml_hcb, aes(`Max. Lik.`, `Hierarch. Bayes`)) +
+  geom_abline() +
+  geom_point(aes(color = parameter)) +
+  geom_label(data = tbl_ucb_cor, aes(my_base + .5 * my_jitter, my_base - 2*my_jitter, label = str_c("r = ", round(value, 2)))) +
+  facet_wrap(Session ~ parameter, scales = "free") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.04, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) + 
+  scale_color_brewer(palette = "Set2", name = "")
+
 tbl_restless_reliability_across_methods <- readRDS("data/restless-reliabilities-across-methods.Rds")
 tbl_restless_reliability_across_methods <- tbl_restless_reliability_across_methods %>%
   mutate(Reliability = round(Reliability, 2))
@@ -40,7 +67,7 @@ tbl_restless_reliability_across_methods <- tbl_restless_reliability_across_metho
 table_rl_reliab <- tableGrob(tbl_restless_reliability_across_methods)
 pl_table_rl_reliab <- ggplot() + annotation_custom(table_rl_reliab)
 pl_arrive_restless_model <- arrangeGrob(
-  pl_restless_group_patterns, pl_restless_params_across_methods, pl_table_rl_reliab,
+  pl_restless_group_patterns, pl_params_across_methods, pl_table_rl_reliab,
   nrow = 1
 )
 
@@ -113,5 +140,170 @@ save_my_pdf_and_tiff(
   str_c(my_dir, "/restless-ucb-recovery"),
   5, 4
 )
+
+
+
+
+# 3. Reliability ----------------------------------------------------------
+
+tbl_reliability_bandits <- readRDS("analysis/bandits/reliabilities-hybrid.csv")
+pl_rel <- ggplot(tbl_rel_both %>% filter(parameter != "IC"), aes(value, fct_rev(parameter))) +
+  geom_vline(xintercept = .5, color = "red", linewidth = 2, alpha = .3) +
+  geom_vline(xintercept = .75, color = "lightgreen", linewidth = 2, alpha = .5) +
+  geom_vline(xintercept = .9, color = "darkgreen", linewidth = 2, alpha = .3) +
+  geom_point(aes(fill = measure), shape = 23, size = 3, color = "black") +
+  facet_wrap(~ task) +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(x = "Test-Retest Reliability", y = "Measure") + 
+  theme_bw() +
+  scale_x_continuous(expand = c(0.025, 0)) +
+  scale_y_discrete(expand = c(0.025, 0)) +
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 90, vjust = .05)
+  ) + 
+  scale_fill_brewer(palette = "Set2", name = "")
+
+save_my_pdf_and_tiff(
+  pl_rel,
+  str_c(my_dir, "/reliability-bandits"),
+  10, 5
+)
+
+
+
+
+# 4. Convergent Validity --------------------------------------------------
+
+tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-hybrid.RDS")
+tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-hybrid.RDS")
+
+pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 1")
+pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 2")
+
+pl_convergent_hybrid <- arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1)
+save_my_pdf_and_tiff(pl_convergent_hybrid, str_c(my_dir, "/bandits-convergent-hybrid"), 10.5, 5.75)
+
+
+tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-ucb.RDS")
+tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-ucb.RDS")
+
+pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 1")
+pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 2")
+
+pl_convergent_ucb <- arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1)
+save_my_pdf_and_tiff(pl_convergent_ucb, str_c(my_dir, "/bandits-convergent-ucb"), 10.5, 5.75)
+
+
+
+l_tbl_wm <- readRDS("analysis/wm/wm-measures.RDS")
+pl_cors_wm_s1 <- my_corr_plot(
+  cor(
+    l_tbl_wm[[1]] %>% 
+      select(-c(ID, session, OS_processing, SS_processing, prop_timeout_os_processing, prop_timeout_ss_processing, rt_os, rt_ss)) %>%
+      rename("OS" = "OS_recall", "SS" = "SS_recall", "WMU" = "WMU_recall")
+  ), "Measure 1", "Measure 2", "Session 1", type = "wm"
+)
+pl_cors_wm_s2 <- my_corr_plot(
+  cor(
+    l_tbl_wm[[2]] %>% 
+      select(-c(ID, session, OS_processing, SS_processing, prop_timeout_os_processing, prop_timeout_ss_processing, rt_os, rt_ss)) %>% 
+      rename("OS" = "OS_recall", "SS" = "SS_recall", "WMU" = "WMU_recall")
+  ), "Measure 1", "Measure 2", "Session 2", type = "wm"
+)
+pl_wm_convergent <- arrangeGrob(pl_cors_wm_s1, pl_cors_wm_s2, nrow = 1)
+
+save_my_pdf_and_tiff(
+  pl_wm_convergent, str_c(my_dir, "/wm-convergent"), 6.5, 3.5
+)
+
+
+
+# 6. Variable Correlations ---------------------------------------------------
+
+
+# horizon
+tbl_cor_trial_horizon1 <- readRDS("analysis/bandits/var-cors-horizon.rds")
+pl_cors_horizon <- ggplot(tbl_cor_trial_horizon1, aes(trial, value, group = name)) +
+  geom_line(aes(color = name)) +
+  geom_point(color = "white", size = 4) +
+  geom_point(aes(color = name)) +
+  geom_label(data = tbl_cor_avg_horizon1, aes(
+    7.5, .25 * as.numeric(as.factor(name)), 
+    label = str_c("avg. r = ", round(value, 2)
+    ), color = as.factor(name))) +
+  facet_wrap( ~ Horizon) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.03, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Trial ID", y = "Correlation") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) + 
+  scale_color_brewer(palette = "Set2", name = "")
+
+
+# 2 armed bd
+tbl_cor_trial_sam1 <- readRDS("analysis/bandits/var-cors-2armed.rds")
+pl_cors_2armed <- ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
+  geom_line(aes(color = name)) +
+  geom_point(color = "white", size = 4) +
+  geom_point(aes(color = name)) +
+  geom_label(data = tbl_cor_avg_sam1, aes(6, (.25 * as.numeric(as.factor(name))) - .2, label = str_c("avg. r = ", round(value, 2)), color = as.factor(name))) +
+  facet_wrap(~ cond) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.03, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Trial ID", y = "Correlation") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) + 
+  scale_color_brewer(palette = "Set2", name = "") 
+
+
+
+# restless
+tbl_restless_cor <- readRDS("analysis/bandits/var-cors-restless.rds")
+change_labels <- function(tbl_df, cn) {
+  tbl_df %>%
+    mutate(
+      "{{cn}}" := str_replace({{cn}}, "v_", "RU "),
+      "{{cn}}" := str_replace({{cn}}, "m_", "V "),
+      "{{cn}}" := str_replace({{cn}}, "th_", "VTU "),
+      "{{cn}}" := str_replace({{cn}}, "_", " ")
+    )
+}
+tbl_restless_cor <- change_labels(tbl_restless_cor, var_in)
+tbl_restless_cor <- change_labels(tbl_restless_cor, var_out)
+
+pl_cors_restless <- ggplot(tbl_restless_cor, aes(var_in, var_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_label(aes(label = round(value, 2), label.size = .2)) +
+  theme_bw() +
+  scale_x_discrete(expand = c(0.01, 0)) +
+  scale_y_discrete(expand = c(0.01, 0)) +
+  labs(x = "Variable In", y = "Variable Out") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 90)
+  ) + 
+  scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white") +
+  guides(fill = "none")
+
+pl_cors_all <- arrangeGrob(pl_cors_horizon, pl_cors_2armed, pl_cors_restless, layout_matrix = matrix(c(1, 2, 3, 3), nrow = 2, ncol = 2), nrow = 2, heights = c(.6, 1))
+save_my_pdf_and_tiff(pl_cors_all, str_c(my_dir, "/variable-correlations"), 18, 10)
+
+
+
+
+
 
 

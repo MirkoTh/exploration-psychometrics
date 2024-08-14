@@ -110,6 +110,8 @@ tbl_jitter <- tbl_ucb_plot %>%
 tbl_ucb_cor <- tbl_ucb_cor %>%
   left_join(tbl_jitter, by = c("parameter", "Session"))
 
+
+saveRDS(tbl_ucb_plot %>% pivot_wider(names_from = method, values_from = value), "data/restless-params-across-methods-data.RDS")
 pl_params_across_methods <- tbl_ucb_plot %>% pivot_wider(names_from = method, values_from = value) %>%
   ggplot(aes(`Max. Lik.`, `Hierarch. Bayes`)) +
   geom_abline() +
@@ -187,6 +189,8 @@ tbl_ml_prep <- tbl_ucb_compare %>% group_by(Session) %>% summarize(RU = mean(RU_
 tbl_ml_prep$Session <- factor(tbl_ml_prep$Session, labels = c("Session 1", "Session 2"))
 tbl_prep <- rbind(tbl_hc_prep, tbl_ml_prep)
 tbl_prep$method <- factor(tbl_prep$method, levels = c("Max. Lik.", "Hierarch. Bayes"), ordered = TRUE)
+
+saveRDS(tbl_prep %>% pivot_longer(c(RU, V)), "data/restless-group-patterns-across-methods-data.RDS")
 
 pl_group_pattern <- ggplot(tbl_prep %>% pivot_longer(c(RU, V)), aes(name, value)) +
   geom_col(aes(color = name), fill = "white") +
