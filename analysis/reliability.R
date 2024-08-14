@@ -334,6 +334,32 @@ ggpubr::ggarrange(p1,p2,p3,p4, ncol = 2, nrow = 2, labels = "AUTO", common.legen
 
 ################ reliability of model parameters #############
 
+params <- read.csv("analysis/bandits/AllModelParameters.csv")
+
+params <- params %>% 
+  subset(!grepl("ntercept", predictor), -c(X))
+
+restparams <- readRDS("analysis/bandits/4arlb-maps-hierarchical.RDS")
+restparams <- restparams %>% 
+  pivot_longer(cols = -ID, values_to = "estimate", names_to = "predictor")
+
+restparams$session <- parse_number(restparams$predictor)
+restparams$horizon <- NA
+restparams$task <- "restless"
+restparams <- restparams %>% 
+  mutate(predictor = ifelse(grepl("ru", predictor), "RU", "V"))
+
+params <- list(params, restparams) %>% 
+  bind_rows() %>% 
+  pivot_wider(names_from = "session", values_from = "estimate", id_cols = c("ID", "task", "predictor", "horizon"))
+
+cors <- params %>% group_by(task, predictor, horizon) %>% 
+  summarise(cor = cor(`1`, `2`, use = "pairwise.complete.obs"))
+
+cors
+
+save(cors, file = "analysis/bandits/reliability_parameters.Rda")
+
 ################ Horizon
 
 load("analysis/bandits/modellingResults/fitHorizonSession1UCBfullno_horizon.Rda") 
@@ -612,6 +638,33 @@ save(rel_collect, file ="analysis/reliabilityResults/reliability_tasks_Horizonfu
 
 
 ggpubr::ggarrange(p1, p2, ncol = 2)
+
+
+
+########### convergent validity ############
+
+params <- read.csv("analysis/bandits/AllModelParameters.csv") %>% 
+  mutate(predictor = recode(predictor, "delta_mean" = "V", "info" = "RU"),
+         horizon = ifelse(is.na(horizon), "long", horizon)) %>% 
+  subset(horizon == "long" & !grepl("ntercept", predictor) & session == 1, -c(horizon, X, session))
+  
+
+restparams <- readRDS("analysis/bandits/4arlb-maps-hierarchical.RDS")
+restparams <- restparams %>% 
+  pivot_longer(cols = -ID, values_to = "estimate", names_to = "predictor")
+
+restparams$session <- parse_number(restparams$predictor)
+restparams$task <- "restless"
+restparams <- restparams %>% 
+  mutate(predictor = ifelse(grepl("ru", predictor), "RU", "V")) %>% 
+  subset(session == 1, -session)
+
+params <- list(params, restparams) %>% 
+  bind_rows()
+
+s
+
+
 
 
 

@@ -7,8 +7,7 @@ library(ggplot2)
 library(brms)
 library(ggridges)
 theme_set(theme_classic(base_size = 14))
-
-setwd("/Users/kristinwitte/Documents/GitHub/exploration-psychometrics")
+library(here)
 
 session <- 1
 
@@ -83,7 +82,7 @@ avg <- ddply(responses, ~ID+measure, summarise, score = mean(response))
 avg <- avg[order(avg$ID), ]
 
 
-
+save(avg, file = sprintf("analysis/qdat_session%i.Rda", session))
 
 
 
@@ -262,11 +261,8 @@ Sperf <- ddply(sam, ~ID, summarise, Poptimal = meann(optimal))
 restless$optimal <- ifelse(restless$regret == 0, 1, 0)
 Rperf <- ddply(restless, ~ID, summarise, Poptimal = meann(optimal))
 
-Hperf$model <- "horizon"
-Sperf$model <- "sam"
-Rperf$model <- "restless"
-
-Poptimal <- rbind(Hperf, Sperf, Rperf)
+Poptimal <- list("horizon" = Hperf, "2AB" = Sperf, "restless" = Rperf) %>% 
+  bind_rows(.id = "model")
 
 ######### prep P(switch) ##########
 
@@ -287,11 +283,11 @@ Hswitch <- ddply(horizon[horizon$trial > 4, ],~ID,summarise, Pswitch = meann(swi
 Sswitch <- ddply(sam, ~ID,summarise, Pswitch = meann(switch))
 Rswitch <- ddply(restless, ~ID, summarise, Pswitch = meann(switch))
 
-Hswitch$model <- "horizon"
-Sswitch$model <- "sam"
-Rswitch$model <- "restless"
+switch <- list("horizon" = Hswitch, "2AB" = Sswitch, "restless" = Rswitch) %>% 
+  bind_rows(.id = "model")
 
-switch <- rbind(Hswitch, Sswitch, Rswitch)
+
+save(Poptimal, switch, file = sprintf("analysis/bandits/optimal_switch_session%i.Rda", session))
 
 ########## get to comparing #########
 
@@ -914,3 +910,60 @@ for (dv in c("horizon_RU_Horizon", "sam_RU", "restless_beta")){
     
   }
 }
+
+
+###################### final correlation matrix #########################
+s <- session
+params <- readRDS("analysis/bandits/allParams.rds") %>% 
+  mutate(horizon = ifelse(is.na(horizon), "long", horizon),
+         task = recode(task,"sam" = "2AB"),
+         predictor = paste(task, predictor, sep = "_")) %>% 
+  subset(horizon == "long" & !grepl("ntercept", predictor) & session == s,
+         select = c("ID", "predictor", "estimate"))
+
+load(sprintf("analysis/bandits/optimal_switch_session%i.Rda", session))
+load(sprintf("analysis/qdat_session%i.Rda", session))
+
+Poptimal <- Poptimal %>% 
+  rename(estimate = Poptimal) %>% 
+  mutate(predictor = paste(model, "Poptimal", sep = "_")) %>% 
+  subset(select = c("ID", "predictor", "estimate"))
+  
+switch <- switch %>% 
+  rename(estimate = Pswitch) %>% 
+  mutate(predictor = paste(model, "Pswitch", sep = "_")) %>% 
+  subset(select = c(ID, predictor, estimate))
+
+avg <- avg %>% 
+  rename(estimate = score,
+         predictor = measure)
+
+wm <- read.csv("data/wm-performance.csv") %>% 
+  pivot_longer(cols = -c("participant_id"), names_to = "predictor", values_to = "estimate") %>% 
+  mutate(session = parse_number(predictor)+1,
+         ID = as.numeric(as.character(participant_id))) %>% 
+  subset(grepl("recall", predictor) & session == s)
+
+all <- list(params, Poptimal, switch, wm, avg) %>% 
+  bind_rows() %>% 
+  pivot_wider(id_cols = "ID", names_from = "predictor", values_from = "estimate")
+
+
+cors <- all %>% 
+  subset(select = -ID) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  as.data.frame()
+
+selected_columns <- colnames(cors) %>%
+  str_subset("^(?!.*(2AB|restless|horizon)).*$")
+
+# Select rows that contain "2AB", "restless", or "horizon"
+selected_rows <- rownames(cors) %>%
+  str_subset("2AB|restless|horizon")
+
+# Filter the correlation matrix
+cors <- cors[selected_rows, selected_columns]
+
+save(cors, file = "analysis/external_validity_cors.Rda")
+
+
