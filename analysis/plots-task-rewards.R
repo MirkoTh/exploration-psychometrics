@@ -45,6 +45,8 @@ pl_horizon_equal <- ggplot(tbl_horizon, aes(trial_id, val, group = arm)) +
   geom_point(color = "white", size = 3) +
   geom_point(aes(color = arm)) +
   geom_point(data = tbl_choices_equal, aes(trial_id, val, color = arm, shape = Choice), size = 5) +
+  geom_vline(xintercept = 5.5) +
+  geom_label(aes(x = 2.75, y = 67, label = "Short Horizon")) +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0), breaks = seq(1, 9, by = 2)) +
   scale_y_continuous(expand = c(0.01, 0)) +
