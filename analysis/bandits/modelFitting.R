@@ -11,77 +11,14 @@ here()
 
 session <- 1
 
-load(here("analysis", "bandits", sprintf("banditsWave%i.Rda", session)))
-
-
 source("analysis/recovery_utils.R")
 
 se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
 
-if (!is.element("KLM0", colnames(sam))) {
-  sam <- get_KL_into_df(sam) 
-  
-  save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
-}
-
-if (!is.element("bayMeanL", colnames(horizon))) {
-  horizon$bayMeanL <- NA
-  horizon$bayMeanR <- NA
-  horizon$bayVarL <- NA
-  horizon$bayVarR <- NA
-  horizon$row <- 1:nrow(horizon)
-  
-  for (i in horizon$row[horizon$trial == 5]){
-    horizon[horizon$row == i, grep("bay", colnames(horizon))] <- bayIncrAtOnce(i, horizon)
-  }
-  
-  horizon$V <- scale(getV(horizon$bayMeanL, horizon$bayMeanR))
-  horizon$RU <- scale(getRU(horizon$bayVarL, horizon$bayVarR))
-  
-  
-  save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
-  
-  
-}
-
-if (!is.element("delta_mean", colnames(horizon))){
-  horizon$mean_L <- NA
-  horizon$mean_R <- NA
-  
-  horizon$row <- 1:nrow(horizon)
-  horizon$mean_L[horizon$trial == 5] <- apply(as.array(horizon$row[horizon$trial == 5]), 1, function(x) meann(horizon$reward[horizon$ID == horizon$ID[x]&
-                                                                                                                horizon$block == horizon$block[x] &
-                                                                                                                horizon$chosen == 0 & 
-                                                                                                                horizon$trial < 5]))
-  horizon$mean_R[horizon$trial == 5] <- apply(as.array(horizon$row[horizon$trial == 5]), 1, function(x) meann(horizon$reward[horizon$ID == horizon$ID[x]&
-                                                                                                                horizon$block == horizon$block[x] &
-                                                                                                                horizon$chosen == 1& 
-                                                                                                                horizon$trial < 5]))
-  ## calculate deltas
-  horizon$delta_mean <- scale(horizon$mean_L - horizon$mean_R)
-  
-  save(horizon, sam, restless, file = paste("analysis/bandits/banditsWave", session, ".Rda", sep = ""))
-}
-
-
-
-### remove the person that has no data
-
-horizon <- subset(horizon,!is.na(info))
-sam <- subset(sam, !is.na(chosen))
-
-
 
 ############### Horizon task ############
-
-unique(horizon$Horizon)
-unique(horizon$info)
-
-horizon$Horizon <- ifelse(horizon$Horizon == 5, -0.5, 0.5)
-horizon$info <- horizon$info/2
-
-
+horizon <- load_and_prep_bandit_data(session)$horizon
 
 
 ###### Hierachical Bayesian Implementation of Standard Wilson model 
@@ -248,8 +185,82 @@ refit <- brm(chosen ~ V + RU + (V + RU | ID),
              iter = 6000)
 
 refit
-################# Sam's task ########
 
+
+################### same question for the Wilson model
+
+fit <- brm(chosen ~ delta_mean,
+           data = horizon[horizon$Horizon == 0.5, ],
+           family = "bernoulli",
+           chains = 2,
+           cores = 2,
+           iter = 6000)
+
+simdat <- subset(horizon, Horizon == 0.5 & trial == 5, -chosen)
+
+simdat$chosen <- predict(fit)[ ,1]
+
+hist(simdat$chosen)
+
+simdat$chosen <- ifelse(runif(nrow(simdat), 0, 1) > simdat$chosen, 0, 1)
+
+
+refit <- brm(chosen ~ delta_mean + info,
+             data = simdat,
+             family = "bernoulli",
+             chains = 2,
+             cores = 2,
+             iter = 6000)
+
+fit
+
+refit
+############ Zaller et al
+
+zaller <- read.csv("/Users/kristinwitte/Library/CloudStorage/OneDrive-Personal/CPI/ExplorationReview/PrelimReliabilities/ZallerEtAl/data.csv")
+
+zaller <- zaller %>% 
+  rename(chosen = Choice,
+         ID = Subject,
+         block = Block,
+         trial = Trial,
+         info = Info,
+         reward = Outcome) %>% 
+  mutate(Horizon = recode(Horizon, `5` = -0.5, `10` = 0.5),
+         info = info/2)
+
+zaller$row <- 1:nrow(zaller)
+zaller$mean_L[zaller$trial == 5] <- apply(as.array(zaller$row[zaller$trial == 5]), 1, function(x) meann(zaller$reward[zaller$ID == zaller$ID[x]&
+                                                                                                                        zaller$block == zaller$block[x] &
+                                                                                                                        zaller$chosen == 0 & 
+                                                                                                                        zaller$trial < 5]))
+zaller$mean_R[zaller$trial == 5] <- apply(as.array(zaller$row[zaller$trial == 5]), 1, function(x) meann(zaller$reward[zaller$ID == zaller$ID[x]&
+                                                                                                                        zaller$block == zaller$block[x] &
+                                                                                                                        zaller$chosen == 1& 
+                                                                                                                        zaller$trial < 5]))
+
+zaller$delta_mean <- zaller$mean_L - zaller$mean_R
+
+
+zaller$session <- 1
+
+out_5 <- recovery_horizon(zaller[zaller$Horizon == -0.5, ],
+                        model = "Wilson",
+                        it = 8000,
+                        no_horizon = T,
+                        save = F)
+
+out_5
+out_10 <- recovery_horizon(zaller[zaller$Horizon == 0.5, ],
+                          model = "Wilson",
+                          it = 8000,
+                          no_horizon = T,
+                          save = F)
+
+out_10
+#
+################# Sam's task ########
+sam <- load_and_prep_bandit_data(session)$sam
 
 res_list1 <- recovery_sam(sam, "hybrid", hierarchical = T, it = 8000, no_intercept = F, save = T, use_saved = T, iterative = F)
 res_list1
@@ -408,77 +419,121 @@ p3
 
 
 #################### making a csv with all model parameters ###############
+## Sam 
 
-
-load("analysis/bandits/banditsWave1.Rda")
-
-allParams <- data.frame(ID = unique(c(horizon$ID, sam$ID, restless$ID)))
-
-fixedEffects <- data.frame(task = rep(rep(c("horizon_5", "horizon_10", "sam"), each = 2), 2),
-                           param = rep(c("RU", "V"), 3*2),
-                           session = rep(c(1,2), each = 2*3),
-                           estim = NA,
-                           lower = NA,
-                           upper = NA)
-
-
-for (s in c(1,2)){
+params <- list()
+fixed <- list()
+for (s in 1:2){
   
-  for(task in c("sam", "horizon")){
-    
-    if (task == "horizon"){
-      for (h in c(5,10)){
-        
-        load(sprintf("analysis/bandits/modellingResults/fitHorizonSession%iUCB_full_horizon%ionly.Rda", s, h))
-        
-        trueParams$ID <- readr::parse_number(rownames(trueParams))
-        
-        trueParams <- subset(trueParams, is.element(trueParams$ID, allParams$ID))
-        allParams[ ,paste(task, "ucb_V", h,s, sep = "_")] <- NA
-        allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_V", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "V"]
-        allParams[ ,paste(task, "ucb_RU", h,s, sep = "_")] <- NA
-        allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_RU", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "RU"]
-        allParams[ ,paste(task, "ucb_Intercept", h,s, sep = "_")] <- NA
-        allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_Intercept", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "Intercept"]
-        
-        ## get fixed effects
-        fixed <- summary(baymodel)$fixed
-        fixedEffects$estim[fixedEffects$task == paste0("horizon_", h) & fixedEffects$session == s] <- fixed$Estimate[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
-        fixedEffects$lower[fixedEffects$task == paste0("horizon_", h)& fixedEffects$session == s] <- fixed$`l-95% CI`[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
-        fixedEffects$upper[fixedEffects$task == paste0("horizon_", h)& fixedEffects$session == s] <- fixed$`u-95% CI`[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
-      }
-    }
-    else if (task == "sam"){
-      
-      load(sprintf("analysis/bandits/modellingResults/fitSamSession%iUCB_hierarchical.Rda", s))
-      
-      trueParams$ID <- readr::parse_number(rownames(trueParams))
-      
-      trueParams <- subset(trueParams, is.element(trueParams$ID, allParams$ID))
-      allParams[ ,paste(task, "ucb_V", h,s, sep = "_")] <- NA
-      allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_V", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "V"]
-      allParams[ ,paste(task, "ucb_RU", h,s, sep = "_")] <- NA
-      allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_RU", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "RU"]
-      allParams[ ,paste(task, "ucb_Intercept", h,s, sep = "_")] <- NA
-      allParams[match(trueParams$ID, allParams$ID),paste(task, "ucb_Intercept", h,s, sep = "_")] <- trueParams$estimate[trueParams$predictor == "Intercept"]
-     
-      
-      ## get fixed effects
-      fixed <- summary(trueModel)$fixed
-      fixedEffects$estim[fixedEffects$task == "sam"& fixedEffects$session == s] <- fixed$Estimate[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
-      fixedEffects$lower[fixedEffects$task == "sam"& fixedEffects$session == s] <- fixed$`l-95% CI`[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
-      fixedEffects$upper[fixedEffects$task == "sam"& fixedEffects$session == s] <- fixed$`u-95% CI`[c(grep("RU", rownames(fixed)), grep("V", rownames(fixed)))]
-       
-    }
-    
-  }
+  data <- load_and_prep_bandit_data(s)$sam
+  out <- fit_model_sam(data, model = "hybrid", hierarchical = T, use_saved = T)
+  
+  # inspect the model to ensure everything is nicely converged and stuff
+  
+  print(out[[1]])
+  params[[s]] <- out[[2]]
+  fixed[[s]] <- as.data.frame(summary(out[[1]])$fixed)
+  
   
 }
 
+sam_params <- params %>% bind_rows(.id = "session") %>% 
+  mutate(estimate = -1*estimate) # already flipped to be larger number more seeking
+sam_fixed <- fixed %>% bind_rows(.id = "session") %>% 
+  mutate(Estimate = -1*Estimate, 
+         low = -1*`u-95% CI`, 
+         `u-95% CI` = -1*`l-95% CI`,
+         `l-95% CI`= low) %>% 
+  subset(select = -low)# when recoding this here we have to flip upper and lower CI, need temporary variable to avoid recoded versions influencing each other
 
-write.csv(allParams,"analysis/bandits/AllModelParameters.csv")
-write.csv(fixedEffects, "analysis/bandits/AllFixedEffects.csv")
 
+## Horizon
+params <- list()
+fixed <- list()
+
+for (s in 1:2){
+  
+  p <- list()
+  f <- list()
+  for (h in c(-0.5, 0.5)){
+    
+    data <- load_and_prep_bandit_data(s)$horizon
+    out <- fit_model_horizon(data[data$Horizon == h, ], model = "Wilson", bayesian = T, full = T, no_horizon = T, use_saved = T)
+    
+    # inspect the model to ensure everything is nicely converged and stuff
+    
+    print(out[[1]])
+    p <- append(p, list(out[[2]]))
+    f <- append(f,list(as.data.frame(summary(out[[1]])$fixed)))
+    
+  }
+  params[[s]] <- p %>% bind_rows(.id = "horizon") %>% 
+    mutate(horizon = recode(horizon, `1` = "short", `2` = "long"))
+  
+  fixed[[s]] <- f %>% bind_rows(.id = "horizon") %>% 
+    mutate(horizon = recode(horizon, `1` = "short", `2` = "long"))
+}
+
+horizon_params <- params %>% bind_rows(.id = "session") %>% 
+  mutate(estimate = if_else(predictor == "delta_mean", -1 * estimate, estimate)) # here we recode only for reward
+horizon_fixed <- fixed %>% bind_rows(.id = "session")
+horizon_fixed$row_names <- rownames(horizon_fixed)
+horizon_fixed <- horizon_fixed %>%
+  mutate(Estimate = if_else(str_detect(row_names, "delta_mean"), -1 * Estimate, Estimate),
+         low = if_else(str_detect(row_names, "delta_mean"), -1 * `u-95% CI`, `l-95% CI`), # this evaluates one after the other so need intermediate variable to avoid one row influencing the next
+         `u-95% CI` = if_else(str_detect(row_names, "delta_mean"), -1 * `l-95% CI`, `u-95% CI`),
+         `l-95% CI` = low) %>% 
+  subset(select = -c(row_names, low))
+
+## combine
+params <- list(sam = sam_params, horizon = horizon_params) %>% 
+  bind_rows(.id = "task")%>% 
+  subset(select = c("predictor", "estimate", "horizon", "task", "session"))
+params$ID <- parse_number(rownames(params)) 
+
+fixed <- list(sam = sam_fixed, horizon = horizon_fixed) %>% 
+  bind_rows(.id = "task")
+split_vec <- strsplit(rownames(fixed), "\\...")
+# Extract the part before '...' which is the first element after split
+fixed$predictor <- sapply(split_vec, '[', 1)
+
+### restless
+
+restless <- readRDS("analysis/bandits/4arlb-maps-hierarchical.RDS")
+
+rest_params <- restless %>% 
+  pivot_longer(cols = -ID, values_to = "estimate", names_to = "predictor") %>% 
+  mutate(session = as.character(parse_number(predictor)),
+         predictor = ifelse(grepl("ru", predictor), "RU", "V"),
+         horizon = NA,
+         task = "restless")
+
+rest_fixed <- rest_params %>% 
+  group_by(predictor, session, task, horizon) %>% 
+  summarise(Estimate = mean(estimate),
+            `Est.Error` = se(estimate),
+            `l-95% CI` = mean(estimate) - 1.96*se(estimate),
+            `u-95% CI` = mean(estimate) + 1.96*se(estimate)) %>% 
+  mutate(Rhat = NA,
+         Bulk_ESS = NA,
+         Tail_ESS = NA)
+
+## combine all
+
+fixed <- list(fixed, rest_fixed) %>% 
+  bind_rows()
+
+
+params <- list(params, rest_params) %>% 
+  bind_rows()
+
+
+## save
+write.csv(params,"analysis/bandits/AllModelParameters.csv")
+write.csv(fixed, "analysis/bandits/AllFixedEffects.csv")
+
+saveRDS(params, file ="analysis/bandits/allParams.rds")
+saveRDS(fixed, fil = "analysis/bandits/allFixed.rds")
 
 #################### correlations among VTU, V, RU across trials in our data vs Fan et al ##########
 our_cor <- plyr::ddply(sam[sam$trial > 1, ], ~trial, summarise, V_VTU = cor(V, VTU), V_RU = cor(V, RU), VTU_RU = cor(VTU, RU))
