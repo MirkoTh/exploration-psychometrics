@@ -110,8 +110,10 @@ tbl_jitter <- tbl_ucb_plot %>%
 tbl_ucb_cor <- tbl_ucb_cor %>%
   left_join(tbl_jitter, by = c("parameter", "Session"))
 
-
+saveRDS(tbl_ucb_cor, "data/restless-params-across-methods-cor-data.RDS")
 saveRDS(tbl_ucb_plot %>% pivot_wider(names_from = method, values_from = value), "data/restless-params-across-methods-data.RDS")
+
+
 pl_params_across_methods <- tbl_ucb_plot %>% pivot_wider(names_from = method, values_from = value) %>%
   ggplot(aes(`Max. Lik.`, `Hierarch. Bayes`)) +
   geom_abline() +
@@ -151,7 +153,7 @@ table_reliabilities <- grid.table(
   tbl_reliabilities %>% 
     mutate(Reliability = round(Reliability, 2)),
   rows = rep("  ", 4)
-  )
+)
 saveRDS(tbl_reliabilities, "data/restless-reliabilities-across-methods.Rds")
 
 
@@ -179,18 +181,82 @@ hdi_etc <- function(tbl_draws, names_orig) {
   )
 }
 
+by_participant_maps <- function(tbl_draws, f_time, pars_interest) {
+  tbl_draws %>% select(starts_with(pars_interest)) %>%
+    mutate(n_sample = 1:nrow(.)) %>%
+    pivot_longer(-n_sample) %>%
+    mutate(
+      ID = as.integer(str_extract(name, "[0-9]+")),
+      parameter = str_extract(name, "^[a-z]*")
+    ) %>%
+    group_by(ID, parameter) %>%
+    summarize(map = mean(value)) %>%
+    ungroup() %>%
+    mutate(fit_time = f_time)
+}
+
+tbl_maps <- by_participant_maps(tbl_draws_hc_s1, "Session 1", c("beta", "tau")) %>%
+  rbind(
+    by_participant_maps(tbl_draws_hc_s2, "Session 2", c("beta", "tau"))
+  )
+
 tbl_hc_prep <- tbl_draws_hc_s1 %>% select(c(mu_beta, mu_tau)) %>% summarize(RU = mean(mu_beta), V = mean(mu_tau)) %>%
   mutate(Session = "Session 1", method = "Hierarch. Bayes") %>%
   rbind(
     tbl_draws_hc_s2 %>% select(c(mu_beta, mu_tau)) %>% summarize(RU = mean(mu_beta), V = mean(mu_tau)) %>%
       mutate(Session = "Session 2", method = "Hierarch. Bayes")
   )
+
+tbl_ml_prep <- summary_se_within(tbl_ucb_compare, "RU_ml", withinvars = "Session") %>%
+  select(-c(N, RU_ml_norm, sd, se)) %>%
+  rename(RU_ci = ci) %>%
+  left_join(
+    summary_se_within(tbl_ucb_compare, "V_ml", withinvars = "Session") %>%
+      select(-c(N, V_ml_norm, sd, se)) %>%
+      rename(V_ci = ci),
+    by = "Session"
+  ) %>% rename(RU = RU_ml, V = V_ml)
+
+
+
 tbl_ml_prep <- tbl_ucb_compare %>% group_by(Session) %>% summarize(RU = mean(RU_ml), V = mean(V_ml)) %>% mutate(method = "Max. Lik.")
 tbl_ml_prep$Session <- factor(tbl_ml_prep$Session, labels = c("Session 1", "Session 2"))
 tbl_prep <- rbind(tbl_hc_prep, tbl_ml_prep)
 tbl_prep$method <- factor(tbl_prep$method, levels = c("Max. Lik.", "Hierarch. Bayes"), ordered = TRUE)
 
 saveRDS(tbl_prep %>% pivot_longer(c(RU, V)), "data/restless-group-patterns-across-methods-data.RDS")
+
+
+tbl_prep_individual <- summary_se_within(tbl_ucb_compare, "RU_ml", withinvars = "Session") %>%
+  select(-c(N, RU_ml_norm, sd, se)) %>%
+  rename(RU_ci = ci, RU = RU_ml) %>%
+  left_join(
+    summary_se_within(tbl_ucb_compare, "V_ml", withinvars = "Session") %>%
+      select(-c(N, V_ml_norm, sd, se)) %>%
+      rename(V = V_ml, V_ci = ci),
+    by = "Session"
+  ) %>% mutate(method = "Max. Lik.") %>%
+  rbind(
+    summary_se_within(tbl_ucb_compare, "RU_hcb", withinvars = "Session") %>%
+      select(-c(N, RU_hcb_norm, sd, se)) %>%
+      rename(RU_ci = ci, RU = RU_hcb) %>%
+      left_join(
+        summary_se_within(tbl_ucb_compare, "V_hcb", withinvars = "Session") %>%
+          select(-c(N, V_hcb_norm, sd, se)) %>%
+          rename(V_ci = ci, V = V_hcb),
+        by = "Session"
+      ) %>%
+      mutate(method = "Hierarch. Bayes")
+  )
+
+tbl_prep_individual <- tbl_prep_individual %>% select(-c(RU_ci, V_ci)) %>% pivot_longer(c(RU, V), names_to = "parameter", values_to = "mn") %>%
+  left_join(
+    tbl_prep_individual %>% select(-c(RU, V)) %>% pivot_longer(c(RU_ci, V_ci), names_to = "parameter", values_to = "ci") %>% mutate(parameter = str_extract(parameter, "^[A-Z]+")),
+    by = c("Session", "method", "parameter")
+  )
+
+saveRDS(tbl_prep_individual, "data/restless-group-patterns-across-methods-data-individual.RDS")
+
 
 pl_group_pattern <- ggplot(tbl_prep %>% pivot_longer(c(RU, V)), aes(name, value)) +
   geom_col(aes(color = name), fill = "white") +

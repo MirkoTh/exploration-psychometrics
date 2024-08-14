@@ -30,9 +30,12 @@ my_dir <- "figures/figures-ms/submission-1"
 
 ## restless bd ------------------------------------------------------------
 
-tbl_prep <- readRDS("data/restless-group-patterns-across-methods-data.RDS")
-pl_restless_group_patterns <- ggplot(tbl_prep, aes(name, value)) +
+tbl_prep <- readRDS("data/restless-group-patterns-across-methods-data-individual.RDS")
+tbl_prep$name <- factor(tbl_prep$parameter, labels = c("Directed", "Value-Guided"))
+pl_restless_group_patterns <- ggplot(tbl_prep, aes(name, mn)) +
   geom_col(aes(fill = name)) +
+  geom_point(color = "black") +
+  geom_errorbar(aes(ymin = mn - ci, ymax = mn + ci), width = .2) +
   facet_wrap(Session ~ method) +
   theme_bw() +
   scale_y_continuous(expand = c(0.1, 0)) +
@@ -40,11 +43,17 @@ pl_restless_group_patterns <- ggplot(tbl_prep, aes(name, value)) +
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
-    legend.position = "bottom"
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
   ) + 
   scale_fill_brewer(palette = "Set2", name = "")
 
 tbl_ucb_ml_hcb <- readRDS("data/restless-params-across-methods-data.RDS")
+tbl_ucb_cor <- readRDS("data/restless-params-across-methods-cor-data.RDS")
+tbl_ucb_ml_hcb$parameter <- factor(tbl_ucb_ml_hcb$parameter, labels = c("Directed", "Value-Guided"))
+tbl_ucb_cor$parameter <- factor(tbl_ucb_cor$parameter, labels = c("Directed", "Value-Guided"))
+
+
 pl_params_across_methods <- ggplot(tbl_ucb_ml_hcb, aes(`Max. Lik.`, `Hierarch. Bayes`)) +
   geom_abline() +
   geom_point(aes(color = parameter)) +
@@ -63,8 +72,11 @@ pl_params_across_methods <- ggplot(tbl_ucb_ml_hcb, aes(`Max. Lik.`, `Hierarch. B
 tbl_restless_reliability_across_methods <- readRDS("data/restless-reliabilities-across-methods.Rds")
 tbl_restless_reliability_across_methods <- tbl_restless_reliability_across_methods %>%
   mutate(Reliability = round(Reliability, 2))
+tbl_restless_reliability_across_methods$Parameter <- factor(tbl_restless_reliability_across_methods$Parameter, labels = c("Directed", "Value-Guided"))
+
 
 table_rl_reliab <- tableGrob(tbl_restless_reliability_across_methods)
+
 pl_table_rl_reliab <- ggplot() + annotation_custom(table_rl_reliab)
 pl_arrive_restless_model <- arrangeGrob(
   pl_restless_group_patterns, pl_params_across_methods, pl_table_rl_reliab,
@@ -133,7 +145,7 @@ tbl_draws_hc_s1 <- readRDS(file_loc_hc_s1)
 tbl_draws_hc_s1_recovery <- readRDS(file_loc_hc_s1_recovery)
 
 l_recovery_s1 <- map_cor(tbl_draws_hc_s1, tbl_draws_hc_s1_recovery, c("beta", "tau"))
-pl_heatmap_s1 <- recovery_heatmap(l_recovery_s1, "Restless Bandit", c("RU", "V"))
+pl_heatmap_s1 <- recovery_heatmap(l_recovery_s1, "Restless Bandit", c("Directed", "Value-Guided"))
 
 save_my_pdf_and_tiff(
   pl_heatmap_s1,
