@@ -422,7 +422,6 @@ p3
 ## Sam 
 
 params <- list()
-fixed <- list()
 for (s in 1:2){
   
   data <- load_and_prep_bandit_data(s)$sam
@@ -432,29 +431,25 @@ for (s in 1:2){
   
   print(out[[1]])
   params[[s]] <- out[[2]]
-  fixed[[s]] <- as.data.frame(summary(out[[1]])$fixed)
-  
   
 }
 
 sam_params <- params %>% bind_rows(.id = "session") %>% 
-  mutate(estimate = -1*estimate) # already flipped to be larger number more seeking
-sam_fixed <- fixed %>% bind_rows(.id = "session") %>% 
-  mutate(Estimate = -1*Estimate, 
-         low = -1*`u-95% CI`, 
-         `u-95% CI` = -1*`l-95% CI`,
-         `l-95% CI`= low) %>% 
-  subset(select = -low)# when recoding this here we have to flip upper and lower CI, need temporary variable to avoid recoded versions influencing each other
+  mutate(estimate = -1*estimate,
+         ID = parse_number(rownames(.))) # already flipped to be larger number more seeking
+# sam_fixed <- fixed %>% bind_rows(.id = "session") %>% 
+#   mutate(Estimate = -1*Estimate, 
+#          low = -1*`u-95% CI`, 
+#          `u-95% CI` = -1*`l-95% CI`,
+#          `l-95% CI`= low) %>% 
+#   subset(select = -low)# when recoding this here we have to flip upper and lower CI, need temporary variable to avoid recoded versions influencing each other
 
 
 ## Horizon
 params <- list()
-fixed <- list()
-
 for (s in 1:2){
   
   p <- list()
-  f <- list()
   for (h in c(-0.5, 0.5)){
     
     data <- load_and_prep_bandit_data(s)$horizon
@@ -464,38 +459,24 @@ for (s in 1:2){
     
     print(out[[1]])
     p <- append(p, list(out[[2]]))
-    f <- append(f,list(as.data.frame(summary(out[[1]])$fixed)))
     
   }
+
   params[[s]] <- p %>% bind_rows(.id = "horizon") %>% 
-    mutate(horizon = recode(horizon, `1` = "short", `2` = "long"))
+    mutate(horizon = recode(horizon, `1` = "short", `2` = "long"),
+           ID = parse_number(rownames(.))) %>% 
+    pivot_wider(id_cols = c("ID", "predictor"), names_from = "horizon", values_from = "estimate") %>% 
+    mutate(estimate = long - short) %>% 
+    subset(select = -c(long, short))
   
-  fixed[[s]] <- f %>% bind_rows(.id = "horizon") %>% 
-    mutate(horizon = recode(horizon, `1` = "short", `2` = "long"))
 }
 
-horizon_params <- params %>% bind_rows(.id = "session") %>% 
-  mutate(estimate = if_else(predictor == "delta_mean", -1 * estimate, estimate)) # here we recode only for reward
-horizon_fixed <- fixed %>% bind_rows(.id = "session")
-horizon_fixed$row_names <- rownames(horizon_fixed)
-horizon_fixed <- horizon_fixed %>%
-  mutate(Estimate = if_else(str_detect(row_names, "delta_mean"), -1 * Estimate, Estimate),
-         low = if_else(str_detect(row_names, "delta_mean"), -1 * `u-95% CI`, `l-95% CI`), # this evaluates one after the other so need intermediate variable to avoid one row influencing the next
-         `u-95% CI` = if_else(str_detect(row_names, "delta_mean"), -1 * `l-95% CI`, `u-95% CI`),
-         `l-95% CI` = low) %>% 
-  subset(select = -c(row_names, low))
+horizon_params <- params %>% bind_rows(.id = "session")
 
 ## combine
 params <- list(sam = sam_params, horizon = horizon_params) %>% 
   bind_rows(.id = "task")%>% 
-  subset(select = c("predictor", "estimate", "horizon", "task", "session"))
-params$ID <- parse_number(rownames(params)) 
-
-fixed <- list(sam = sam_fixed, horizon = horizon_fixed) %>% 
-  bind_rows(.id = "task")
-split_vec <- strsplit(rownames(fixed), "\\...")
-# Extract the part before '...' which is the first element after split
-fixed$predictor <- sapply(split_vec, '[', 1)
+  subset(select = c("predictor", "estimate", "task", "session","ID"))
 
 ### restless
 
@@ -505,27 +486,31 @@ rest_params <- restless %>%
   pivot_longer(cols = -ID, values_to = "estimate", names_to = "predictor") %>% 
   mutate(session = as.character(parse_number(predictor)),
          predictor = ifelse(grepl("ru", predictor), "RU", "V"),
-         horizon = NA,
          task = "restless")
-
-rest_fixed <- rest_params %>% 
-  group_by(predictor, session, task, horizon) %>% 
-  summarise(Estimate = mean(estimate),
-            `Est.Error` = se(estimate),
-            `l-95% CI` = mean(estimate) - 1.96*se(estimate),
-            `u-95% CI` = mean(estimate) + 1.96*se(estimate)) %>% 
-  mutate(Rhat = NA,
-         Bulk_ESS = NA,
-         Tail_ESS = NA)
 
 ## combine all
 
-fixed <- list(fixed, rest_fixed) %>% 
-  bind_rows()
-
-
 params <- list(params, rest_params) %>% 
   bind_rows()
+
+## calculate "fixed effects"
+fixed <- params %>% # first we need to calculate subject-level averages to then get the adjusted CIs
+  group_by(ID, task) %>% 
+  mutate(sub_avg = mean(estimate)) %>% 
+  ungroup() %>% 
+  group_by(task) %>% 
+  mutate(task_avg = mean(estimate)) %>%
+  ungroup() %>% 
+  mutate(estimate_corrected = estimate - sub_avg + task_avg) %>% 
+  group_by(predictor, session, task) %>% # from here on we aggregate
+  summarise(Estimate = mean(estimate),
+            `Est.Error` = se(estimate),
+            `l-95% CI` = mean(estimate) - 1.96*se(estimate),
+            `u-95% CI` = mean(estimate) + 1.96*se(estimate),
+            se_corrected = se(estimate_corrected),
+            l_corrected = mean(estimate_corrected) - 1.96 * se_corrected,
+            u_corrected = mean(estimate_corrected) + 1.96 * se_corrected,
+            estimate_corrected = mean(estimate_corrected))
 
 
 ## save

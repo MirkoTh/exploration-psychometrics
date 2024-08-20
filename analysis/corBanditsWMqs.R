@@ -915,10 +915,9 @@ for (dv in c("horizon_RU_Horizon", "sam_RU", "restless_beta")){
 ###################### final correlation matrix #########################
 s <- session
 params <- readRDS("analysis/bandits/allParams.rds") %>% 
-  mutate(horizon = ifelse(is.na(horizon), "long", horizon),
-         task = recode(task,"sam" = "2AB"),
+  mutate(task = recode(task,"sam" = "2AB"),
          predictor = paste(task, predictor, sep = "_")) %>% 
-  subset(horizon == "long" & !grepl("ntercept", predictor) & session == s,
+  subset(!grepl("ntercept", predictor) & session == s,
          select = c("ID", "predictor", "estimate"))
 
 load(sprintf("analysis/bandits/optimal_switch_session%i.Rda", session))

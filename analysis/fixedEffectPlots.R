@@ -10,10 +10,9 @@ colors <- c( "#66C2A5", "#FC8D62", "white")
 ########### load fixed effects #########
 
 fixed <- readRDS("analysis/bandits/allFixed.rds") %>% 
-  mutate(horizon = ifelse(is.na(horizon), "long", horizon),
-         predictor = recode(predictor, "delta_mean" = "V", "info" = "RU"),
+  mutate(predictor = recode(predictor, "delta_mean" = "V", "info" = "RU"),
          task = recode(task, "sam" = "2AB"))  %>% 
-  subset(horizon == "long" & !grepl("ntercept", predictor))
+  subset(!grepl("ntercept", predictor))
 
 
 ggplot(fixed, aes(predictor, Estimate,fill = predictor)) + geom_col(color = "black")+
