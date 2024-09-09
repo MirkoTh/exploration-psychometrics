@@ -47,10 +47,11 @@ pl_horizon_equal <- ggplot(tbl_horizon, aes(trial_id, val, group = arm)) +
   geom_point(data = tbl_choices_equal, aes(trial_id, val, color = arm, shape = Choice), size = 5) +
   geom_vline(xintercept = 5.5) +
   geom_label(aes(x = 2.75, y = 67, label = "Short Horizon")) +
+  geom_label(aes(x = 8, y = 67, label = "Long Horizon")) +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0), breaks = seq(1, 9, by = 2)) +
   scale_y_continuous(expand = c(0.01, 0)) +
-  labs(x = "", y = "Reward") + 
+  labs(x = "", y = "Mean Reward") + 
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
@@ -73,10 +74,13 @@ pl_horizon_unequal <- ggplot(tbl_horizon, aes(trial_id, val, group = arm)) +
   geom_point(color = "white", size = 3) +
   geom_point(aes(color = arm)) +
   geom_point(data = tbl_choices_unequal, aes(trial_id, val, color = arm, shape = Choice), size = 5) +
+  geom_vline(xintercept = 5.5) +
+  geom_label(aes(x = 2.75, y = 67, label = "Short Horizon")) +
+  geom_label(aes(x = 8, y = 67, label = "Long Horizon")) +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0), breaks = seq(1, 9, by = 2)) +
   scale_y_continuous(expand = c(0.01, 0)) +
-  labs(x = "Trial ID", y = "Reward") + 
+  labs(x = "Trial ID", y = "Mean Reward") + 
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
@@ -87,11 +91,10 @@ pl_horizon_unequal <- ggplot(tbl_horizon, aes(trial_id, val, group = arm)) +
   coord_cartesian(ylim = c(25, 75))
 
 
-
 tbl_2armed <- tibble(
   trial_id = rep(1:10, 2),
   arm = rep(c("Arm 1", "Arm 2"), each = 10),
-  val = c(rep(25, 10), c(29, 32, 38, 42, 38, 38, 42, 39, 41, 37))
+  val = c(rep(39, 10), c(35, 37, 32, 28, 35, 42, 44, 47, 46, 51))
   )
 
 pl_2armed <- ggplot(tbl_2armed, aes(trial_id, val, group = arm)) +
@@ -109,14 +112,14 @@ pl_2armed <- ggplot(tbl_2armed, aes(trial_id, val, group = arm)) +
   ) + 
   scale_color_brewer(palette = "Set2", name = "") +
   scale_shape_manual(values = c(7, 1)) +
-  coord_cartesian(ylim = c(10, 50))
+  coord_cartesian(ylim = c(20, 60))
 
 
 grid.draw(
   arrangeGrob(
     arrangeGrob(
       pl_horizon_equal + ggtitle("Horizon: Equal Information"), pl_horizon_unequal + ggtitle("Horizon: Unequal Information"), nrow = 2, heights = c(.45, .55)
-    ), pl_restless + ggtitle("Restless"), pl_2armed + ggtitle("Two-Armed"), nrow = 1
+    ), pl_2armed + ggtitle("Two-Armed"), pl_restless + ggtitle("Restless"), nrow = 1
   )
 )
 
