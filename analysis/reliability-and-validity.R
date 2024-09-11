@@ -6,6 +6,12 @@ library(gridExtra)
 library(lavaan)
 library(lavaanPlot)
 
+dirs_homegrown <- c(
+  "utils/analysis-utils.R", "utils/plotting-utils.R", 
+  "utils/modeling-utils.R"
+)
+walk(dirs_homegrown, source)
+
 rename_and_add_id <- function(my_df, nm_model) {
   my_df %>%
     rename(recovered = str_c("colMeans(as.data.frame(posterior_samples(", nm_model, ")))")) %>%
@@ -23,7 +29,7 @@ tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
   filter(exclude_2 == 0 & exclude_1 == 0)
 
 
-is_ucb <- TRUE
+is_ucb <- FALSE
 if (is_ucb) {
   tbl_horizon_sam <- read_csv("analysis/AllModelParameters-all-ucb.csv")
   colnames(tbl_horizon_sam) <- str_remove(colnames(tbl_horizon_sam), "_ucb")
@@ -101,17 +107,31 @@ tbl_bandits_rel$parameter[tbl_bandits_rel$is_v] <- "V"
 tbl_bandits_rel$parameter[tbl_bandits_rel$is_ic] <- "IC"
 tbl_bandits_rel$parameter[tbl_bandits_rel$is_vtu] <- "VTU"
 
+calc_icc_3_1 <- function(s1, s2) {
+  cat("\nin here")
+  r <- ICC(tibble(s1, s2))
+  r$results %>% filter(type == "ICC3") %>% select(ICC) %>% as_vector()
+}
+
 tbl_bandits_rel <- tbl_bandits_rel %>% select(-c(is_v, is_ic, is_vtu, name))
 tbl_bandits_param_rel <- tbl_bandits_rel %>% 
   pivot_wider(id_cols = c(ID, task, parameter), names_from = c(session), values_from = value) %>%
   group_by(task, parameter) %>%
-  summarize(value = cor(`1`, `2`)) %>%
+  summarize(
+    #pearson_r = cor(`1`, `2`),
+    value = calc_icc_3_1(`1`, `2`)
+    ) %>%
   ungroup()
 tbl_bandits_param_rel$task <- as.character(factor(tbl_bandits_param_rel$task, labels = c("Horizon", "Restless", "Sam")))
 
+
+# reliability task scores
+tbl_rel_task_measures <- reliability_task_measures()
+
+
 tbl_rel_both <- rbind(
   tbl_bandits_param_rel %>% mutate(measure = "Parameter"),
-  read_csv("analysis/reliability-task-measures.csv") %>% mutate(measure = "Task Measure")
+  tbl_rel_task_measures %>% mutate(measure = "Task Measure")
 )
 tbl_rel_both$task[tbl_rel_both$task == "Sam"] <- "2Armed"
 tbl_rel_both$task <- factor(tbl_rel_both$task, levels = c("Horizon", "2Armed", "Restless"), ordered = TRUE)

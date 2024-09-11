@@ -164,13 +164,13 @@ levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
 pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
-  geom_vline(xintercept = .5, color = "red", linewidth = 2, alpha = .3) +
-  geom_vline(xintercept = .75, color = "lightgreen", linewidth = 2, alpha = .5) +
-  geom_vline(xintercept = .9, color = "darkgreen", linewidth = 2, alpha = .3) +
+  geom_vline(xintercept = .4, color = "red", linewidth = 2, alpha = .3) +
+  geom_vline(xintercept = .6, color = "lightgreen", linewidth = 2, alpha = .5) +
+  geom_vline(xintercept = .8, color = "darkgreen", linewidth = 2, alpha = .3) +
   geom_point(aes(fill = measure), shape = 23, size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
-  labs(title = "Test-Retest Reliability", x = "Pearson Correlation", y = "") + 
+  labs(title = "Test-Retest Reliability", x = "ICC3(C,1)", y = "") + 
   theme_bw() +
   scale_x_continuous(expand = c(0.05, 0)) +
   scale_y_discrete(expand = c(0.025, 0)) +

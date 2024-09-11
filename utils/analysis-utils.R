@@ -1215,3 +1215,132 @@ exclusion_criteria_wm_tasks <- function(s_id) {
   return(tbl_ids_lookup)
   
 }
+
+
+reliability_task_measures <- function() {
+  #' calculate reliability of task measures from bandit tasks
+  #' 
+  #' @description loads data from files and calculates reliability of task
+  #' measures after applying the exclusion criteria
+
+  # exclusion criteria
+  tbl_exclude2 <- read_csv(file = "data/exclusions2.csv")
+  tbl_exclude1 <- read_csv(file = "data/exclusions1.csv")
+  
+  # seems like two people were invited to session 2, who should not have been
+  tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
+    left_join(tbl_exclude2 %>% select(ID, exclude), by = "ID", suffix = c("_1", "_2")) %>%
+    filter(exclude_2 == 0 & exclude_1 == 0)
+  
+  load(file = "analysis/bandits/banditsWave1.Rda")
+  restless1 <- restless
+  horizon1 <- horizon
+  sam1 <- sam
+  load(file = "analysis/bandits/banditsWave2.Rda")
+  restless2 <- restless
+  horizon2 <- horizon
+  sam2 <- sam
+  
+  # combine data from session 1 and session 2
+  tbl_restless <- rbind(restless1, restless2) %>%
+    inner_join(tbl_exclude, by = "ID") %>%
+    arrange(ID, session, trial) %>%
+    group_by(ID, session) %>%
+    mutate(
+      chosen_prev = lag(chosen, 1),
+      is_repetition = chosen == chosen_prev
+    ) %>%
+    group_by(ID, trial, session) %>%
+    mutate(
+      max_reward_trial = pmax(reward1, reward2, reward3, reward4),
+      is_max = reward == max_reward_trial,
+      chosen = chosen + 1
+    ) %>% ungroup() %>%
+    rename(
+      choices = chosen,
+      rewards = reward
+    )
+  
+  tbl_sam <- as_tibble(rbind(sam1, sam2)) %>%
+    inner_join(tbl_exclude %>% select(ID), by = "ID") %>%
+    arrange(ID, session, block, trial) %>%
+    group_by(block) %>%
+    mutate(
+      prev_chosen = lag(chosen, 1),
+      is_repetition = chosen == prev_chosen) %>%
+    rowwise() %>%
+    mutate(
+      is_optimal = reward == max(c(reward1, reward2)),
+      regret = max(c(reward1, reward2)) - reward
+    )
+  
+  tbl_horizon <-  as_tibble(rbind(horizon1, horizon2 %>% select(colnames(horizon1)))) %>%
+    inner_join(tbl_exclude %>% select(ID), by = "ID") %>%
+    arrange(ID, session, block, trial) %>%
+    group_by(block) %>%
+    mutate(
+      prev_chosen = lag(chosen, 1),
+      is_repetition = chosen == prev_chosen
+    ) %>%
+    rowwise() %>%
+    mutate(
+      is_optimal = reward == max(c(reward1, reward2)),
+      regret = max(c(reward1, reward2)) - reward
+    )
+  tbl_horizon$is_repetition[tbl_horizon$trial == 5] <- NA
+  
+  
+  tbl_reliability_rl <- tbl_restless %>%
+    rowwise() %>%
+    mutate(
+      is_optimal = rewards == max(c(reward1, reward2, reward3, reward4)),
+      regret = max(c(reward1, reward2, reward3, reward4)) - rewards
+    ) %>%
+    group_by(ID, session) %>%
+    summarize(
+      p_switch = mean(is_repetition, na.rm = TRUE),
+      p_optimal = mean(is_optimal),
+      regret = sum(regret)
+    ) %>%
+    ungroup() %>%
+    pivot_wider(names_from = session, values_from = c(p_switch, p_optimal, regret)) %>%
+    mutate(task = "Restless")
+  tbl_reliability_sam <- tbl_sam %>%
+    group_by(ID, session) %>%
+    summarize(
+      p_switch = mean(is_repetition, na.rm = TRUE),
+      p_optimal = mean(is_optimal, na.rm = TRUE),
+      regret = sum(regret, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    pivot_wider(names_from = session, values_from = c(p_switch, p_optimal, regret)) %>%
+    mutate(task = "Sam")
+  tbl_reliability_horizon <- tbl_horizon %>%
+    group_by(ID, session) %>%
+    summarize(
+      p_switch = mean(is_repetition, na.rm = TRUE),
+      p_optimal = mean(is_optimal, na.rm = TRUE),
+      regret = sum(regret, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    pivot_wider(names_from = session, values_from = c(p_switch, p_optimal, regret)) %>%
+    mutate(task = "Horizon")
+  
+  tbl_all_three <- rbind(tbl_reliability_horizon, tbl_reliability_sam, tbl_reliability_rl)
+  
+  tbl_reliability_measures <- tbl_all_three %>%
+    group_by(task) %>%
+    summarize(
+      reliability_switching = calc_icc_3_1(p_switch_1, p_switch_2),
+      reliability_optimal = calc_icc_3_1(p_optimal_1, p_optimal_2),
+      reliability_regret = calc_icc_3_1(regret_1, regret_2)
+    ) %>% pivot_longer(-task) %>%
+    mutate(
+      parameter = str_remove(name, "reliability_")
+    )
+  tbl_reliability_measures$parameter <- factor(tbl_reliability_measures$parameter, labels = c("p(optimal)", "regret", "p(switch)"))
+  tbl_reliability_measures <- tbl_reliability_measures %>% select(-name)
+  write_csv(tbl_reliability_measures, file = "analysis/reliability-task-measures.csv")
+  write_csv(tbl_all_three, file = "analysis/bandits-task-measures.csv")
+  return(tbl_reliability_measures)
+}
