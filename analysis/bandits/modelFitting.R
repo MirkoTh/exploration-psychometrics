@@ -131,6 +131,8 @@ p3 <- ggplot(modelFits, aes(model, loo, fill = horizon)) +
 p3
 ggpubr::ggarrange(p1, p2, p3, ncol = 3, labels = "AUTO")
 
+########### identifiability #########
+
 ########## is UCB fitting the horizons separately identifiable?
 
 ## Horizon 5
@@ -159,6 +161,7 @@ refit <- brm(chosen ~ V + RU + (V + RU | ID),
              cores = 2,
              iter = 6000)
 
+fit
 refit
 # no RU
 
@@ -184,6 +187,7 @@ refit <- brm(chosen ~ V + RU + (V + RU | ID),
              cores = 2,
              iter = 6000)
 
+fit
 refit
 
 

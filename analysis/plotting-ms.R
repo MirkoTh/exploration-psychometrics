@@ -256,6 +256,43 @@ save_my_pdf_and_tiff(
 )
 
 
+#### model parameters, Kristin version
+
+
+cors <- readRDS("analysis/bandits/allParams.Rds") %>% 
+  subset(predictor != "Intercept" & session == 1) %>% 
+  mutate(predictor = recode(predictor,
+                            "V" = "Value-guided",
+                            "RU" = "Directed",
+                            "VTU" = "Random",
+                            "delta_mean" = "Value-guided",
+                            "info" = "Directed"),
+         task = recode(task, "sam" = "Two-armed",
+                       "horizon" = "Horizon",
+                       "restless" = "Restless"),
+         variable = paste(predictor, task)) %>% 
+  pivot_wider(id_cols = "ID", names_from = "variable", values_from = "estimate") %>% 
+  subset(select = -ID) %>% 
+  cor(use="pairwise.complete.obs") %>% 
+  as.data.frame() %>% 
+  mutate(x = rownames(.)) %>% 
+  pivot_longer(cols = -x, names_to = "y", values_to = "cor")
+
+
+ggplot(cors, aes(y, x, fill = cor)) + geom_raster() + 
+  scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
+  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + 
+  labs(title = "Convergent validity of parameter estimates",
+       x = element_blank(), y = element_blank())+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))+
+  geom_hline(yintercept = 3.5, color = "white", size = 3)+
+  geom_hline(yintercept = 4.5, color = "white", size = 3)+
+  geom_vline(xintercept = 3.5, color = "white", size = 3)+
+  geom_vline(xintercept = 4.5, color = "white", size = 3)
+
+
+
+
 
 # 6. Variable Correlations ---------------------------------------------------
 
@@ -339,7 +376,123 @@ save_my_pdf_and_tiff(pl_cors_all, str_c(my_dir, "/variable-correlations"), 18, 1
 
 
 
+########## P(switch) over trials #############
+
+horizon <- load_and_prep_bandit_data(1)$horizon
+sam <- load_and_prep_bandit_data(1)$sam
+restless <- load_and_prep_bandit_data(1)$restless
+
+h <- horizon %>% 
+  mutate(prev = c(NA,chosen[1:(nrow(.)-1)]),
+         prev = ifelse(trial == 1, NA, prev),
+         switch = ifelse(prev == chosen, 0, 1),
+         Condition = ifelse(info == 0, "equal", "unequal")) %>% 
+  subset(trial >4) %>% 
+  mutate(group_mean = meann(switch)) %>% 
+  group_by(ID) %>% 
+  mutate(subject_mean = meann(switch)) %>% 
+  group_by(ID, trial, Condition) %>% 
+  summarise(Pswitch = meann(switch) - mean(subject_mean) + mean(group_mean)) %>% # adjust subject means for group means so the error bars are within subject
+  group_by(Condition, trial) %>% 
+  summarise(pswitch = meann(Pswitch),
+            se = se(Pswitch))
+
+s <- sam %>% 
+  mutate(prev = c(NA,chosen[1:(nrow(.)-1)]),
+         prev = ifelse(trial == 1, NA, prev),
+         switch = ifelse(prev == chosen, 0, 1),
+         Condition = factor(cond, levels = c("FF", "FS", "SF", "SS"),
+                            labels = c("both fluctating",
+                                       "fluctuating-stable",
+                                       "stable-fluctuating",
+                                       "both stable")),
+         group_mean = meann(switch)) %>% 
+  group_by(ID) %>% 
+  mutate(subject_mean = meann(switch)) %>% 
+  group_by(ID, trial, Condition) %>% 
+  summarise(Pswitch = meann(switch) - mean(subject_mean) + mean(group_mean)) %>% # adjust subject means for group means so the error bars are within subject
+  group_by(Condition, trial) %>% 
+  summarise(pswitch = meann(Pswitch),
+            se = se(Pswitch))
+
+r <- restless %>% 
+  mutate(prev = c(NA,chosen[1:(nrow(.)-1)]),
+         prev = ifelse(trial == 1, NA, prev),
+         switch = ifelse(prev == chosen, 0, 1)) %>% 
+  group_by(trial) %>% 
+  summarise(pswitch = meann(switch))
 
 
+ho <- ggplot(h, aes(trial, pswitch, color = Condition)) +
+  geom_point()+
+  geom_line()+
+  geom_linerange(aes(ymin = pswitch -1.96*se, ymax = pswitch + 1.96*se))+
+  scale_color_manual(values = colors[1:2])+
+  labs(title = "Horizon task",
+       y = "P(switch) ± 95%CI")+
+  theme(legend.position = c(1,1),
+        legend.justification = c(1.01,1.01))+
+  scale_y_continuous(n.breaks = 10, limits = c(0,1))
 
+ho
+
+sa <- ggplot(s, aes(trial, pswitch, color = Condition)) +
+  geom_point()+
+  geom_line()+
+  geom_linerange(aes(ymin = pswitch -1.96*se, ymax = pswitch + 1.96*se))+
+  scale_color_manual(values = colors[c(1,2,4,5)])+
+  labs(title = "Two-armed bandit",
+       y = "P(switch) ± 95%CI")+
+  theme(legend.position = c(1,1),
+        legend.justification = c(1.01,1.01))+
+  scale_x_continuous(n.breaks = 10)+
+  scale_y_continuous(n.breaks = 10, limits = c(0,1))
+
+sa
+
+re <- ggplot(r, aes(trial, pswitch)) +
+  geom_point()+
+  geom_line()+
+  scale_color_manual(values = colors[c(1,2,4,5)])+
+  labs(title = "Restless bandit",
+       y = "P(switch)")+
+  scale_x_continuous(n.breaks = 21)+
+  scale_y_continuous(n.breaks = 10, limits = c(0,1))+
+  coord_cartesian(xlim = c(1,200))
+
+re
+
+ggpubr::ggarrange(ho, sa, re, ncol = 3, widths = c(6,10, 20))
+
+
+############ fixed effects #########
+
+
+fixed <- readRDS("analysis/bandits/allFixed.rds") %>% 
+  mutate(predictor = recode(predictor, "delta_mean" = "Value-guided",
+                            "info" = "Directed",
+                            "V" = "Value-guided",
+                            "RU" = "Directed",
+                            "VTU" = "Random"),
+         task = recode(task, "sam" = "Two-Armed", "horizon" = "Horizon", "restless" = "Restless"),
+         session = recode(session, `1` = "Session 1", `2` = "Session 2"))  %>% 
+  subset(!grepl("ntercept", predictor))
+
+
+## for aggregating across models we first need to adjust the models intercept wise: Cousineau, D. (2005). Confidence intervals in within-subject designs: A simpler solution to Loftus and Masson’s method. Tutorials in Quantitative Methods for Psychology, 1(1), 42–45. https://doi.org/10.20982/tqmp.01.1.p042
+
+fixed$predictor <- factor(fixed$predictor, levels = c("Value-guided", "Directed", "Random"))
+fixed$task <- factor(fixed$task, levels = c("Horizon", "Two-Armed", "Restless"))
+
+ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
+  geom_errorbar(aes(ymin = l_corrected, ymax = u_corrected), width = 0.25)+
+  scale_fill_brewer(palette  = "Set2") +
+  facet_grid(rows = vars(task), cols =vars(session), scales = "free")+
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "white"),
+        axis.text.x = element_text(angle = 25, hjust = 1)) +
+  labs(title = "Fixed effects across tasks and sessions",
+       x = element_blank(),
+       y = "Parameter estimate ± 95% CI")+
+  geom_hline(yintercept = 0, linetype = "dotdash")
 
