@@ -1,3 +1,7 @@
+library(tidyverse)
+library(grid)
+library(gridExtra)
+
 dirs_homegrown <- c(
   "utils/analysis-utils.R", "utils/plotting-utils.R", 
   "utils/modeling-utils.R"
@@ -42,14 +46,19 @@ tbl_choices_equal <- tibble(
 
 pl_horizon_equal <- ggplot(tbl_horizon, aes(trial_id, val, group = arm)) +
   geom_line(aes(color = arm), size = .75) +
+  geom_vline(xintercept = 4.5, linetype = "dotdash") +
   geom_point(color = "white", size = 3) +
   geom_point(aes(color = arm)) +
   geom_point(data = tbl_choices_equal, aes(trial_id, val, color = arm, shape = Choice), size = 5) +
-  geom_vline(xintercept = 5.5) +
-  geom_label(aes(x = 2.75, y = 67, label = "Short Horizon")) +
-  geom_label(aes(x = 8, y = 67, label = "Long Horizon")) +
+  geom_segment(aes(x=1, y=27, xend=4, yend=27),
+               arrow = arrow(length=unit(.45, 'cm'), ends = "both"), lineend = "round", linejoin = "round", size = .5) +
+  geom_segment(aes(x = 10, xend = 10, y = 24, yend = 35), size = .5) +
+  geom_segment(aes(x = 5, xend = 5, y = 24, yend = 35), size = .5) +
+  geom_label(aes(x = 5, y = 35, label = "Short Horizon"), label.size = .5) +
+  geom_label(aes(x = 9.5, y = 35, label = "Long Horizon"), label.size = .5) +
+  geom_label(aes(x = 2.5, y = 31, label = "Forced"), label.size = .5) +
   theme_bw() +
-  scale_x_continuous(expand = c(0.01, 0), breaks = seq(1, 9, by = 2)) +
+  scale_x_continuous(expand = c(0.01, 0), breaks = seq(1, 10, by = 1)) +
   scale_y_continuous(expand = c(0.01, 0)) +
   labs(x = "", y = "Mean Reward") + 
   theme(
@@ -59,7 +68,7 @@ pl_horizon_equal <- ggplot(tbl_horizon, aes(trial_id, val, group = arm)) +
   ) + 
   scale_color_brewer(palette = "Set2", name = "") +
   scale_shape_manual(values = c(7, 1)) +
-  coord_cartesian(ylim = c(25, 75)) +
+  coord_cartesian(ylim = c(25, 62), xlim = c(.5, 10.5)) +
   guides(color = "none", shape = "none")
 
 tbl_choices_unequal <- tibble(
@@ -71,14 +80,19 @@ tbl_choices_unequal <- tibble(
 
 pl_horizon_unequal <- ggplot(tbl_horizon, aes(trial_id, val, group = arm)) +
   geom_line(aes(color = arm), size = .75) +
+  geom_vline(xintercept = 4.5, linetype = "dotdash") +
   geom_point(color = "white", size = 3) +
   geom_point(aes(color = arm)) +
   geom_point(data = tbl_choices_unequal, aes(trial_id, val, color = arm, shape = Choice), size = 5) +
-  geom_vline(xintercept = 5.5) +
-  geom_label(aes(x = 2.75, y = 67, label = "Short Horizon")) +
-  geom_label(aes(x = 8, y = 67, label = "Long Horizon")) +
+  geom_segment(aes(x=1, y=27, xend=4, yend=27),
+               arrow = arrow(length=unit(.45, 'cm'), ends = "both"), lineend = "round", linejoin = "round", size = .5) +
+  geom_segment(aes(x = 10, xend = 10, y = 24, yend = 35), size = .5) +
+  geom_segment(aes(x = 5, xend = 5, y = 24, yend = 35), size = .5) +
+  geom_label(aes(x = 5, y = 35, label = "Short Horizon"), label.size = .5) +
+  geom_label(aes(x = 9.5, y = 35, label = "Long Horizon"), label.size = .5) +
+  geom_label(aes(x = 2.5, y = 31, label = "Forced"), label.size = .5) +
   theme_bw() +
-  scale_x_continuous(expand = c(0.01, 0), breaks = seq(1, 9, by = 2)) +
+  scale_x_continuous(expand = c(0.01, 0), breaks = seq(1, 10, by = 1)) +
   scale_y_continuous(expand = c(0.01, 0)) +
   labs(x = "Trial ID", y = "Mean Reward") + 
   theme(
@@ -88,8 +102,7 @@ pl_horizon_unequal <- ggplot(tbl_horizon, aes(trial_id, val, group = arm)) +
   ) + 
   scale_color_brewer(palette = "Set2", name = "") +
   scale_shape_manual(values = c(7, 1)) +
-  coord_cartesian(ylim = c(25, 75))
-
+  coord_cartesian(ylim = c(25, 62), xlim = c(.5, 10.5))
 
 tbl_2armed <- tibble(
   trial_id = rep(1:10, 2),
@@ -115,14 +128,15 @@ pl_2armed <- ggplot(tbl_2armed, aes(trial_id, val, group = arm)) +
   coord_cartesian(ylim = c(20, 60))
 
 
-grid.draw(
+pl_task_setup <- 
   arrangeGrob(
     arrangeGrob(
-      pl_horizon_equal + ggtitle("Horizon: Equal Information"), pl_horizon_unequal + ggtitle("Horizon: Unequal Information"), nrow = 2, heights = c(.45, .55)
+      pl_horizon_equal + ggtitle("Horizon: Equal Information"), pl_horizon_unequal + ggtitle("Horizon: Unequal Information"), nrow = 2, heights = c(.46, .54)
     ), pl_2armed + ggtitle("Two-Armed"), pl_restless + ggtitle("Restless"), nrow = 1
   )
-)
+grid.draw(pl_task_setup)
 
+save_my_pdf_and_tiff(pl_task_setup, "figures/figures-ms/submission-1/task-setup", 19, 8)
 
 
 
