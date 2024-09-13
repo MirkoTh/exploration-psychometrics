@@ -29,16 +29,29 @@ tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
   filter(exclude_2 == 0 & exclude_1 == 0)
 
 
+# models as from the literature or all three tasks ucb?
 is_ucb <- FALSE
+
+
+
+
 if (is_ucb) {
   tbl_horizon_sam <- read_csv("analysis/AllModelParameters-all-ucb.csv")
   colnames(tbl_horizon_sam) <- str_remove(colnames(tbl_horizon_sam), "_ucb")
 } else {
   tbl_horizon_sam <- read_csv("analysis/AllModelParameters-models-literature.csv")
+  # set 2AB to 10
   tbl_horizon_sam$horizon[is.na(tbl_horizon_sam$horizon)] <- 10
   tbl_horizon_sam <- tbl_horizon_sam %>% 
     select(-...1) %>%
     pivot_wider(id_cols = c(ID), names_from = c(task, predictor, horizon, session), values_from = estimate)
+  # script analyzes "long" horizon. therefore, rename difference as "long"
+  tbl_horizon_sam <- tbl_horizon_sam %>% mutate(
+    horizon_info_long_1 = horizon_info_long_1 - horizon_info_short_1,
+    horizon_info_long_2 = horizon_info_long_2 - horizon_info_short_2,
+    horizon_delta_mean_long_1 = horizon_delta_mean_long_1 - horizon_delta_mean_short_1,
+    horizon_delta_mean_long_1 = horizon_delta_mean_long_2 - horizon_delta_mean_short_2
+  )
 }
 
 colnames(tbl_horizon_sam) <- str_replace(colnames(tbl_horizon_sam), "_short_", "_5_")
@@ -107,10 +120,11 @@ tbl_bandits_rel$parameter[tbl_bandits_rel$is_v] <- "V"
 tbl_bandits_rel$parameter[tbl_bandits_rel$is_ic] <- "IC"
 tbl_bandits_rel$parameter[tbl_bandits_rel$is_vtu] <- "VTU"
 
+
 calc_icc_3_1 <- function(s1, s2) {
-  cat("\nin here")
-  r <- ICC(tibble(s1, s2))
-  r$results %>% filter(type == "ICC3") %>% select(ICC) %>% as_vector()
+  r <- icc(tibble(s1, s2), model = "twoway", type = "consistency", unit = "single")
+  r$value
+
 }
 
 tbl_bandits_rel <- tbl_bandits_rel %>% select(-c(is_v, is_ic, is_vtu, name))
@@ -118,8 +132,8 @@ tbl_bandits_param_rel <- tbl_bandits_rel %>%
   pivot_wider(id_cols = c(ID, task, parameter), names_from = c(session), values_from = value) %>%
   group_by(task, parameter) %>%
   summarize(
-    #pearson_r = cor(`1`, `2`),
-    value = calc_icc_3_1(`1`, `2`)
+    #value = cor(`1`, `2`),
+    value = calc_icc_3_1(`1`, `2`),
     ) %>%
   ungroup()
 tbl_bandits_param_rel$task <- as.character(factor(tbl_bandits_param_rel$task, labels = c("Horizon", "Restless", "Sam")))

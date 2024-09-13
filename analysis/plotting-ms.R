@@ -22,7 +22,7 @@ dirs_homegrown <- c(
 walk(dirs_homegrown, source)
 
 
-# 1. Which Models? ---------------------------------------------------------
+# Which Models? ---------------------------------------------------------
 
 my_dir <- "figures/figures-ms/submission-1"
 
@@ -131,7 +131,10 @@ print(log_liks)
 
 
 
-# 2. Recoverability --------------------------------------------------------
+# 1. Models as in the Literature ------------------------------------------
+
+
+# 1.1. Recoverability -----------------------------------------------------
 
 
 
@@ -156,7 +159,7 @@ save_my_pdf_and_tiff(
 
 
 
-# 3. Reliability ----------------------------------------------------------
+# 1.2. Reliability --------------------------------------------------------
 
 tbl_reliability_bandits <- readRDS("analysis/bandits/reliabilities-hybrid.csv")
 levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Directed", "Random", "Regret", "p(optimal)", "p(switch)")
@@ -185,14 +188,14 @@ pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), ae
 
 save_my_pdf_and_tiff(
   pl_rel,
-  str_c(my_dir, "/reliability-bandits"),
+  str_c(my_dir, "/reliability-bandits-literature"),
   12, 5
 )
 
 
 
 
-# 4. Convergent Validity --------------------------------------------------
+# 1.3. Convergent Validity --------------------------------------------------
 
 tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-hybrid.RDS")
 tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-hybrid.RDS")
@@ -295,7 +298,7 @@ ggplot(cors, aes(y, x, fill = cor)) + geom_raster() +
 
 
 
-# 6. Variable Correlations ---------------------------------------------------
+# 1.5. Variable Correlations ---------------------------------------------------
 
 
 # horizon
@@ -496,4 +499,43 @@ ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
        x = element_blank(),
        y = "Parameter estimate ± 95% CI")+
   geom_hline(yintercept = 0, linetype = "dotdash")
+
+
+
+# 2. Improved Models ------------------------------------------------------
+
+
+
+# 2.2. Reliability --------------------------------------------------------
+
+tbl_reliability_bandits <- readRDS("analysis/bandits/reliabilities-ucb.csv")
+levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Directed", "Regret", "p(optimal)", "p(switch)")
+levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
+
+
+pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
+  geom_rect(aes(xmin = 0, xmax = .4, ymin = 0, ymax = 8), fill = "tomato3", alpha = .1) +
+  geom_rect(aes(xmin = .4, xmax = .6, ymin = 0, ymax = 8), fill = "orange", alpha = .1) +
+  geom_rect(aes(xmin = .6, xmax = .8, ymin = 0, ymax = 8), fill = "lightgreen", alpha = .1) +
+  geom_rect(aes(xmin = .8, xmax = 1, ymin = 0, ymax = 8), fill = "darkgreen", alpha = .1) +
+  geom_point(aes(shape = measure), size = 3, color = "black") +
+  facet_wrap(~ task) +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(title = "Test-Retest Reliability", x = "ICC3(C,1)", y = "") + 
+  theme_bw() +
+  scale_x_continuous(expand = c(0, 0), breaks = seq(0, .8, by = .2)) +
+  scale_y_discrete(expand = c(0.025, 0)) +
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 40, hjust = .95, vjust = .95)
+  ) + 
+  scale_shape_manual(values = c(16, 3), name = "")
+
+save_my_pdf_and_tiff(
+  pl_rel,
+  str_c(my_dir, "/reliability-bandits-ucb"),
+  12, 5
+)
 
