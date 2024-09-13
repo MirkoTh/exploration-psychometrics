@@ -127,7 +127,7 @@ print(log_liks)
 ## two-armed bd -----------------------------------------------------------
 
 
-
+## we just used the literature default here
 
 
 
@@ -136,9 +136,66 @@ print(log_liks)
 
 # 1.1. Recoverability -----------------------------------------------------
 
+## Horizon task -----------------------
+horizon <- load_and_prep_bandit_data(session = 1)$horizon
+res_list_short <- recovery_horizon(horizon[horizon$Horizon == -0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
+res_list_long <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
+
+true_short <- res_list_short[[1]]
+recovered_short <- res_list_short[[2]]
+
+true_long <- res_list_long[[1]]
+recovered_long <- res_list_long[[2]]
+
+# Function to prepare parameters
+prepare_params <- function(trueParams1, trueParams2) {
+  trueParams <- trueParams1 %>% 
+    mutate(ID = parse_number(rownames(.))) %>% 
+    left_join(trueParams2 %>% mutate(ID = parse_number(rownames(.))), by = c("ID", "predictor")) %>% 
+    mutate(estimate = estimate.y - estimate.x)
+  return(trueParams)
+}
+
+# Prepare true and recovered parameters
+trueParams <- prepare_params(true_short, true_long)
+recoveredParams <- prepare_params(recovered_short, recovered_long)
+
+# Calculate correlations
+params <- unique(trueParams$predictor)
+cors <- expand.grid(true = params, recovered = params)
+cors$cor <- mapply(function(t, r) cor(trueParams$estimate[trueParams$predictor == t], recoveredParams$estimate[recoveredParams$predictor == r]), cors$true, cors$recovered)
+
+cors <- cors %>% 
+  mutate(recovered = factor(recovered, levels = c("info", "delta_mean", "Intercept"),
+                            labels = c("Directed", "Value-guided", "Intercept")),
+         true = factor(true, levels = c("Intercept", "delta_mean", "info"),
+                       labels = c("Intercept", "Value-guided", "Directed")))
+
+p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
+  labs(title = "Recovery of Horizon task",
+       x = "Fitted parameters",
+       y = "Recovered parameters")
+p1
+
+ggsave("plots/submission1/recovery_horizon_default.png", p1)
 
 
+## two-armed bd ------------------------------------
+sam <- load_and_prep_bandit_data(session = 1)$sam
+load("analysis/bandits/modellingResults/recoverySamSession1hybrid_hierarchical_notIterative.Rda")
+cors <- cors %>% 
+  mutate(recovered = factor(recovered, levels = c("VTU", "RU", "V", "Intercept"),
+                            labels = c("Random","Directed", "Value-guided", "Intercept")),
+         true = factor(true, levels = c("Intercept", "V", "RU", "VTU"),
+                       labels = c("Intercept", "Value-guided", "Directed", "Random")))
 
+p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
+  labs(title = "Recovery of two-armed bandit task",
+       x = "Fitted parameters",
+       y = "Recovered parameters")
+p1
+
+ggsave("plots/submission1/recovery_2ab_default.png", p1)
 ## restless bd ------------------------------------------------------------
 
 

@@ -29,7 +29,7 @@ res_list
 # in orig wilson paper they fit the two horizons separately so let's do that here
 
 res_list2 <- recovery_horizon(horizon[horizon$Horizon == -0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = F)
-res_list3 <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = F)
+res_list3 <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
 res_list2
 res_list3
 
@@ -130,6 +130,43 @@ p3 <- ggplot(modelFits, aes(model, loo, fill = horizon)) +
   
 p3
 ggpubr::ggarrange(p1, p2, p3, ncol = 3, labels = "AUTO")
+
+############# recovery when using difference between short and long horizon #############
+
+load("analysis/bandits/modellingResults/recoveryHorizonSession1Wilson_bayesian_full_horizon5only.Rda")
+trueParams5 <- trueParams
+recoveredParams5 <- recoveredParams
+
+load("analysis/bandits/modellingResults/recoveryHorizonSession1Wilson_bayesian_full_horizon10only.Rda")
+trueParams10 <- trueParams
+recoveredParams10 <- recoveredParams
+
+trueParams <- trueParams5 %>% 
+  mutate(ID = parse_number(rownames(.))) %>% 
+  left_join(trueParams10 %>% mutate(ID = parse_number(rownames(.))),
+            by = c("ID", "predictor")) %>% 
+  mutate(estimate = estimate.y - estimate.x) 
+
+recoveredParams <- recoveredParams5 %>% 
+  mutate(ID = parse_number(rownames(.))) %>% 
+  left_join(recoveredParams10 %>% mutate(ID = parse_number(rownames(.))),
+            by = c("ID", "predictor")) %>% 
+  mutate(estimate = estimate.y - estimate.x)
+
+params <- unique(trueParams$predictor)
+cors <- data.frame(true = rep(params, length(params)),
+                   recovered =  rep(params, each = length(params)),
+                   cor = NA)
+
+cors$cor <- apply(as.array(1:nrow(cors)), 1, function(x) cor(trueParams$estimate[trueParams$predictor == cors$true[x]],
+                                                             recoveredParams$estimate[recoveredParams$predictor == cors$recovered[x]]))
+
+
+ggplot(cors, aes(x = true, y = recovered, fill = cor)) + geom_raster() + 
+  scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
+  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + 
+  labs(title = paste("Recovery of Horizon task using ", "Wilson"),
+       subtitle = paste("session 1"))
 
 ########### identifiability #########
 
@@ -523,6 +560,112 @@ write.csv(fixed, "analysis/bandits/AllFixedEffects.csv")
 
 saveRDS(params, file ="analysis/bandits/allParams.rds")
 saveRDS(fixed, fil = "analysis/bandits/allFixed.rds")
+
+
+############### alternative version with UCB parameters for Sam's task
+
+## Sam
+
+params <- list()
+for (s in 1:2){
+  
+  data <- load_and_prep_bandit_data(s)$sam
+  out <- fit_model_sam(data, model = "UCB", hierarchical = T, use_saved = T)
+  
+  # inspect the model to ensure everything is nicely converged and stuff
+  
+  print(out[[1]])
+  params[[s]] <- out[[2]]
+  
+}
+
+sam_params <- params %>% bind_rows(.id = "session") %>% 
+  mutate(estimate = -1*estimate,
+         ID = parse_number(rownames(.))) # already flipped to be larger number more seeking
+# sam_fixed <- fixed %>% bind_rows(.id = "session") %>% 
+#   mutate(Estimate = -1*Estimate, 
+#          low = -1*`u-95% CI`, 
+#          `u-95% CI` = -1*`l-95% CI`,
+#          `l-95% CI`= low) %>% 
+#   subset(select = -low)# when recoding this here we have to flip upper and lower CI, need temporary variable to avoid recoded versions influencing each other
+
+
+## Horizon
+params <- list()
+for (s in 1:2){
+  
+  p <- list()
+  for (h in c(-0.5, 0.5)){
+    
+    data <- load_and_prep_bandit_data(s)$horizon
+    out <- fit_model_horizon(data[data$Horizon == h, ], model = "Wilson", bayesian = T, full = T, no_horizon = T, use_saved = T)
+    
+    # inspect the model to ensure everything is nicely converged and stuff
+    
+    print(out[[1]])
+    p <- append(p, list(out[[2]]))
+    
+  }
+  
+  params[[s]] <- p %>% bind_rows(.id = "horizon") %>% 
+    mutate(horizon = recode(horizon, `1` = "short", `2` = "long"),
+           ID = parse_number(rownames(.))) %>% 
+    pivot_wider(id_cols = c("ID", "predictor"), names_from = "horizon", values_from = "estimate") %>% 
+    mutate(estimate = long - short) %>% 
+    subset(select = -c(long, short))
+  
+}
+
+horizon_params <- params %>% bind_rows(.id = "session")
+
+## combine
+params <- list(sam = sam_params, horizon = horizon_params) %>% 
+  bind_rows(.id = "task")%>% 
+  subset(select = c("predictor", "estimate", "task", "session","ID"))
+
+### restless
+
+restless <- readRDS("analysis/bandits/4arlb-maps-hierarchical.RDS")
+
+rest_params <- restless %>% 
+  pivot_longer(cols = -ID, values_to = "estimate", names_to = "predictor") %>% 
+  mutate(session = as.character(parse_number(predictor)),
+         predictor = ifelse(grepl("ru", predictor), "RU", "V"),
+         task = "restless")
+
+## combine all
+
+params <- list(params, rest_params) %>% 
+  bind_rows()
+
+## calculate "fixed effects"
+fixed <- params %>% # first we need to calculate subject-level averages to then get the adjusted CIs
+  group_by(ID, task) %>% 
+  mutate(sub_avg = mean(estimate)) %>% 
+  ungroup() %>% 
+  group_by(task) %>% 
+  mutate(task_avg = mean(estimate)) %>%
+  ungroup() %>% 
+  mutate(estimate_corrected = estimate - sub_avg + task_avg) %>% 
+  group_by(predictor, session, task) %>% # from here on we aggregate
+  summarise(Estimate = mean(estimate),
+            `Est.Error` = se(estimate),
+            `l-95% CI` = mean(estimate) - 1.96*se(estimate),
+            `u-95% CI` = mean(estimate) + 1.96*se(estimate),
+            se_corrected = se(estimate_corrected),
+            l_corrected = mean(estimate_corrected) - 1.96 * se_corrected,
+            u_corrected = mean(estimate_corrected) + 1.96 * se_corrected,
+            estimate_corrected = mean(estimate_corrected))
+
+
+## save
+write.csv(params,"analysis/bandits/AllModelParameters_2abUCB.csv")
+write.csv(fixed, "analysis/bandits/AllFixedEffects_2abUCB.csv")
+
+saveRDS(params, file ="analysis/bandits/allParams_2abUCB.rds")
+saveRDS(fixed, fil = "analysis/bandits/allFixed_2abUCB.rds")
+
+
 
 #################### correlations among VTU, V, RU across trials in our data vs Fan et al ##########
 our_cor <- plyr::ddply(sam[sam$trial > 1, ], ~trial, summarise, V_VTU = cor(V, VTU), V_RU = cor(V, RU), VTU_RU = cor(VTU, RU))

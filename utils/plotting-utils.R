@@ -184,3 +184,15 @@ my_corr_plot <- function(cortable, x_lab, y_lab, ttl, type = "bandit") {
     guides(fill = "none")
 }
 
+
+heatmap <- function(df, x = x, y = y, limits = c(-1,1)){
+  
+  ggplot(df, aes(x = x, y = y, fill = cor)) + geom_raster() + 
+    scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = limits)+
+    geom_label(aes(label = round(cor, digits = 2)), fill = "white") 
+  
+  
+  
+}
+
+

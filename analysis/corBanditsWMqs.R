@@ -1,5 +1,5 @@
 ############# relating bandit task behaviour to questionnaire scores ##############
-
+rm(list = ls())
 
 library(tidyverse)
 library(ggplot2)
@@ -9,7 +9,7 @@ library(ggridges)
 theme_set(theme_classic(base_size = 14))
 library(here)
 
-session <- 1
+session <- 2
 
 load(sprintf("analysis/bandits/banditsWave%i.Rda", session))
 source("analysis/recovery_utils.R")
@@ -76,6 +76,17 @@ maxval <- ddply(responses, ~measure, summarise, max = max(response) )
 
 responses$max <- maxval$max[match(responses$measure, maxval$measure)]
 responses$response <- ifelse(responses$reversed == 1, as.numeric(responses$max) - as.numeric(responses$response), as.numeric(responses$response))
+
+dat_for_efa <- responses %>% 
+  select(ID, Q, response) %>% 
+  pivot_wider(id_cols = ID, names_from = Q, values_from = response)
+
+write.csv(dat_for_efa, sprintf("analysis/dat_for_efa_s%i.csv", session))
+
+descr_for_efa <- responses %>% 
+  select(ID, Q, measure)
+
+write.csv(descr_for_efa, "analysis/descr_for_efa.csv")
 
 avg <- ddply(responses, ~ID+measure, summarise, score = mean(response))
 
@@ -914,7 +925,7 @@ for (dv in c("horizon_RU_Horizon", "sam_RU", "restless_beta")){
 
 ###################### final correlation matrix #########################
 s <- session
-params <- readRDS("analysis/bandits/allParams.rds") %>% 
+params <- readRDS("analysis/bandits/allParams_2abUCB.rds") %>% 
   mutate(task = recode(task,"sam" = "2AB"),
          predictor = paste(task, predictor, sep = "_")) %>% 
   subset(!grepl("ntercept", predictor) & session == s,
@@ -963,6 +974,6 @@ selected_rows <- rownames(cors) %>%
 # Filter the correlation matrix
 cors <- cors[selected_rows, selected_columns]
 
-save(cors, file = "analysis/external_validity_cors.Rda")
+save(cors, file = "analysis/external_validity_cors_2abUCB.Rda")
 
 

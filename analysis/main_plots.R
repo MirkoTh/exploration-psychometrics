@@ -79,7 +79,7 @@ ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
 
 ########### heatmap correlations with questionnaires and wm ###########
 
-load("analysis/external_validity_cors.Rda") 
+load("analysis/external_validity_cors_2abUCB.Rda") 
 
 cors$x <- row.names(cors)
 cors <- cors %>% 
@@ -220,7 +220,7 @@ ggpubr::ggarrange(ho, sa, re, ncol = 3, widths = c(6,10, 20))
 
 ########### convergent validity #########
 
-cors <- readRDS("analysis/bandits/allParams.Rds") %>% 
+cors <- readRDS("analysis/bandits/allParams_2abUCB.Rds") %>% 
   subset(predictor != "Intercept" & session == 1) %>% 
   mutate(predictor = recode(predictor,
                             "V" = "Value-guided",
@@ -247,9 +247,9 @@ ggplot(cors, aes(y, x, fill = cor)) + geom_raster() +
         x = element_blank(), y = element_blank())+
   theme(axis.text.x = element_text(angle = 30, hjust = 1))+
   geom_hline(yintercept = 3.5, color = "white", size = 3)+
-  geom_hline(yintercept = 4.5, color = "white", size = 3)+
-  geom_vline(xintercept = 3.5, color = "white", size = 3)+
-  geom_vline(xintercept = 4.5, color = "white", size = 3)
+ # geom_hline(yintercept = 4.5, color = "white", size = 3)+
+  geom_vline(xintercept = 3.5, color = "white", size = 3)#+
+ # geom_vline(xintercept = 4.5, color = "white", size = 3)
 
 
 ############# correlation of parameters and comprehension attempts ################
@@ -314,5 +314,67 @@ ggplot(cors, aes(y, x, fill = cor)) + geom_raster() +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
 
+## investigating the strongest of these correlations
 
+
+load("analysis/comprehensionWave2.Rda")
+
+
+df <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
+  mutate(ID = c(2, 3, 4, 6, 7 , 10 , 11  ,12 , 13  ,14,  16 , 20  ,21 , 23 , 24,
+                25,  26 , 27 , 28 , 29 , 31 , 32 , 33 , 34 , 35 , 36 , 37,  40  ,
+                48 , 49,  52  ,55 , 56,  59 , 60 , 61 , 63 , 65 , 69 , 71,
+                72 , 73 , 74 , 76 , 77 , 78,  79 , 83  ,84  ,85 , 90 , 93,  94 ,
+                95,  96 , 97,  98  ,99 ,100, 101 ,102 ,103 ,105 ,108 ,109, 110,
+                113 ,114, 117, 118, 119, 120, 122, 123, 124, 125, 128 ,129, 131, 132,
+                133, 134, 135, 137, 142, 149 ,151, 154, 162, 163, 165, 166, 168 ,169,
+                170 ,171 ,172, 175 ,176, 180 ,182 ,183, 185, 187 ,188 ,190, 193 ,195,
+                197, 198 ,199, 200 ,202 ,203, 204, 205, 206, 207, 208, 209,
+                213 ,216 ,219, 220, 222, 229 ,232, 233, 239, 243, 244, 245, 246 ,251,
+                254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
+                294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
+                320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
+  left_join(comprehension%>% pivot_wider(id_cols = c("ID"),
+                                         names_from = "task", values_from = "compAttempts")
+            , by = "ID")
+
+ggplot(df, aes(sam, G.Value.Guided)) + geom_jitter() +
+  geom_smooth(method = "lm")
+ggplot(df, aes(sam, G.Directed)) + geom_jitter() +
+  geom_smooth(method = "lm")
+
+################ external validity using only latents ############
+
+cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
+  mutate(ID = c(2, 3, 4, 6, 7 , 10 , 11  ,12 , 13  ,14,  16 , 20  ,21 , 23 , 24,
+                25,  26 , 27 , 28 , 29 , 31 , 32 , 33 , 34 , 35 , 36 , 37,  40  ,
+                48 , 49,  52  ,55 , 56,  59 , 60 , 61 , 63 , 65 , 69 , 71,
+                72 , 73 , 74 , 76 , 77 , 78,  79 , 83  ,84  ,85 , 90 , 93,  94 ,
+                95,  96 , 97,  98  ,99 ,100, 101 ,102 ,103 ,105 ,108 ,109, 110,
+                113 ,114, 117, 118, 119, 120, 122, 123, 124, 125, 128 ,129, 131, 132,
+                133, 134, 135, 137, 142, 149 ,151, 154, 162, 163, 165, 166, 168 ,169,
+                170 ,171 ,172, 175 ,176, 180 ,182 ,183, 185, 187 ,188 ,190, 193 ,195,
+                197, 198 ,199, 200 ,202 ,203, 204, 205, 206, 207, 208, 209,
+                213 ,216 ,219, 220, 222, 229 ,232, 233, 239, 243, 244, 245, 246 ,251,
+                254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
+                294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
+                320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
+  left_join(read.csv("analysis/questionnaire_factors_s2.csv") %>% select(-X), by = "ID") %>% 
+  select(-c(ID)) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  as.data.frame() %>% 
+  mutate(x = rownames(.)) %>% 
+  pivot_longer(cols = -c(x), names_to = "y", values_to = "cor") %>% 
+  mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed", "Exp", "posMood", "negMood", "AxDep", "WMC"),
+                    labels = c("Value-guided", "Directed", "Self-reported exploration", "Positive mood", "Negative mood", "Anxiety/depression", "Working memory")),
+         y = factor(y, levels = c("WMC", "AxDep", "negMood", "posMood", "Exp", "G.Directed", "G.Value.Guided"),
+                    labels = c("Working memory", "Anxiety/depression", "Negative mood", "Positive mood", "Self-reported exploration", "Directed", "Value-guided")))
+
+
+ggplot(cors, aes(x,y, fill = cor)) + geom_raster() + 
+  scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
+  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + 
+  labs(title = "External validity on the latent level",
+       x = element_blank(), y = element_blank())+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
