@@ -164,23 +164,24 @@ levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
 pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
-  geom_vline(xintercept = .4, color = "red", linewidth = 2, alpha = .3) +
-  geom_vline(xintercept = .6, color = "lightgreen", linewidth = 2, alpha = .5) +
-  geom_vline(xintercept = .8, color = "darkgreen", linewidth = 2, alpha = .3) +
-  geom_point(aes(fill = measure), shape = 23, size = 3, color = "black") +
+  geom_rect(aes(xmin = 0, xmax = .4, ymin = 0, ymax = 8), fill = "tomato3", alpha = .1) +
+  geom_rect(aes(xmin = .4, xmax = .6, ymin = 0, ymax = 8), fill = "orange", alpha = .1) +
+  geom_rect(aes(xmin = .6, xmax = .8, ymin = 0, ymax = 8), fill = "lightgreen", alpha = .1) +
+  geom_rect(aes(xmin = .8, xmax = 1, ymin = 0, ymax = 8), fill = "darkgreen", alpha = .1) +
+  geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
   labs(title = "Test-Retest Reliability", x = "ICC3(C,1)", y = "") + 
   theme_bw() +
-  scale_x_continuous(expand = c(0.05, 0)) +
+  scale_x_continuous(expand = c(0, 0), breaks = seq(0, .8, by = .2)) +
   scale_y_discrete(expand = c(0.025, 0)) +
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 30, hjust = .95, vjust = .95)
+    axis.text.x = element_text(angle = 40, hjust = .95, vjust = .95)
   ) + 
-  scale_fill_brewer(palette = "Set2", name = "")
+  scale_shape_manual(values = c(16, 3), name = "")
 
 save_my_pdf_and_tiff(
   pl_rel,
