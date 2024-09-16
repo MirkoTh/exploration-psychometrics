@@ -25,6 +25,8 @@ walk(dirs_homegrown, source)
 # Which Models? ---------------------------------------------------------
 
 my_dir <- "figures/figures-ms/submission-1"
+if (!dir.exists(my_dir)){dir.create(my_dir, recursive = TRUE)}
+
 
 # how did we arrive at the used models?
 
@@ -83,9 +85,8 @@ pl_arrive_restless_model <- arrangeGrob(
   nrow = 1
 )
 
-if (!dir.exists(my_dir)){dir.create(my_dir, recursive = TRUE)}
 
-save_my_pdf_and_tiff(
+save_my_pdf_and_tiff_and_png(
   pl_arrive_restless_model,
   str_c(my_dir, "/arrive-restless-model"),
   20, 7
@@ -137,6 +138,8 @@ print(log_liks)
 # 1.1. Recoverability -----------------------------------------------------
 
 ## Horizon task -----------------------
+
+# takes > 1 min to run
 horizon <- load_and_prep_bandit_data(session = 1)$horizon
 res_list_short <- recovery_horizon(horizon[horizon$Horizon == -0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
 res_list_long <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
