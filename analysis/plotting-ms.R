@@ -337,21 +337,29 @@ cors <- readRDS("analysis/bandits/allParams.Rds") %>%
   cor(use="pairwise.complete.obs") %>% 
   as.data.frame() %>% 
   mutate(x = rownames(.)) %>% 
-  pivot_longer(cols = -x, names_to = "y", values_to = "cor")
+  pivot_longer(cols = -x, names_to = "y", values_to = "cor") %>% 
+  mutate(x = factor(x, levels = c("Value-guided Horizon", "Value-guided Two-armed", "Value-guided Restless",
+                                  "Directed Horizon", "Directed Two-armed", "Directed Restless",
+                                  "Random Two-armed"),
+                    labels = c("Value-guided Horizon", "Value-guided Two-armed", "Value-guided Restless",
+                               "Directed Horizon", "Directed Two-armed", "Directed Restless",
+                               "Random Two-armed")),
+         y = factor(y, levels = c("Random Two-armed", "Directed Restless", "Directed Two-armed", "Directed Horizon",
+                                  "Value-guided Restless", "Value-guided Two-armed", "Value-guided Horizon")))
 
 
-ggplot(cors, aes(y, x, fill = cor)) + geom_raster() + 
+ggplot(cors, aes(x,y, fill = cor)) + geom_raster() + 
   scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
   geom_label(aes(label = round(cor, digits = 2)), fill = "white") + 
   labs(title = "Convergent validity of parameter estimates",
        x = element_blank(), y = element_blank())+
   theme(axis.text.x = element_text(angle = 30, hjust = 1))+
-  geom_hline(yintercept = 3.5, color = "white", size = 3)+
+  geom_hline(yintercept = 1.5, color = "white", size = 3)+
   geom_hline(yintercept = 4.5, color = "white", size = 3)+
-  geom_vline(xintercept = 3.5, color = "white", size = 3)+
-  geom_vline(xintercept = 4.5, color = "white", size = 3)
+  geom_vline(xintercept = 6.5, color = "white", size = 3)+
+  geom_vline(xintercept = 3.5, color = "white", size = 3)
 
-
+ggsave("plots/submission1/convergent_validity_parameters.png")
 
 
 
@@ -561,6 +569,51 @@ ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
 
 # 2. Improved Models ------------------------------------------------------
 
+# 2.1 Recoverability -------------------
+
+## Horizon task -----------------------
+horizon <- load_and_prep_bandit_data(session = 1)$horizon
+res_list <- recovery_horizon(horizon[horizon$Horizon == 0.5, ], "Wilson", full = T, it = 8000, save = T, bayesian = T, no_horizon = T, no_intercept = F, use_saved = T)
+
+trueParams <- res_list[[1]]
+recoveredParams <- res_list[[2]]
+
+# Calculate correlations
+params <- unique(trueParams$predictor)
+cors <- expand.grid(true = params, recovered = params)
+cors$cor <- mapply(function(t, r) cor(trueParams$estimate[trueParams$predictor == t], recoveredParams$estimate[recoveredParams$predictor == r]), cors$true, cors$recovered)
+
+cors <- cors %>% 
+  mutate(recovered = factor(recovered, levels = c("info", "delta_mean", "Intercept"),
+                            labels = c("Directed", "Value-guided", "Intercept")),
+         true = factor(true, levels = c("Intercept", "delta_mean", "info"),
+                       labels = c("Intercept", "Value-guided", "Directed")))
+
+p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
+  labs(title = "Recovery of Horizon task",
+       x = "Fitted parameters",
+       y = "Recovered parameters")
+p1
+
+ggsave("plots/submission1/recovery_horizon_only_long.png", p1)
+
+
+## two-armed bd ------------------------------------
+sam <- load_and_prep_bandit_data(session = 1)$sam
+load("analysis/bandits/modellingResults/recoverySamSession1UCB_hierarchical_notIterative.Rda")
+cors <- cors %>% 
+  mutate(recovered = factor(recovered, levels = c("RU", "V", "Intercept"),
+                            labels = c("Directed", "Value-guided", "Intercept")),
+         true = factor(true, levels = c("Intercept", "V", "RU"),
+                       labels = c("Intercept", "Value-guided", "Directed")))
+
+p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
+  labs(title = "Recovery of two-armed bandit task",
+       x = "Fitted parameters",
+       y = "Recovered parameters")
+p1
+
+ggsave("plots/submission1/recovery_2ab_UCB.png", p1)
 
 
 # 2.2. Reliability --------------------------------------------------------
@@ -595,4 +648,5 @@ save_my_pdf_and_tiff(
   str_c(my_dir, "/reliability-bandits-ucb"),
   12, 5
 )
+
 
