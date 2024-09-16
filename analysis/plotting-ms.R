@@ -653,3 +653,67 @@ save_my_pdf_and_tiff(
 )
 
 
+
+# Supplmentary Information ------------------------------------------------
+
+
+# the following three plots display correlations between the independent variables in the three bandit tasks (i.e., V, VTU, and RU)
+tbl_cor_trial_2ab <- readRDS("analysis/bandits/var-cors-2armed.rds")
+pl_2ab <- ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
+  geom_line(aes(color = name)) +
+  geom_point(color = "white", size = 4) +
+  geom_point(aes(color = name)) +
+  geom_label(data = tbl_cor_avg_sam1, aes(6, .15 * as.numeric(as.factor(name)), label = str_c("avg. r = ", round(value, 2)), color = as.factor(name))) +
+  facet_wrap(~cond) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Trial ID", y = "Pearson Correlation") +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) +
+  scale_color_brewer(palette = "Set2", name = "")
+
+tbl_cor_trial_horizon1 <- readRDS("analysis/bandits/var-cors-horizon.rds")
+pl_horizon <- ggplot(tbl_cor_trial_horizon1, aes(trial, value)) +
+  geom_line(aes(color = name)) +
+  geom_point(color = "white", size = 4) +
+  geom_point(aes(color = name)) +
+  geom_label(data = tbl_cor_avg_horizon1, aes(
+    6, .15 * as.numeric(as.factor(name)),
+    label = str_c("avg. r = ", round(value, 2)), color = as.factor(name)
+  )) +
+  facet_wrap(~Horizon) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.03, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Trial ID", y = "Correlation") +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) +
+  scale_color_brewer(palette = "Set2", name = "")
+
+tbl_restless_cor <- readRDS("analysis/bandits/var-cors-restless.rds")
+pl_restless <- ggplot(tbl_restless_cor, aes(var_in, var_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_text(aes(label = round(value, 2)), color = "white") +
+  theme_bw() +
+  scale_x_discrete(expand = c(0.01, 0)) +
+  scale_y_discrete(expand = c(0.01, 0)) +
+  labs(x = "Var In", y = "Var Out") +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    text = element_text(size = 22),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 90)
+  ) +
+  scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white")
+
+pl_strat_cor <- arrangeGrob(pl_2ab, pl_horizon, pl_restless, nrow = 1)
+grid.draw(pl_strat_cor)
+
+save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 23, 8)
