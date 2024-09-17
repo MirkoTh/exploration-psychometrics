@@ -463,6 +463,7 @@ p3
 ## Sam 
 
 params <- list()
+fixed <- list()
 for (s in 1:2){
   
   data <- load_and_prep_bandit_data(s)$sam
@@ -472,18 +473,20 @@ for (s in 1:2){
   
   print(out[[1]])
   params[[s]] <- out[[2]]
+  fixed[[s]] <- as.data.frame(summary(out[[1]])$fixed)
   
 }
 
 sam_params <- params %>% bind_rows(.id = "session") %>% 
   mutate(estimate = -1*estimate,
          ID = parse_number(rownames(.))) # already flipped to be larger number more seeking
-# sam_fixed <- fixed %>% bind_rows(.id = "session") %>% 
-#   mutate(Estimate = -1*Estimate, 
-#          low = -1*`u-95% CI`, 
-#          `u-95% CI` = -1*`l-95% CI`,
-#          `l-95% CI`= low) %>% 
-#   subset(select = -low)# when recoding this here we have to flip upper and lower CI, need temporary variable to avoid recoded versions influencing each other
+
+sam_fixed <- fixed %>% bind_rows(.id = "session") %>%
+  mutate(Estimate = -1*Estimate,
+         low = -1*`u-95% CI`,
+         `u-95% CI` = -1*`l-95% CI`,
+         `l-95% CI`= low) %>%
+  subset(select = -low)# when recoding this here we have to flip upper and lower CI, need temporary variable to avoid recoded versions influencing each other
 
 
 ## Horizon
@@ -612,7 +615,7 @@ for (s in 1:2){
 }
 
 horizon_params <- params %>% bind_rows(.id = "session") %>% 
-  mutate(estimate = -1*estimate) # flip it bc it is coded the other way
+  mutate(estimate = if_else(predictor == "delta_mean", -1 * estimate, estimate)) # here we recode only for reward
 
 ## combine
 params <- list(sam = sam_params, horizon = horizon_params) %>% 

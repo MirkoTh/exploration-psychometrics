@@ -855,7 +855,7 @@ pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept" & me
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
-    legend.position = "bottom",
+    legend.position = "none",
     axis.text.x = element_text(angle = 40, hjust = .95, vjust = .95)
   ) + 
   scale_shape_manual(values = c(16, 3), name = "")
@@ -865,7 +865,7 @@ pl_rel
 save_my_pdf_and_tiff_and_png(
   pl_rel,
   str_c(my_dir, "/reliability-bandits-ucb"),
-  12, 5
+  10,4
 )
 
 # 2.3 Convergent validity ------------------------------------------------
