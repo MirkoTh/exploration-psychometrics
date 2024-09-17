@@ -2,6 +2,7 @@
 rm(list = ls())
 
 library(tidyverse)
+library(plyr)
 library(ggplot2)
 #library(jsonlite)
 library(brms)
@@ -9,7 +10,7 @@ library(ggridges)
 theme_set(theme_classic(base_size = 14))
 library(here)
 
-session <- 2
+session <- 1
 
 load(sprintf("analysis/bandits/banditsWave%i.Rda", session))
 source("analysis/recovery_utils.R")
@@ -256,7 +257,7 @@ Sperf <- ddply(sam, ~ID, summarise, regret = meann(regret))
 Rperf <- ddply(restless, ~ID, summarise, regret = meann(regret))
 
 Hperf$model <- "horizon"
-Sperf$model <- "sam"
+Sperf$model <- "2AB"
 Rperf$model <- "restless"
 
 regret <- rbind(Hperf, Sperf, Rperf)
@@ -298,7 +299,7 @@ switch <- list("horizon" = Hswitch, "2AB" = Sswitch, "restless" = Rswitch) %>%
   bind_rows(.id = "model")
 
 
-save(Poptimal, switch, file = sprintf("analysis/bandits/optimal_switch_session%i.Rda", session))
+save(Poptimal, switch, regret, file = sprintf("analysis/bandits/optimal_switch_session%i.Rda", session))
 
 ########## get to comparing #########
 
