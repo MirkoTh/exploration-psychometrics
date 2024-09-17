@@ -15,6 +15,18 @@ source("analysis/recovery_utils.R")
 se<-function(x){sd(x, na.rm = T)/sqrt(length(na.omit(x)))}
 meann <- function(x){mean(x, na.rm = T)}
 
+self_cor <- function(df){
+  cors <- df %>% 
+    select(-ID) %>% 
+    cor(use = "pairwise.complete.obs") %>% 
+    as.data.frame() %>% 
+    mutate(x = rownames(.)) %>% 
+    pivot_longer(cols = -x, names_to = "y", values_to = "cor")
+  
+  return(cors)
+  
+}
+
 dirs_homegrown <- c(
   "utils/analysis-utils.R", "utils/plotting-utils.R", 
   "utils/modeling-utils.R"
@@ -365,7 +377,83 @@ save_my_pdf_and_tiff(
 )
 
 
-#### model parameters, Kristin version
+#### Kristin version
+
+load("analysis/bandits/optimal_switch_session1.Rda")
+
+relabel <- function(df) {
+  
+  relabelled <- df %>% 
+    mutate(x = factor(x, levels = c("horizon", "2AB", "restless"),
+                      labels = c("Horizon", "Two-armed", "Restless")),
+           y = factor(y, levels = c("restless", "2AB", "horizon"),
+                      labels = c("Restless", "Two-armed", "Horizon")))
+  
+  return(relabelled)
+}
+
+### P(optim)
+optimal <- Poptimal %>% 
+  pivot_wider(id_cols = ID, names_from = model, values_from = Poptimal) %>% 
+  self_cor() %>% 
+  relabel()
+
+optim <- heatmap(optimal) +
+  labs(title = "P(optimal)",
+       x = element_blank(),
+       y = element_blank())
+
+optim
+### regret
+
+reg<- regret %>% 
+  pivot_wider(id_cols = ID, names_from = model, values_from = regret) %>% 
+  self_cor() %>% 
+  relabel()
+
+re <- heatmap(reg) +
+  labs(title = "Regret",
+       x = element_blank(),
+       y = element_blank())
+
+re
+
+### P(switch)
+
+Pswitch <- switch %>% 
+  pivot_wider(id_cols = ID, names_from = model, values_from = Pswitch) %>% 
+  self_cor() %>% 
+  relabel()
+
+swi <- heatmap(Pswitch) +
+  labs(title = "P(switch)",
+       x = element_blank(),
+       y = element_blank())
+
+swi
+
+### WM
+
+wm <- readRDS("analysis/4arlb-overviewAll.rds") %>% 
+  subset(session == 1, select = c(ID,OS_recall, SS_recall, WMU_recall)) %>% 
+  self_cor() %>% 
+  mutate(x = factor(x, levels = c("OS_recall", "SS_recall", "WMU_recall"),
+                    labels = c("Oper. span", "Sym. span", "Updating")),
+         y = factor(y, levels = c("WMU_recall", "SS_recall", "OS_recall"),
+                    labels = c("Updating", "Symmetry span", "Operation span")))
+
+WM <- heatmap(wm) +
+  labs(title = "Working Memory",
+       x = element_blank(),
+       y = element_blank())
+
+WM
+
+task_based <- ggarrange(optim, re, swi, WM, ncol = 2, nrow = 2, labels = "AUTO", common.legend = T,
+                        legend = "right", align = "hv")
+task_based
+
+### model parameters
 
 
 cors <- readRDS("analysis/bandits/allParams.Rds") %>% 
@@ -396,15 +484,24 @@ cors <- readRDS("analysis/bandits/allParams.Rds") %>%
                                   "Value-guided Restless", "Value-guided Two-armed", "Value-guided Horizon")))
 
 
-heatmap(cors) + 
-  labs(title = "Convergent validity of parameter estimates",
+param_based <- heatmap(cors) + 
+  labs(title = "Parameter estimates",
        x = element_blank(), y = element_blank())+
   theme(axis.text.x = element_text(angle = 30, hjust = 1))+
   geom_hline(yintercept = 1.5, color = "white", size = 3)+
   geom_hline(yintercept = 4.5, color = "white", size = 3)+
   geom_vline(xintercept = 6.5, color = "white", size = 3)+
-  geom_vline(xintercept = 3.5, color = "white", size = 3)
+  geom_vline(xintercept = 3.5, color = "white", size = 3)+
+  theme(legend.position = "none")
 
+param_based <- ggarrange(param_based, labels = c("E"))
+converge <- ggarrange(task_based, param_based, ncol = 2)
+converge
+
+save_my_pdf_and_tiff_and_png(converge,
+                             str_c(my_dir, "/convergence_default"),
+                             w = 17,
+                             h = 5)
 
 #ggsave("plots/submission1/convergent_validity_parameters.png")
 
@@ -810,10 +907,48 @@ converge
 # 2.4 Variable correlations (latent) -----------------------
 
 
+cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
+  mutate(ID = c(2, 3, 4, 6, 7 , 10 , 11  ,12 , 13  ,14,  16 , 20  ,21 , 23 , 24,
+                25,  26 , 27 , 28 , 29 , 31 , 32 , 33 , 34 , 35 , 36 , 37,  40  ,
+                48 , 49,  52  ,55 , 56,  59 , 60 , 61 , 63 , 65 , 69 , 71,
+                72 , 73 , 74 , 76 , 77 , 78,  79 , 83  ,84  ,85 , 90 , 93,  94 ,
+                95,  96 , 97,  98  ,99 ,100, 101 ,102 ,103 ,105 ,108 ,109, 110,
+                113 ,114, 117, 118, 119, 120, 122, 123, 124, 125, 128 ,129, 131, 132,
+                133, 134, 135, 137, 142, 149 ,151, 154, 162, 163, 165, 166, 168 ,169,
+                170 ,171 ,172, 175 ,176, 180 ,182 ,183, 185, 187 ,188 ,190, 193 ,195,
+                197, 198 ,199, 200 ,202 ,203, 204, 205, 206, 207, 208, 209,
+                213 ,216 ,219, 220, 222, 229 ,232, 233, 239, 243, 244, 245, 246 ,251,
+                254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
+                294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
+                320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
+  left_join(read.csv("analysis/questionnaire_factors_s2.csv") %>% select(-X), by = "ID") %>% 
+  select(-c(ID)) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  as.data.frame() %>% 
+  mutate(x = rownames(.)) %>% 
+  pivot_longer(cols = -c(x), names_to = "y", values_to = "cor") %>% 
+  mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC", "Exp", "posMood", "negMood", "AxDep"),
+                    labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration", "Positive mood", "Negative mood", "Anxiety/depression")),
+         y = factor(y, levels = c("AxDep", "negMood", "posMood", "Exp","WMC", "G.Directed", "G.Value.Guided"),
+                    labels = c("Anxiety/depression", "Negative mood", "Positive mood", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
 
 
+latent <- heatmap(cors) + 
+  labs(title = "External validity on the latent level",
+       x = element_blank(), y = element_blank())+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
+latent
 
+conv2 <- ggarrange(converge, latent, ncol = 2, labels = "AUTO", common.legend = T,
+          legend = "right")
+
+conv2
+
+save_my_pdf_and_tiff_and_png(conv2,
+                             str_c(my_dir, "/convergence_criterion_improved"),
+                             w = 14,
+                             h = 5)
 
 # Supplmentary Information ------------------------------------------------
 
