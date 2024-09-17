@@ -283,10 +283,10 @@ levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
 pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
-  geom_rect(aes(xmin = 0, xmax = .4, ymin = 0, ymax = 8), fill = "tomato3", alpha = .1) +
-  geom_rect(aes(xmin = .4, xmax = .6, ymin = 0, ymax = 8), fill = "orange", alpha = .1) +
-  geom_rect(aes(xmin = .6, xmax = .8, ymin = 0, ymax = 8), fill = "lightgreen", alpha = .1) +
-  geom_rect(aes(xmin = .8, xmax = 1, ymin = 0, ymax = 8), fill = "darkgreen", alpha = .1) +
+  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 8), fill = "tomato3", alpha = .1) +
+  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 8), fill = "orange", alpha = .1) +
+  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 8), fill = "lightgreen", alpha = .1) +
+  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 8), fill = "darkgreen", alpha = .1) +
   geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
@@ -840,11 +840,11 @@ levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Dire
 levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
-pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
-  geom_rect(aes(xmin = 0, xmax = .4, ymin = 0, ymax = 7), fill = "tomato3", alpha = .1) +
-  geom_rect(aes(xmin = .4, xmax = .6, ymin = 0, ymax = 7), fill = "orange", alpha = .1) +
-  geom_rect(aes(xmin = .6, xmax = .8, ymin = 0, ymax = 7), fill = "lightgreen", alpha = .1) +
-  geom_rect(aes(xmin = .8, xmax = 1, ymin = 0, ymax = 7), fill = "darkgreen", alpha = .1) +
+pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept" & measure != "Task Measure" & task != "Restless"), aes(value, fct_rev(parameter))) +
+  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 3.5), fill = "tomato3", alpha = .1) +
+  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 3.5), fill = "orange", alpha = .1) +
+  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 3.5), fill = "lightgreen", alpha = .1) +
+  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 3.5), fill = "darkgreen", alpha = .1) +
   geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
