@@ -1,16 +1,33 @@
 rm(list = ls())
 
+# Load Packages and Data --------------------------------------------------
+
+
 library(tidyverse)
 library(grid)
 library(gridExtra)
 library(lavaan)
 library(lavaanPlot)
+library(irr)
 
 dirs_homegrown <- c(
   "utils/analysis-utils.R", "utils/plotting-utils.R", 
   "utils/modeling-utils.R"
 )
 walk(dirs_homegrown, source)
+
+
+
+# Definition of Used Model Parameters -------------------------------------
+
+# models as from the literature or all three tasks ucb?
+is_ucb <- FALSE
+
+
+
+
+# Apply Exclusion Criteria ------------------------------------------------
+
 
 rename_and_add_id <- function(my_df, nm_model) {
   my_df %>%
@@ -29,29 +46,20 @@ tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
   filter(exclude_2 == 0 & exclude_1 == 0)
 
 
-# models as from the literature or all three tasks ucb?
-is_ucb <- FALSE
 
-
+# Prepare Data ------------------------------------------------------------
 
 
 if (is_ucb) {
-  tbl_horizon_sam <- read_csv("analysis/AllModelParameters-all-ucb.csv")
-  colnames(tbl_horizon_sam) <- str_remove(colnames(tbl_horizon_sam), "_ucb")
+  tbl_horizon_sam <- readRDS("analysis/bandits/allParams_improved.rds") %>% 
+    pivot_wider(id_cols = "ID", names_from = c("task", "predictor", "session"), values_from = "estimate")
+  colnm_prep <- str_match(colnames(tbl_horizon_sam)[2:ncol(tbl_horizon_sam)], "([A-Za-z_]*)(_[1-2]$)")
+  colnames(tbl_horizon_sam)[2:ncol(tbl_horizon_sam)] <- str_c(colnm_prep[,2] , "_10", colnm_prep[,3])
 } else {
-  tbl_horizon_sam <- read_csv("analysis/AllModelParameters-models-literature.csv")
-  # set 2AB to 10
-  tbl_horizon_sam$horizon[is.na(tbl_horizon_sam$horizon)] <- 10
-  tbl_horizon_sam <- tbl_horizon_sam %>% 
-    select(-...1) %>%
-    pivot_wider(id_cols = c(ID), names_from = c(task, predictor, horizon, session), values_from = estimate)
-  # script analyzes "long" horizon. therefore, rename difference as "long"
-  tbl_horizon_sam <- tbl_horizon_sam %>% mutate(
-    horizon_info_long_1 = horizon_info_long_1 - horizon_info_short_1,
-    horizon_info_long_2 = horizon_info_long_2 - horizon_info_short_2,
-    horizon_delta_mean_long_1 = horizon_delta_mean_long_1 - horizon_delta_mean_short_1,
-    horizon_delta_mean_long_1 = horizon_delta_mean_long_2 - horizon_delta_mean_short_2
-  )
+  tbl_horizon_sam <- readRDS("analysis/bandits/allParams.rds") %>% 
+    pivot_wider(id_cols = "ID", names_from = c("task", "predictor", "session"), values_from = "estimate")
+  colnm_prep <- str_match(colnames(tbl_horizon_sam)[2:ncol(tbl_horizon_sam)], "([A-Za-z_]*)(_[1-2]$)")
+  colnames(tbl_horizon_sam)[2:ncol(tbl_horizon_sam)] <- str_c(colnm_prep[,2] , "_10", colnm_prep[,3])
 }
 
 colnames(tbl_horizon_sam) <- str_replace(colnames(tbl_horizon_sam), "_short_", "_5_")
@@ -67,44 +75,11 @@ tbl_horizon_sam <- tbl_horizon_sam %>%
   relocate(horizon_Intercept_10_1, .before = horizon_V_10_1) %>%
   relocate(horizon_Intercept_10_2, .before = horizon_V_10_2) %>%
   relocate(horizon_RU_10_1, .after = horizon_V_10_1) %>%
-  relocate(horizon_RU_10_2, .after = horizon_V_10_2)
+  relocate(horizon_RU_10_2, .after = horizon_V_10_2) %>%
+  relocate(restless_RU_10_1, .after = restless_V_10_1)  %>%
+  relocate(restless_RU_10_2, .after = restless_V_10_2)
 
-
-tbl_restless <- read_csv("data/4arlb-maps-hierarchical.csv") %>%
-  relocate(rlb_map_1_v, .before = rlb_map_1_ru) %>%
-  relocate(rlb_map_2_v, .before = rlb_map_2_ru)
-
-
-tbl_bandits <- tbl_restless %>%
-  inner_join(tbl_horizon_sam, by = "ID")
-
-# re-code V and RU in Sam's task and Horizon task
-if (is_ucb) {
-  tbl_bandits <- tbl_bandits %>%
-    mutate(
-      sam_V_10_1 = -1 * sam_V_10_1,
-      sam_RU_10_1 = -1 * sam_RU_10_1,
-      sam_V_10_2 = -1 * sam_V_10_2,
-      sam_RU_10_2 = -1 * sam_RU_10_2,
-      horizon_V_10_1 = -1 * horizon_V_10_1,
-      horizon_RU_10_1 = -1 * horizon_RU_10_1,
-      horizon_V_10_2 = -1 * horizon_V_10_2,
-      horizon_RU_10_2 = -1 * horizon_RU_10_2
-    )
-}
-
-
-tbl_bandits %>% select(contains("sam")) %>%
-  mutate(rwn = 1:nrow(.)) %>%
-  pivot_longer(-rwn) %>%
-  filter(!str_detect(name, "Intercept")) %>%
-  mutate(
-    param = str_match(name, "([A-Z]*)_10_[1-2]$")[,2],
-    session = str_match(name, "_([1-2])$")[,2]
-  ) %>%
-  ggplot(aes(value)) +
-  geom_histogram() +
-  facet_wrap(session ~ param, scales = "free_x")
+tbl_bandits <- tbl_horizon_sam
 
 tbl_bandits_rel <- tbl_bandits %>% pivot_longer(-ID) %>%
   mutate(
@@ -119,6 +94,11 @@ tbl_bandits_rel$parameter <- "RU"
 tbl_bandits_rel$parameter[tbl_bandits_rel$is_v] <- "V"
 tbl_bandits_rel$parameter[tbl_bandits_rel$is_ic] <- "IC"
 tbl_bandits_rel$parameter[tbl_bandits_rel$is_vtu] <- "VTU"
+
+
+
+
+# Reliability & Validity --------------------------------------------------
 
 
 calc_icc_3_1 <- function(s1, s2) {
@@ -184,17 +164,17 @@ ggplot(tbl_rel_both %>% filter(parameter != "IC"), aes(value, parameter)) +
 if (is_ucb) {
   colnames_ic <- c(
     "ID",
-    "V Restless", "RU Restless",
     "Intercept 2Armed", "V 2Armed", "RU 2Armed",
     "Intercept Horizon", "V Horizon", "RU Horizon", 
+    "V Restless", "RU Restless",
     "session"
   )
 } else {
   colnames_ic <- c(
     "ID",
-    "V Restless", "RU Restless",
     "Intercept 2Armed", "V 2Armed", "RU 2Armed", "VTU 2Armed",
     "Intercept Horizon", "V Horizon", "RU Horizon", 
+    "V Restless", "RU Restless",
     "session"
   )
   
@@ -208,13 +188,6 @@ cn2 <- cn[!(cn %in% colnames(tbl_bandits_1))]
 tbl_bandits_2 <- tbl_bandits[, c("ID", cn2)] %>% mutate(session = 2)
 colnames(tbl_bandits_1) <- colnames(tbl_bandits_2) <- colnames_ic
 
-tbl_bandits_2 %>%
-  select(-c(session, ID)) %>%
-  mutate(ID = 1:nrow(.)) %>%
-  pivot_longer(-ID) %>%
-  ggplot(aes(value)) +
-  geom_histogram() +
-  facet_wrap(~ name, scales = "free_x")
 
 
 if (is_ucb) {
@@ -226,9 +199,22 @@ if (is_ucb) {
 }
 
 
-pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 1")
-pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "Parameter 1", "Parameter 2", "Session 2")
-
+pl_cors_s1 <- cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))) %>%
+  as.data.frame() %>%
+  mutate(v_in = rownames(.)) %>%
+  pivot_longer(-c(v_in)) %>%
+  rename(v_out = name) %>%
+  ggplot(aes(v_in, v_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_label(aes(label = round(value, 2)))
+pl_cors_s2 <- cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))) %>%
+  as.data.frame() %>%
+  mutate(v_in = rownames(.)) %>%
+  pivot_longer(-c(v_in)) %>%
+  rename(v_out = name) %>%
+  ggplot(aes(v_in, v_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_label(aes(label = round(value, 2)))
 grid.draw(arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1))
 
 
@@ -341,6 +327,9 @@ ggplot(tbl_rel_wm_q %>% filter(!str_detect(measure, "Processing")), aes(reliabil
   ) + 
   scale_fill_manual(values = c("skyblue2", "tomato4"), name = "")
 
+
+
+
 # CFAs --------------------------------------------------------------------
 
 
@@ -356,11 +345,11 @@ colnames(tbl_all_three)[str_detect(colnames(tbl_all_three), "Sam")] <- str_repla
 
 
 tbl_cor_1 <- cor(tbl_all_three %>% select(contains("_1")))
-colnames(tbl_cor_1) <- c("Horizon", "2Armed", "Restless")
+colnames(tbl_cor_1) <- c("Horizon", "Two-Armed", "Restless")
 rownames(tbl_cor_1) <- colnames(tbl_cor_1)
 pl_switch_s1 <- my_corr_plot(tbl_cor_1, "Measure 1", "Measure 2", "Session 1", type = "switch")
 tbl_cor_2 <- cor(tbl_all_three[str_detect(colnames(tbl_all_three), "_2$")])
-colnames(tbl_cor_2) <- c("Horizon", "2Armed", "Restless")
+colnames(tbl_cor_2) <- c("Horizon", "Two-Armed", "Restless")
 rownames(tbl_cor_2) <- colnames(tbl_cor_2)
 pl_switch_s2 <- my_corr_plot(tbl_cor_2, "Measure 1", "Measure 2", "Session 2", type = "switch")
 grid::grid.draw(gridExtra::arrangeGrob(pl_switch_s1, pl_switch_s2, nrow = 1))
@@ -379,6 +368,8 @@ tbl_wm_bandits <- tbl_wm_wide %>%
   left_join(tbl_q_wide, by = "ID")
 tbl_wm_bandits <- tbl_wm_bandits[complete.cases(tbl_wm_bandits), ]
 colnames(tbl_wm_bandits) <- str_remove(colnames(tbl_wm_bandits), "estimate_")
+
+# all session IDs as suffixes
 
 suffixes <- str_extract(colnames(tbl_wm_bandits), "^[1-2]_")
 suffixes <- str_c("_", str_remove(suffixes, "_"))
