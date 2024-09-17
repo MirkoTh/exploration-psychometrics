@@ -841,10 +841,10 @@ levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
 pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept" & measure != "Task Measure" & task != "Restless"), aes(value, fct_rev(parameter))) +
-  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 3.5), fill = "tomato3", alpha = .1) +
-  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 3.5), fill = "orange", alpha = .1) +
-  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 3.5), fill = "lightgreen", alpha = .1) +
-  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 3.5), fill = "darkgreen", alpha = .1) +
+  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 3.5), fill = "tomato3", alpha = .2) +
+  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 3.5), fill = "orange", alpha = .2) +
+  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 3.5), fill = "lightgreen", alpha = .2) +
+  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 3.5), fill = "darkgreen", alpha = .2) +
   geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
