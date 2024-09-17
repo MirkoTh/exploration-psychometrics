@@ -925,7 +925,7 @@ for (dv in c("horizon_RU_Horizon", "sam_RU", "restless_beta")){
 
 ###################### final correlation matrix #########################
 s <- session
-params <- readRDS("analysis/bandits/allParams_2abUCB.rds") %>% 
+params <- readRDS("analysis/bandits/allParams.rds") %>% 
   mutate(task = recode(task,"sam" = "2AB"),
          predictor = paste(task, predictor, sep = "_")) %>% 
   subset(!grepl("ntercept", predictor) & session == s,
@@ -974,6 +974,6 @@ selected_rows <- rownames(cors) %>%
 # Filter the correlation matrix
 cors <- cors[selected_rows, selected_columns]
 
-save(cors, file = "analysis/external_validity_cors_2abUCB.Rda")
+save(cors, file = sprintf("analysis/external_validity_cors_session%i.Rda", s))
 
 

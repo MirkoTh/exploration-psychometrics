@@ -125,25 +125,26 @@ recovery_heatmap <- function(l_recovery, ttl, param_relabel = NULL) {
     )
   if (!is.null(param_relabel)){
     tbl_in_out$param_in <- factor(tbl_in_out$param_in, labels = param_relabel)
-    tbl_in_out$param_out <- factor(tbl_in_out$param_out, labels = param_relabel)
+    tbl_in_out$param_out <- fct_rev(factor(tbl_in_out$param_out, labels = param_relabel))
     
   }
   pl <- ggplot(tbl_in_out, aes(param_in, param_out)) +
     geom_tile(aes(fill = value)) +
-    geom_label(aes(label = round(value, 2)), size = 6) +
-    theme_bw() +
+    #geom_label(aes(label = round(value, 2)), size = 6) +
+    geom_label(aes(label = round(value, 2))) +
+    theme_bw(base_size = 14) +
     scale_x_discrete(expand = c(0.01, 0)) +
     scale_y_discrete(expand = c(0.01, 0)) +
     theme(
       strip.background = element_rect(fill = "white"), 
-      text = element_text(size = 22),
+      #text = element_text(size = 22),
       legend.position = "bottom"
     ) + 
-    scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white", midpoint = 0, guide = "none") +
+    scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white", midpoint = 0, guide = "none", limits = c(-1,1)) +
     labs(x = "MAP (Data)", y = "MAP (Prediction)", title = ttl) + 
     theme(
-      strip.background = element_rect(fill = "white"), 
-      text = element_text(size = 22)
+      strip.background = element_rect(fill = "white")#, 
+     # text = element_text(size = 22)
     )
   return(pl)
 }
@@ -196,7 +197,9 @@ heatmap <- function(df, x = x, y = y, limits = c(-1,1)){
   
   ggplot(df, aes(x = x, y = y, fill = cor)) + geom_raster() + 
     scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = limits)+
-    geom_label(aes(label = round(cor, digits = 2)), fill = "white") 
+    geom_label(aes(label = round(cor, digits = 2)), fill = "white") +
+    scale_x_discrete(expand = c(0.01, 0)) +
+    scale_y_discrete(expand = c(0.01, 0))
   
   
   

@@ -562,7 +562,7 @@ saveRDS(params, file ="analysis/bandits/allParams.rds")
 saveRDS(fixed, fil = "analysis/bandits/allFixed.rds")
 
 
-############### alternative version with UCB parameters for Sam's task
+############### alternative version with UCB parameters for Sam's task & only long version of horizon
 
 ## Sam
 
@@ -595,28 +595,24 @@ params <- list()
 for (s in 1:2){
   
   p <- list()
-  for (h in c(-0.5, 0.5)){
-    
+  
+    h <- 0.5
     data <- load_and_prep_bandit_data(s)$horizon
     out <- fit_model_horizon(data[data$Horizon == h, ], model = "Wilson", bayesian = T, full = T, no_horizon = T, use_saved = T)
     
     # inspect the model to ensure everything is nicely converged and stuff
     
     print(out[[1]])
-    p <- append(p, list(out[[2]]))
+    p <- out[[2]]
     
-  }
   
-  params[[s]] <- p %>% bind_rows(.id = "horizon") %>% 
-    mutate(horizon = recode(horizon, `1` = "short", `2` = "long"),
-           ID = parse_number(rownames(.))) %>% 
-    pivot_wider(id_cols = c("ID", "predictor"), names_from = "horizon", values_from = "estimate") %>% 
-    mutate(estimate = long - short) %>% 
-    subset(select = -c(long, short))
+  params[[s]] <- p %>% 
+    mutate(ID = parse_number(rownames(.)))
   
 }
 
-horizon_params <- params %>% bind_rows(.id = "session")
+horizon_params <- params %>% bind_rows(.id = "session") %>% 
+  mutate(estimate = -1*estimate) # flip it bc it is coded the other way
 
 ## combine
 params <- list(sam = sam_params, horizon = horizon_params) %>% 
@@ -659,11 +655,11 @@ fixed <- params %>% # first we need to calculate subject-level averages to then 
 
 
 ## save
-write.csv(params,"analysis/bandits/AllModelParameters_2abUCB.csv")
-write.csv(fixed, "analysis/bandits/AllFixedEffects_2abUCB.csv")
+write.csv(params,"analysis/bandits/AllModelParameters_improved.csv")
+write.csv(fixed, "analysis/bandits/AllFixedEffects_improved.csv")
 
-saveRDS(params, file ="analysis/bandits/allParams_2abUCB.rds")
-saveRDS(fixed, fil = "analysis/bandits/allFixed_2abUCB.rds")
+saveRDS(params, file ="analysis/bandits/allParams_improved.rds")
+saveRDS(fixed, fil = "analysis/bandits/allFixed_improved.rds")
 
 
 

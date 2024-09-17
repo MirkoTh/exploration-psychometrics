@@ -175,12 +175,12 @@ cors <- cors %>%
                        labels = c("Intercept", "Value-guided", "Directed")))
 
 p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
-  labs(title = "Recovery of Horizon task",
+  labs(title = "Horizon task",
        x = "Fitted parameters",
        y = "Recovered parameters")
 p1
 
-ggsave("plots/submission1/recovery_horizon_default.png", p1)
+#ggsave("plots/submission1/recovery_horizon_default.png", p1)
 
 
 ## two-armed bd ------------------------------------
@@ -192,13 +192,13 @@ cors <- cors %>%
          true = factor(true, levels = c("Intercept", "V", "RU", "VTU"),
                        labels = c("Intercept", "Value-guided", "Directed", "Random")))
 
-p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
-  labs(title = "Recovery of two-armed bandit task",
+p2 <- heatmap(cors, x = cors$true, y = cors$recovered) +
+  labs(title = "Two-armed bandit",
        x = "Fitted parameters",
        y = "Recovered parameters")
-p1
+p2
 
-ggsave("plots/submission1/recovery_2ab_default.png", p1)
+#ggsave("plots/submission1/recovery_2ab_default.png", p1)
 ## restless bd ------------------------------------------------------------
 
 
@@ -207,17 +207,61 @@ file_loc_hc_s1_recovery <- "data/restless-hierarchical-model-recovery-posterior-
 tbl_draws_hc_s1 <- readRDS(file_loc_hc_s1)
 tbl_draws_hc_s1_recovery <- readRDS(file_loc_hc_s1_recovery)
 
-l_recovery_s1 <- map_cor(tbl_draws_hc_s1, tbl_draws_hc_s1_recovery, c("beta", "tau"))
-pl_heatmap_s1 <- recovery_heatmap(l_recovery_s1, "Restless Bandit", c("Directed", "Value-Guided"))
+l_recovery_s1 <- map_cor(tbl_draws_hc_s1, tbl_draws_hc_s1_recovery, c("tau", "beta"))
+pl_heatmap_s1 <- recovery_heatmap(l_recovery_s1, "Restless bandit", c("Value-Guided", "Directed")) +
+  labs(x = "Fitted parameters",
+       y = "Recovered parameters")
 
-save_my_pdf_and_tiff(
-  pl_heatmap_s1,
-  str_c(my_dir, "/restless-ucb-recovery"),
-  5, 4
+pl_heatmap_s1 
+
+
+recovery <- ggarrange(p1, p2, pl_heatmap_s1, widths = c(3.5,4,3), ncol = 3, labels = "AUTO",
+                      common.legend = T, legend = "right")
+
+recovery
+
+save_my_pdf_and_tiff_and_png(
+  recovery,
+  str_c(my_dir, "/recovery_default"),
+  14, 4
 )
 
+# replicability (fixed effects) ----------------------------------------------------
 
 
+fixed <- readRDS("analysis/bandits/allFixed.rds") %>% 
+  mutate(predictor = recode(predictor, "delta_mean" = "Value-guided",
+                            "info" = "Directed",
+                            "V" = "Value-guided",
+                            "RU" = "Directed",
+                            "VTU" = "Random"),
+         task = recode(task, "sam" = "Two-armed", "horizon" = "Horizon", "restless" = "Restless"),
+         session = recode(session, `1` = "Session 1", `2` = "Session 2"))  %>% 
+  subset(!grepl("ntercept", predictor))
+
+
+## for aggregating across models we first need to adjust the models intercept wise: Cousineau, D. (2005). Confidence intervals in within-subject designs: A simpler solution to Loftus and Masson’s method. Tutorials in Quantitative Methods for Psychology, 1(1), 42–45. https://doi.org/10.20982/tqmp.01.1.p042
+# that's why the variables of interest are called estimate_corrected etc
+fixed$predictor <- factor(fixed$predictor, levels = c("Value-guided", "Directed", "Random"))
+fixed$task <- factor(fixed$task, levels = c("Horizon", "Two-armed", "Restless"))
+
+rep <- ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
+  geom_errorbar(aes(ymin = l_corrected, ymax = u_corrected), width = 0.25)+
+  scale_fill_brewer(palette  = "Set2") +
+  facet_grid(rows = vars(task), cols =vars(session), scales = "free")+
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "white"),
+        axis.text.x = element_text(angle = 25, hjust = 1)) +
+  labs(title = "Fixed effects across tasks and sessions",
+       x = element_blank(),
+       y = "Parameter estimate ± 95% CI")+
+  geom_hline(yintercept = 0, linetype = "dotdash")
+
+rep
+
+save_my_pdf_and_tiff_and_png(rep, str_c(my_dir, "/replicability_default"), 
+                             w = 10,
+                             h = 5)
 
 # 1.2. Reliability --------------------------------------------------------
 
@@ -246,7 +290,8 @@ pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), ae
   ) + 
   scale_shape_manual(values = c(16, 3), name = "")
 
-save_my_pdf_and_tiff(
+pl_rel
+save_my_pdf_and_tiff_and_png(
   pl_rel,
   str_c(my_dir, "/reliability-bandits-literature"),
   12, 5
@@ -351,9 +396,7 @@ cors <- readRDS("analysis/bandits/allParams.Rds") %>%
                                   "Value-guided Restless", "Value-guided Two-armed", "Value-guided Horizon")))
 
 
-ggplot(cors, aes(x,y, fill = cor)) + geom_raster() + 
-  scale_fill_gradient2(high = "#66C2A5", low = "#FC8D62", mid = "white", limits = c(-1,1))+
-  geom_label(aes(label = round(cor, digits = 2)), fill = "white") + 
+heatmap(cors) + 
   labs(title = "Convergent validity of parameter estimates",
        x = element_blank(), y = element_blank())+
   theme(axis.text.x = element_text(angle = 30, hjust = 1))+
@@ -362,7 +405,8 @@ ggplot(cors, aes(x,y, fill = cor)) + geom_raster() +
   geom_vline(xintercept = 6.5, color = "white", size = 3)+
   geom_vline(xintercept = 3.5, color = "white", size = 3)
 
-ggsave("plots/submission1/convergent_validity_parameters.png")
+
+#ggsave("plots/submission1/convergent_validity_parameters.png")
 
 
 
@@ -446,6 +490,63 @@ pl_cors_restless <- ggplot(tbl_restless_cor, aes(var_in, var_out)) +
 pl_cors_all <- arrangeGrob(pl_cors_horizon, pl_cors_2armed, pl_cors_restless, layout_matrix = matrix(c(1, 2, 3, 3), nrow = 2, ncol = 2), nrow = 2, heights = c(.6, 1))
 save_my_pdf_and_tiff(pl_cors_all, str_c(my_dir, "/variable-correlations"), 18, 10)
 
+######### Kristin version
+
+
+load("analysis/external_validity_cors_session1.Rda") 
+
+cors$y <- row.names(cors)
+cors <- cors %>% 
+  pivot_longer(cols = -y, names_to = "x", values_to = "cor") %>% 
+  mutate(x = recode(x,
+                    "CEI" = "Exploration",
+                    "BIG_5" = "Openness",
+                    "STICSAcog" = "Cognitive anxiety",
+                    "STICSAsoma" = "Somatic anxiety",
+                    "PHQ_9" = "Depression",
+                    "PANASneg" = "Negative mood",
+                    "PANASpos" = "Positive mood",
+                    "OS_recall_0" = "Operation span",
+                    "SS_recall_0" = "Symmetry span",
+                    "WMU_recall_0" = "Updating"
+  ),
+  y = recode(y,
+             "restless_V" = "Value-guided restless",
+             "restless_RU" = "Directed restless",
+             "restless_Pswitch" = "P(switch) restless",
+             "restless_Poptimal" = "P(optimal) restless",
+             "horizon_Pswitch" = "P(switch) horizon",
+             "horizon_Poptimal" = "P(optimal) horizon",
+             "horizon_info" = "Directed horizon",
+             "horizon_delta_mean" = "Value-guided horizon",
+             "2AB_VTU" = "Random 2AB",
+             "2AB_V" = "Value-guided 2AB",
+             "2AB_RU" = "Directed 2AB",
+             "2AB_Pswitch" = "P(switch) 2AB",
+             "2AB_Poptimal" = "P(optimal) 2AB",
+  ))
+
+
+cors$y <- factor(cors$y, levels = c("Random 2AB", "Directed restless","Directed 2AB","Directed horizon", 
+                                    "Value-guided restless", "Value-guided 2AB", "Value-guided horizon", 
+                                    "P(switch) restless", "P(switch) 2AB","P(switch) horizon",
+                                    "P(optimal) restless", "P(optimal) 2AB", "P(optimal) horizon"))
+
+cors$x  <-  factor(cors$x, levels = c("Exploration", "Openness",
+                                      "Cognitive anxiety", "Somatic anxiety", "Depression",
+                                      "Negative mood", "Positive mood",
+                                      "Operation span", "Symmetry span", "Updating"))
+
+ext_validty <- heatmap(cors) + labs(title = "Correlation of task measures and questionnaire scores",
+                     x = element_blank(), y = element_blank())+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+ext_validty
+
+save_my_pdf_and_tiff_and_png(ext_validty,
+                             str_c(my_dir, "/external_validity_default"),
+                             h= 6,
+                             w = 12)
 
 
 ########## P(switch) over trials #############
@@ -537,36 +638,7 @@ re
 ggpubr::ggarrange(ho, sa, re, ncol = 3, widths = c(6,10, 20))
 
 
-############ fixed effects #########
 
-
-fixed <- readRDS("analysis/bandits/allFixed.rds") %>% 
-  mutate(predictor = recode(predictor, "delta_mean" = "Value-guided",
-                            "info" = "Directed",
-                            "V" = "Value-guided",
-                            "RU" = "Directed",
-                            "VTU" = "Random"),
-         task = recode(task, "sam" = "Two-Armed", "horizon" = "Horizon", "restless" = "Restless"),
-         session = recode(session, `1` = "Session 1", `2` = "Session 2"))  %>% 
-  subset(!grepl("ntercept", predictor))
-
-
-## for aggregating across models we first need to adjust the models intercept wise: Cousineau, D. (2005). Confidence intervals in within-subject designs: A simpler solution to Loftus and Masson’s method. Tutorials in Quantitative Methods for Psychology, 1(1), 42–45. https://doi.org/10.20982/tqmp.01.1.p042
-
-fixed$predictor <- factor(fixed$predictor, levels = c("Value-guided", "Directed", "Random"))
-fixed$task <- factor(fixed$task, levels = c("Horizon", "Two-Armed", "Restless"))
-
-ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
-  geom_errorbar(aes(ymin = l_corrected, ymax = u_corrected), width = 0.25)+
-  scale_fill_brewer(palette  = "Set2") +
-  facet_grid(rows = vars(task), cols =vars(session), scales = "free")+
-  theme(legend.position = "none",
-        strip.background = element_rect(fill = "white"),
-        axis.text.x = element_text(angle = 25, hjust = 1)) +
-  labs(title = "Fixed effects across tasks and sessions",
-       x = element_blank(),
-       y = "Parameter estimate ± 95% CI")+
-  geom_hline(yintercept = 0, linetype = "dotdash")
 
 
 
@@ -593,12 +665,12 @@ cors <- cors %>%
                        labels = c("Intercept", "Value-guided", "Directed")))
 
 p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
-  labs(title = "Recovery of Horizon task",
+  labs(title = "Horizon task",
        x = "Fitted parameters",
        y = "Recovered parameters")
 p1
 
-ggsave("plots/submission1/recovery_horizon_only_long.png", p1)
+#ggsave("plots/submission1/recovery_horizon_only_long.png", p1)
 
 
 ## two-armed bd ------------------------------------
@@ -610,13 +682,58 @@ cors <- cors %>%
          true = factor(true, levels = c("Intercept", "V", "RU"),
                        labels = c("Intercept", "Value-guided", "Directed")))
 
-p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
-  labs(title = "Recovery of two-armed bandit task",
+p2 <- heatmap(cors, x = cors$true, y = cors$recovered) +
+  labs(title = "Two-armed bandit task",
        x = "Fitted parameters",
        y = "Recovered parameters")
-p1
+p2
 
-ggsave("plots/submission1/recovery_2ab_UCB.png", p1)
+#ggsave("plots/submission1/recovery_2ab_UCB.png", p1)
+
+recovery <- ggarrange(p1, p2, ncol = 2, labels = "AUTO", common.legend = T, legend = "right")
+
+recovery
+
+save_my_pdf_and_tiff_and_png(recovery,
+                             str_c(my_dir, "/recovery_improved"),
+                             9,4)
+
+
+# Replicability (fixed effects) ------------------------------------------
+
+fixed <- readRDS("analysis/bandits/allFixed_improved.rds") %>% 
+  mutate(predictor = recode(predictor, "delta_mean" = "Value-guided",
+                            "info" = "Directed",
+                            "V" = "Value-guided",
+                            "RU" = "Directed",
+                            "VTU" = "Random"),
+         task = recode(task, "sam" = "Two-armed", "horizon" = "Horizon", "restless" = "Restless"),
+         session = recode(session, `1` = "Session 1", `2` = "Session 2"))  %>% 
+  subset(!grepl("ntercept", predictor) & task != "Restless")
+
+
+## for aggregating across models we first need to adjust the models intercept wise: Cousineau, D. (2005). Confidence intervals in within-subject designs: A simpler solution to Loftus and Masson’s method. Tutorials in Quantitative Methods for Psychology, 1(1), 42–45. https://doi.org/10.20982/tqmp.01.1.p042
+# that's why the variables of interest are called estimate_corrected etc
+fixed$predictor <- factor(fixed$predictor, levels = c("Value-guided", "Directed", "Random"))
+fixed$task <- factor(fixed$task, levels = c("Horizon", "Two-armed"))
+
+rep <- ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
+  geom_errorbar(aes(ymin = l_corrected, ymax = u_corrected), width = 0.25)+
+  scale_fill_brewer(palette  = "Set2") +
+  facet_grid(rows = vars(task), cols =vars(session), scales = "free")+
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "white"),
+        axis.text.x = element_text(angle = 25, hjust = 1)) +
+  labs(title = "Fixed effects across tasks and sessions",
+       x = element_blank(),
+       y = "Parameter estimate ± 95% CI")+
+  geom_hline(yintercept = 0, linetype = "dotdash")
+
+rep
+
+save_my_pdf_and_tiff_and_png(rep, str_c(my_dir, "/replicability_improved"), 
+                             w = 6,
+                             h = 5)
 
 
 # 2.2. Reliability --------------------------------------------------------
@@ -627,10 +744,10 @@ levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
 pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
-  geom_rect(aes(xmin = 0, xmax = .4, ymin = 0, ymax = 8), fill = "tomato3", alpha = .1) +
-  geom_rect(aes(xmin = .4, xmax = .6, ymin = 0, ymax = 8), fill = "orange", alpha = .1) +
-  geom_rect(aes(xmin = .6, xmax = .8, ymin = 0, ymax = 8), fill = "lightgreen", alpha = .1) +
-  geom_rect(aes(xmin = .8, xmax = 1, ymin = 0, ymax = 8), fill = "darkgreen", alpha = .1) +
+  geom_rect(aes(xmin = 0, xmax = .4, ymin = 0, ymax = 7), fill = "tomato3", alpha = .1) +
+  geom_rect(aes(xmin = .4, xmax = .6, ymin = 0, ymax = 7), fill = "orange", alpha = .1) +
+  geom_rect(aes(xmin = .6, xmax = .8, ymin = 0, ymax = 7), fill = "lightgreen", alpha = .1) +
+  geom_rect(aes(xmin = .8, xmax = 1, ymin = 0, ymax = 7), fill = "darkgreen", alpha = .1) +
   geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
@@ -646,11 +763,55 @@ pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), ae
   ) + 
   scale_shape_manual(values = c(16, 3), name = "")
 
-save_my_pdf_and_tiff(
+pl_rel
+
+save_my_pdf_and_tiff_and_png(
   pl_rel,
   str_c(my_dir, "/reliability-bandits-ucb"),
   12, 5
 )
+
+# 2.3 Convergent validity ------------------------------------------------
+
+cors <- readRDS("analysis/bandits/allParams_improved.Rds") %>% 
+  subset(predictor != "Intercept" & session == 1) %>% 
+  mutate(predictor = recode(predictor,
+                            "V" = "Value-guided",
+                            "RU" = "Directed",
+                            "delta_mean" = "Value-guided",
+                            "info" = "Directed"),
+         task = recode(task, "sam" = "Two-armed",
+                       "horizon" = "Horizon",
+                       "restless" = "Restless"),
+         variable = paste(predictor, task)) %>% 
+  pivot_wider(id_cols = "ID", names_from = "variable", values_from = "estimate") %>% 
+  subset(select = -ID) %>% 
+  cor(use="pairwise.complete.obs") %>% 
+  as.data.frame() %>% 
+  mutate(x = rownames(.)) %>% 
+  pivot_longer(cols = -x, names_to = "y", values_to = "cor") %>% 
+  mutate(x = factor(x, levels = c("Value-guided Horizon", "Value-guided Two-armed", "Value-guided Restless",
+                                  "Directed Horizon", "Directed Two-armed", "Directed Restless"),
+                    labels = c("Value-guided Horizon", "Value-guided Two-armed", "Value-guided Restless",
+                               "Directed Horizon", "Directed Two-armed", "Directed Restless")),
+         y = factor(y, levels = c("Directed Restless", "Directed Two-armed", "Directed Horizon",
+                                  "Value-guided Restless", "Value-guided Two-armed", "Value-guided Horizon")))
+
+
+converge <- heatmap(cors) + 
+  labs(title = "Convergent validity of parameter estimates",
+       x = element_blank(), y = element_blank())+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))+
+  geom_hline(yintercept = 3.5, color = "white", size = 3)+
+  geom_vline(xintercept = 3.5, color = "white", size = 3)
+
+converge
+
+# 2.4 Variable correlations (latent) -----------------------
+
+
+
+
 
 
 

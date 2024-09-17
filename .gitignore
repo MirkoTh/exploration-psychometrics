@@ -33,3 +33,7 @@ analysis/bandits/modellingResults/legacy/fitHorizonSession2UCBfullno_intercept.R
 *.Rda
 *.Rda
 .Rhistory
+.Rhistory
+/plots
+.DS_Store
+/figures
