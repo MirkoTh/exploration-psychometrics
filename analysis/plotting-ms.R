@@ -280,27 +280,25 @@ fixed <- readRDS("analysis/bandits/allFixed.rds") %>%
   subset(!grepl("ntercept", predictor))
 
 
-## for aggregating across models we first need to adjust the models intercept wise: Cousineau, D. (2005). Confidence intervals in within-subject designs: A simpler solution to Loftus and Masson’s method. Tutorials in Quantitative Methods for Psychology, 1(1), 42–45. https://doi.org/10.20982/tqmp.01.1.p042
-# that's why the variables of interest are called estimate_corrected etc
 fixed$predictor <- factor(fixed$predictor, levels = c("Value-guided", "Directed", "Random"))
 fixed$task <- factor(fixed$task, levels = c("Horizon", "Two-armed", "Restless"))
 
-rep <- ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
-  geom_errorbar(aes(ymin = l_corrected, ymax = u_corrected), width = 0.25)+
+rep <- ggplot(fixed, aes(predictor, Estimate,fill = predictor)) + geom_col()+
+  geom_errorbar(aes(ymin = `l-95% CI`, ymax = `u-95% CI`), width = 0.25)+
   scale_fill_brewer(palette  = "Set2") +
-  facet_grid(rows = vars(task), cols =vars(session), scales = "free")+
+  facet_grid(rows = vars(task), cols =vars(session), scales = "free_x")+
   theme(legend.position = "none",
         strip.background = element_rect(fill = "white"),
         axis.text.x = element_text(angle = 25, hjust = 1)) +
   labs(title = "Fixed effects across tasks and sessions",
        x = element_blank(),
-       y = "Parameter estimate ± 95% CI")+
+       y = "Parameter estimate ± 95% HDI")+
   geom_hline(yintercept = 0, linetype = "dotdash")
 
 rep
 
 save_my_pdf_and_tiff_and_png(rep, str_c(my_dir, "/replicability_default"), 
-                             w = 10,
+                             w = 5,
                              h = 5)
 
 # 1.2. Reliability --------------------------------------------------------
@@ -319,12 +317,10 @@ pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), ae
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
   labs(title = "Test-Retest Reliability", x = "ICC3(C,1)", y = "") + 
-  theme_bw() +
   scale_x_continuous(expand = c(0, 0), breaks = seq(0, .8, by = .2)) +
   scale_y_discrete(expand = c(0.025, 0)) +
   theme(
     strip.background = element_rect(fill = "white"), 
-    text = element_text(size = 22),
     legend.position = "bottom",
     axis.text.x = element_text(angle = 40, hjust = .95, vjust = .95)
   ) + 
@@ -336,77 +332,13 @@ save_my_pdf_and_tiff_and_png(
   str_c(my_dir, "/reliability-bandits-literature"),
   12, 5
 )
-
+pl_rel <- ggarrange(pl_rel, ncol =1, labels = c("A"))
 
 
 
 # 1.3. Convergent Validity --------------------------------------------------
 
-tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-hybrid.RDS")
-tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-hybrid.RDS")
-
-is_ucb <- FALSE
-colnames(tbl_bandits_1) <- c(
-  "ID", "Value-Guided Restless", "Directed Restless", 
-  "Intercept Two-Armed", "Value-Guided Two-Armed", "Directed Two-Armed", "Random Two-Armed", 
-  "Intercept Horizon", "Value-Guided Horizon", "Directed Horizon", "session"
-)
-colnames(tbl_bandits_2) <- colnames(tbl_bandits_1)
-pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "", "", "Convergent Validity Exploration") +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
-pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "", "", "Convergent Validity Exploration") +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
-
-pl_convergent_hybrid <- arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1)
-save_my_pdf_and_tiff(pl_convergent_hybrid, str_c(my_dir, "/bandits-convergent-hybrid-s1-s2"), 16.5, 7.25)
-save_my_pdf_and_tiff(pl_cors_s1, str_c(my_dir, "/bandits-convergent-hybrid-s1"), 9, 7.25)
-
-
-tbl_bandits_1 <- readRDS("analysis/bandits/bandits-1-ucb.RDS")
-tbl_bandits_2 <- readRDS("analysis/bandits/bandits-2-ucb.RDS")
-colnames(tbl_bandits_1) <- c(
-  "ID", "Value-Guided Restless", "Directed Restless", 
-  "Intercept Two-Armed", "Value-Guided Two-Armed", "Directed Two-Armed", 
-  "Intercept Horizon", "Value-Guided Horizon", "Directed Horizon", "session"
-)
-colnames(tbl_bandits_2) <- colnames(tbl_bandits_1)
-
-is_ucb <- TRUE
-pl_cors_s1 <- my_corr_plot(cor(tbl_bandits_1 %>% select(-c(ID, session, contains("Intercept")))), "", "", "Convergent Validity Exploration") +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
-pl_cors_s2 <- my_corr_plot(cor(tbl_bandits_2 %>% select(-c(ID, session, contains("Intercept")))), "", "", "Convergent Validity Exploration") +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
-
-pl_convergent_ucb <- arrangeGrob(pl_cors_s1, pl_cors_s2, nrow = 1)
-save_my_pdf_and_tiff(pl_convergent_ucb, str_c(my_dir, "/bandits-convergent-ucb"), 15, 7.25)
-save_my_pdf_and_tiff(pl_cors_s1, str_c(my_dir, "/bandits-convergent-ucb-s1"), 9, 7.25)
-
-
-
-l_tbl_wm <- readRDS("analysis/wm/wm-measures.RDS")
-pl_cors_wm_s1 <- my_corr_plot(
-  cor(
-    l_tbl_wm[[1]] %>% 
-      select(-c(ID, session, OS_processing, SS_processing, prop_timeout_os_processing, prop_timeout_ss_processing, rt_os, rt_ss)) %>%
-      rename("Operation Span" = "OS_recall", "Symmetry Span" = "SS_recall", "WM Updating" = "WMU_recall")
-  ), "", "", "Session 1", type = "wm"
-) + theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
-pl_cors_wm_s2 <- my_corr_plot(
-  cor(
-    l_tbl_wm[[2]] %>% 
-      select(-c(ID, session, OS_processing, SS_processing, prop_timeout_os_processing, prop_timeout_ss_processing, rt_os, rt_ss)) %>% 
-      rename("Operation Span" = "OS_recall", "Symmetry Span" = "SS_recall", "WM Updating" = "WMU_recall")
-  ), "", "", "Session 2", type = "wm"
-) + theme(axis.text.x = element_text(angle = 30, hjust = 1.02, vjust = 1.025))
-pl_wm_convergent <- arrangeGrob(pl_cors_wm_s1, pl_cors_wm_s2, nrow = 1)
-
-save_my_pdf_and_tiff(
-  pl_wm_convergent, str_c(my_dir, "/wm-convergent"), 7.5, 3.5
-)
-
-
-#### Kristin version
-
+## task based
 load("analysis/bandits/optimal_switch_session1.Rda")
 
 relabel <- function(df) {
@@ -420,32 +352,6 @@ relabel <- function(df) {
   return(relabelled)
 }
 
-### P(optim)
-optimal <- Poptimal %>% 
-  pivot_wider(id_cols = ID, names_from = model, values_from = Poptimal) %>% 
-  self_cor() %>% 
-  relabel()
-
-optim <- heatmap(optimal) +
-  labs(title = "P(optimal)",
-       x = element_blank(),
-       y = element_blank())
-
-optim
-### regret
-
-reg<- regret %>% 
-  pivot_wider(id_cols = ID, names_from = model, values_from = regret) %>% 
-  self_cor() %>% 
-  relabel()
-
-re <- heatmap(reg) +
-  labs(title = "Regret",
-       x = element_blank(),
-       y = element_blank())
-
-re
-
 ### P(switch)
 
 Pswitch <- switch %>% 
@@ -456,7 +362,8 @@ Pswitch <- switch %>%
 swi <- heatmap(Pswitch) +
   labs(title = "P(switch)",
        x = element_blank(),
-       y = element_blank())
+       y = element_blank())+
+  theme(legend.position = "none")
 
 swi
 
@@ -473,12 +380,12 @@ wm <- readRDS("analysis/4arlb-overviewAll.rds") %>%
 WM <- heatmap(wm) +
   labs(title = "Working Memory",
        x = element_blank(),
-       y = element_blank())
+       y = element_blank())+
+  theme(legend.position = "none")
 
 WM
 
-task_based <- ggarrange(optim, re, swi, WM, ncol = 2, nrow = 2, labels = "AUTO", common.legend = T,
-                        legend = "right", align = "hv")
+task_based <- ggarrange(swi, WM, ncol = 1, nrow = 2, labels = c("B", "C"), align = "hv")
 task_based
 
 ### model parameters
@@ -497,11 +404,7 @@ cors <- readRDS("analysis/bandits/allParams.Rds") %>%
                        "restless" = "Restless"),
          variable = paste(predictor, task)) %>% 
   pivot_wider(id_cols = "ID", names_from = "variable", values_from = "estimate") %>% 
-  subset(select = -ID) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  as.data.frame() %>% 
-  mutate(x = rownames(.)) %>% 
-  pivot_longer(cols = -x, names_to = "y", values_to = "cor") %>% 
+  self_cor() %>% 
   mutate(x = factor(x, levels = c("Value-guided Horizon", "Value-guided Two-armed", "Value-guided Restless",
                                   "Directed Horizon", "Directed Two-armed", "Directed Restless",
                                   "Random Two-armed"),
@@ -522,100 +425,19 @@ param_based <- heatmap(cors) +
   geom_vline(xintercept = 3.5, color = "white", size = 3)+
   theme(legend.position = "none")
 
-param_based <- ggarrange(param_based, labels = c("E"))
-converge <- ggarrange(task_based, param_based, ncol = 2)
+param_based <- ggarrange(param_based, labels = c("D"))
+converge <- ggarrange(task_based, param_based, ncol = 2, widths = c(2,3))
 converge
 
 save_my_pdf_and_tiff_and_png(converge,
                              str_c(my_dir, "/convergence_default"),
-                             w = 17,
+                             w = 12,
                              h = 5)
 
 #ggsave("plots/submission1/convergent_validity_parameters.png")
 
 
-
-# 1.5. Variable Correlations ---------------------------------------------------
-
-
-# horizon
-tbl_cor_trial_horizon1 <- readRDS("analysis/bandits/var-cors-horizon.rds")
-pl_cors_horizon <- ggplot(tbl_cor_trial_horizon1, aes(trial, value, group = name)) +
-  geom_line(aes(color = name)) +
-  geom_point(color = "white", size = 4) +
-  geom_point(aes(color = name)) +
-  geom_label(data = tbl_cor_avg_horizon1, aes(
-    7.5, .25 * as.numeric(as.factor(name)), 
-    label = str_c("avg. r = ", round(value, 2)
-    ), color = as.factor(name))) +
-  facet_wrap( ~ Horizon) +
-  theme_bw() +
-  scale_x_continuous(expand = c(0.03, 0)) +
-  scale_y_continuous(expand = c(0.01, 0)) +
-  labs(x = "Trial ID", y = "Correlation") + 
-  theme(
-    strip.background = element_rect(fill = "white"), 
-    text = element_text(size = 22),
-    legend.position = "bottom"
-  ) + 
-  scale_color_brewer(palette = "Set2", name = "")
-
-
-# 2 armed bd
-tbl_cor_trial_sam1 <- readRDS("analysis/bandits/var-cors-2armed.rds")
-pl_cors_2armed <- ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
-  geom_line(aes(color = name)) +
-  geom_point(color = "white", size = 4) +
-  geom_point(aes(color = name)) +
-  geom_label(data = tbl_cor_avg_sam1, aes(6, (.25 * as.numeric(as.factor(name))) - .2, label = str_c("avg. r = ", round(value, 2)), color = as.factor(name))) +
-  facet_wrap(~ cond) +
-  theme_bw() +
-  scale_x_continuous(expand = c(0.03, 0)) +
-  scale_y_continuous(expand = c(0.01, 0)) +
-  labs(x = "Trial ID", y = "Correlation") + 
-  theme(
-    strip.background = element_rect(fill = "white"), 
-    text = element_text(size = 22),
-    legend.position = "bottom"
-  ) + 
-  scale_color_brewer(palette = "Set2", name = "") 
-
-
-
-# restless
-tbl_restless_cor <- readRDS("analysis/bandits/var-cors-restless.rds")
-change_labels <- function(tbl_df, cn) {
-  tbl_df %>%
-    mutate(
-      "{{cn}}" := str_replace({{cn}}, "v_", "RU "),
-      "{{cn}}" := str_replace({{cn}}, "m_", "V "),
-      "{{cn}}" := str_replace({{cn}}, "th_", "VTU "),
-      "{{cn}}" := str_replace({{cn}}, "_", " ")
-    )
-}
-tbl_restless_cor <- change_labels(tbl_restless_cor, var_in)
-tbl_restless_cor <- change_labels(tbl_restless_cor, var_out)
-
-pl_cors_restless <- ggplot(tbl_restless_cor, aes(var_in, var_out)) +
-  geom_tile(aes(fill = value)) +
-  geom_label(aes(label = round(value, 2), label.size = .2)) +
-  theme_bw() +
-  scale_x_discrete(expand = c(0.01, 0)) +
-  scale_y_discrete(expand = c(0.01, 0)) +
-  labs(x = "Variable In", y = "Variable Out") + 
-  theme(
-    strip.background = element_rect(fill = "white"), 
-    text = element_text(size = 22),
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 90)
-  ) + 
-  scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white") +
-  guides(fill = "none")
-
-pl_cors_all <- arrangeGrob(pl_cors_horizon, pl_cors_2armed, pl_cors_restless, layout_matrix = matrix(c(1, 2, 3, 3), nrow = 2, ncol = 2), nrow = 2, heights = c(.6, 1))
-save_my_pdf_and_tiff(pl_cors_all, str_c(my_dir, "/variable-correlations"), 18, 10)
-
-######### Kristin version
+# 1.5. Variable Correlations --------------------------------------------------
 
 
 load("analysis/external_validity_cors_session1.Rda") 
@@ -673,6 +495,17 @@ save_my_pdf_and_tiff_and_png(ext_validty,
                              h= 6,
                              w = 12)
 
+ext_validty <- ext_validty +theme(legend.position = "bottom")
+ext_validty <- ggarrange(ext_validty, ncol = 1, labels = c("E"))
+
+rel_conv_default <- ggarrange(pl_rel, converge, ext_validty, ncol = 1, nrow = 3,
+                              heights = c(1.5,2,3))
+rel_conv_default
+
+save_my_pdf_and_tiff_and_png(rel_conv_default,
+                             str_c(my_dir, "/reliability_convergence_default"),
+                             h = 14,
+                             w = 10)
 
 ########## P(switch) over trials #############
 
@@ -837,13 +670,11 @@ fixed <- readRDS("analysis/bandits/allFixed_improved.rds") %>%
   subset(!grepl("ntercept", predictor) & task != "Restless")
 
 
-## for aggregating across models we first need to adjust the models intercept wise: Cousineau, D. (2005). Confidence intervals in within-subject designs: A simpler solution to Loftus and Masson’s method. Tutorials in Quantitative Methods for Psychology, 1(1), 42–45. https://doi.org/10.20982/tqmp.01.1.p042
-# that's why the variables of interest are called estimate_corrected etc
 fixed$predictor <- factor(fixed$predictor, levels = c("Value-guided", "Directed", "Random"))
 fixed$task <- factor(fixed$task, levels = c("Horizon", "Two-armed"))
 
-rep <- ggplot(fixed, aes(predictor, estimate_corrected,fill = predictor)) + geom_col()+
-  geom_errorbar(aes(ymin = l_corrected, ymax = u_corrected), width = 0.25)+
+rep <- ggplot(fixed, aes(predictor, Estimate,fill = predictor)) + geom_col()+
+  geom_errorbar(aes(ymin = `l-95% CI`, ymax = `u-95% CI`), width = 0.25)+
   scale_fill_brewer(palette  = "Set2") +
   facet_grid(rows = vars(task), cols =vars(session), scales = "free")+
   theme(legend.position = "none",
@@ -860,6 +691,14 @@ save_my_pdf_and_tiff_and_png(rep, str_c(my_dir, "/replicability_improved"),
                              w = 6,
                              h = 5)
 
+recov_rep <- ggarrange(p1, p2, rep, ncol = 3, labels = "AUTO", common.legend = T, legend = "bottom")
+
+recov_rep
+
+save_my_pdf_and_tiff_and_png(recov_rep,
+                             str_c(my_dir, "/replicability_recovery_improved"),
+                             w = 15,
+                             h = 5)
 
 # 2.2. Reliability --------------------------------------------------------
 
@@ -910,11 +749,7 @@ cors <- readRDS("analysis/bandits/allParams_improved.Rds") %>%
                        "restless" = "Restless"),
          variable = paste(predictor, task)) %>% 
   pivot_wider(id_cols = "ID", names_from = "variable", values_from = "estimate") %>% 
-  subset(select = -ID) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  as.data.frame() %>% 
-  mutate(x = rownames(.)) %>% 
-  pivot_longer(cols = -x, names_to = "y", values_to = "cor") %>% 
+  self_cor() %>% 
   mutate(x = factor(x, levels = c("Value-guided Horizon", "Value-guided Two-armed", "Value-guided Restless",
                                   "Directed Horizon", "Directed Two-armed", "Directed Restless"),
                     labels = c("Value-guided Horizon", "Value-guided Two-armed", "Value-guided Restless",
@@ -950,11 +785,7 @@ cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>%
                 294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
                 320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
   left_join(read.csv("analysis/questionnaire_factors_s2.csv") %>% select(-X), by = "ID") %>% 
-  select(-c(ID)) %>% 
-  cor(use = "pairwise.complete.obs") %>% 
-  as.data.frame() %>% 
-  mutate(x = rownames(.)) %>% 
-  pivot_longer(cols = -c(x), names_to = "y", values_to = "cor") %>% 
+  self_cor() %>% 
   mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC", "Exp", "posMood", "negMood", "AxDep"),
                     labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration", "Positive mood", "Negative mood", "Anxiety/depression")),
          y = factor(y, levels = c("AxDep", "negMood", "posMood", "Exp","WMC", "G.Directed", "G.Value.Guided"),
