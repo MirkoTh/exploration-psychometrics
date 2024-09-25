@@ -35,6 +35,19 @@ tbl_lookup <- tibble(
 
 l_kalman_ucb_no_variance_s1 <- readRDS(file = str_c("data/4arlb-kalman-ucb-fit1.rds"))
 l_kalman_ucb_no_variance_s2 <- readRDS(file = str_c("data/4arlb-kalman-ucb-fit2.rds"))
+l_sm1 <- readRDS("data/4arlb-kalman-sm-fit1.rds")
+l_sm2 <- readRDS("data/4arlb-kalman-sm-fit2.rds")
+
+tbl_kalman_sm <- l_sm1 %>%
+  reduce(rbind) %>%
+  as.data.frame() %>% mutate(session = 1) %>%
+  rbind(
+    l_sm2 %>% reduce(rbind) %>% as.data.frame() %>% mutate(session = 2)
+  )%>% as_tibble()
+colnames(tbl_kalman_sm) <- c("V", "NLL", "Session")
+tbl_kalman_sm <- tbl_kalman_sm  %>%
+  mutate(ID = rep(tbl_exclude$ID, 2)) %>%
+  relocate(ID, .before = V)
 
 tbl_kalman_ucb <- l_kalman_ucb_no_variance_s1 %>%
   reduce(rbind) %>%
@@ -77,10 +90,12 @@ tbl_ucb_compare <- grouped_agg(rbind(tbl_draws_hc_s1_long, tbl_draws_hc_s2_long)
   pivot_wider(names_from = parameter, values_from = mean_value) %>%
   rename(V_hcb = tau, RU_hcb = beta) %>%
   left_join(tbl_kalman_ucb, by = c("ID", "Session")) %>%
-  rename(V_ml = V, RU_ml = RU)
+  rename(V_ml_ucb = V, RU_ml_ucb = RU, NLL_ucb = NLL) %>%
+  left_join(tbl_kalman_sm, by = c("ID", "Session"))  %>%
+  rename(V_ml_sm = V, NLL_sm = NLL) 
 
 tbl_ucb_plot <- tbl_ucb_compare %>%
-  select(-NLL) %>%
+  select(-c(NLL_sm, V_ml_sm, NLL_ucb)) %>%
   pivot_longer(-c(ID, Session)) %>%
   mutate(
     parameter = str_extract(name, "^[A-Z]+"),
@@ -92,8 +107,8 @@ tbl_ucb_plot$Session <- factor(tbl_ucb_plot$Session, labels = c("Session 1", "Se
 tbl_ucb_cor <- tbl_ucb_compare %>%
   group_by(Session) %>%
   summarize(
-    cor_RU = cor(RU_hcb, RU_ml),
-    cor_V = cor(V_hcb, V_ml)
+    cor_RU = cor(RU_hcb, RU_ml_ucb),
+    cor_V = cor(V_hcb, V_ml_ucb)
   ) %>% ungroup() %>%
   pivot_longer(-Session) %>%
   mutate(parameter = str_extract(name, "[A-Z]+$")) %>%
@@ -276,4 +291,33 @@ pl_group_pattern <- ggplot(tbl_prep %>% pivot_longer(c(RU, V)), aes(name, value)
   scale_color_brewer(palette = "Set2", name = "")
 
 saveRDS(pl_group_pattern, "data/restless-group-patterns-across-methods.Rds")
+
+
+# Comparison SM ML vs. UCB hierarchical -----------------------------------
+
+
+tbl_sm_compare <- tbl_ucb_compare %>%
+  select(-c(starts_with("NLL_"), "RU_hcb", "V_ml_ucb", "RU_ml_ucb"))
+tbl_cor <- tbl_sm_compare %>%
+  group_by(Session) %>%
+  summarize(r = cor(V_hcb, V_ml_sm)) %>%
+  ungroup()
+
+tbl_sm_compare %>%
+  ggplot(aes(V_ml_sm, V_hcb)) +
+  geom_abline() +
+  geom_point(color = "#66C2A5") +
+  geom_label(data = tbl_cor, aes(x = .35, y = .1, label = str_c("r = ", round(r, 2)))) +
+  facet_wrap(~ Session) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Max. Lik. (Softmax)", y = "Hierarch. Bayes") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  )
+saveRDS(tbl_sm_compare, "data/restless-params-smml-hcbucb-data.RDS")
+saveRDS(tbl_cor, "data/restless-params-smml-hcbucb-cor.RDS")
 

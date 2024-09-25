@@ -53,7 +53,7 @@ pl_restless_group_patterns <- ggplot(tbl_prep, aes(name, mn)) +
   facet_wrap(Session ~ method) +
   theme_bw() +
   scale_y_continuous(expand = c(0.1, 0)) +
-  labs(x = "Parameter", y = "Group Mean") + 
+  labs(x = "Parameter", y = "Group Mean", title = "UCB: Group-Level Patterns") + 
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
@@ -73,7 +73,7 @@ pl_params_across_methods <- ggplot(tbl_ucb_ml_hcb, aes(`Max. Lik.`, `Hierarch. B
   geom_point(aes(color = parameter)) +
   geom_label(data = tbl_ucb_cor, aes(my_base + .5 * my_jitter, my_base - 2*my_jitter, label = str_c("r = ", round(value, 2)))) +
   facet_wrap(Session ~ parameter, scales = "free") +
-  theme_bw() +
+  theme_bw() + labs(title = "UCB: Indiv. Param.") +
   scale_x_continuous(expand = c(0.04, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
   theme(
@@ -91,17 +91,45 @@ tbl_restless_reliability_across_methods$Parameter <- factor(tbl_restless_reliabi
 
 table_rl_reliab <- tableGrob(tbl_restless_reliability_across_methods)
 
-pl_table_rl_reliab <- ggplot() + annotation_custom(table_rl_reliab)
+pl_table_rl_reliab <- ggplot() + annotation_custom(table_rl_reliab) + theme_bw() + 
+  labs(title = "Reliability") +
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  )
+
+
+# cor value-guided ucb hcb with sm ml
+tbl_sm_compare <- readRDS("data/restless-params-smml-hcbucb-data.RDS")
+tbl_cor <- readRDS("data/restless-params-smml-hcbucb-cor.RDS")
+
+pl_v_smml_ucbhcb <- ggplot(tbl_sm_compare, aes(V_ml_sm, V_hcb)) +
+  geom_abline() +
+  geom_point(color = "#66C2A5") +
+  geom_label(data = tbl_cor, aes(x = .35, y = .1, label = str_c("r = ", round(r, 2)))) +
+  facet_wrap(~ Session) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Max. Lik. (Softmax)", y = "UCB: Hierarch. Bayes", title = "Value-Guided: Indiv. Param.") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  )
+
+
 pl_arrive_restless_model <- arrangeGrob(
-  pl_restless_group_patterns, pl_params_across_methods, pl_table_rl_reliab,
-  nrow = 1
+  pl_restless_group_patterns, pl_params_across_methods, pl_table_rl_reliab, pl_v_smml_ucbhcb,
+  nrow = 2, heights = c(.65, .35)
 )
 
 
 save_my_pdf_and_tiff_and_png(
   pl_arrive_restless_model,
   str_c(my_dir, "/arrive-restless-model"),
-  20, 7
+  12, 10
 )
 
 
@@ -635,7 +663,7 @@ cors$x  <-  factor(cors$x, levels = c("Exploration", "Openness",
                                       "Operation span", "Symmetry span", "Updating"))
 
 ext_validty <- heatmap(cors) + labs(title = "Correlation of task measures and questionnaire scores",
-                     x = element_blank(), y = element_blank())+
+                                    x = element_blank(), y = element_blank())+
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
 ext_validty
@@ -941,7 +969,7 @@ latent <- heatmap(cors) +
 latent
 
 conv2 <- ggarrange(converge, latent, ncol = 2, labels = "AUTO", common.legend = T,
-          legend = "right")
+                   legend = "right")
 
 conv2
 
@@ -950,7 +978,7 @@ save_my_pdf_and_tiff_and_png(conv2,
                              w = 14,
                              h = 5)
 
-# Supplmentary Information ------------------------------------------------
+# Supplementary Information ------------------------------------------------
 
 
 # the following three plots display correlations between the independent variables in the three bandit tasks (i.e., V, VTU, and RU)
