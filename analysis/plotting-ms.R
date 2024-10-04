@@ -46,6 +46,7 @@ if (!dir.exists(my_dir)){dir.create(my_dir, recursive = TRUE)}
 
 tbl_prep <- readRDS("data/restless-group-patterns-across-methods-data-individual.RDS")
 tbl_prep$name <- factor(tbl_prep$parameter, labels = c("Directed", "Value-Guided"))
+tbl_prep$Session <- factor(tbl_prep$Session, labels = c("Session 1", "Session 2"))
 pl_restless_group_patterns <- ggplot(tbl_prep, aes(name, mn)) +
   geom_col(aes(fill = name)) +
   geom_point(color = "black") +
@@ -53,7 +54,7 @@ pl_restless_group_patterns <- ggplot(tbl_prep, aes(name, mn)) +
   facet_wrap(Session ~ method) +
   theme_bw() +
   scale_y_continuous(expand = c(0.1, 0)) +
-  labs(x = "Parameter", y = "Group Mean", title = "UCB: Group-Level Patterns") + 
+  labs(x = "Parameter", y = "Group Mean", title = "a) UCB: Group-Level Patterns") + 
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
@@ -73,7 +74,7 @@ pl_params_across_methods <- ggplot(tbl_ucb_ml_hcb, aes(`Max. Lik.`, `Hierarch. B
   geom_point(aes(color = parameter)) +
   geom_label(data = tbl_ucb_cor, aes(my_base + .5 * my_jitter, my_base - 2*my_jitter, label = str_c("r = ", round(value, 2)))) +
   facet_wrap(Session ~ parameter, scales = "free") +
-  theme_bw() + labs(title = "UCB: Indiv. Param.") +
+  theme_bw() + labs(title = "b) UCB: Indiv. Param.") +
   scale_x_continuous(expand = c(0.04, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
   theme(
@@ -92,7 +93,7 @@ tbl_restless_reliability_across_methods$Parameter <- factor(tbl_restless_reliabi
 table_rl_reliab <- tableGrob(tbl_restless_reliability_across_methods)
 
 pl_table_rl_reliab <- ggplot() + annotation_custom(table_rl_reliab) + theme_bw() + 
-  labs(title = "Reliability") +
+  labs(title = "c) Reliability") +
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
@@ -103,6 +104,8 @@ pl_table_rl_reliab <- ggplot() + annotation_custom(table_rl_reliab) + theme_bw()
 # cor value-guided ucb hcb with sm ml
 tbl_sm_compare <- readRDS("data/restless-params-smml-hcbucb-data.RDS")
 tbl_cor <- readRDS("data/restless-params-smml-hcbucb-cor.RDS")
+tbl_cor$Session <- factor(tbl_cor$Session, labels = c("Session 1", "Session 2"))
+tbl_sm_compare$Session <- factor(tbl_sm_compare$Session, labels = c("Session 1", "Session 2"))
 
 pl_v_smml_ucbhcb <- ggplot(tbl_sm_compare, aes(V_ml_sm, V_hcb)) +
   geom_abline() +
@@ -112,7 +115,7 @@ pl_v_smml_ucbhcb <- ggplot(tbl_sm_compare, aes(V_ml_sm, V_hcb)) +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
-  labs(x = "Max. Lik. (Softmax)", y = "UCB: Hierarch. Bayes", title = "Value-Guided: Indiv. Param.") + 
+  labs(x = "Max. Lik. (Softmax)", y = "UCB: Hierarch. Bayes", title = "d) Value-Guided: Indiv. Param.") + 
   theme(
     strip.background = element_rect(fill = "white"), 
     text = element_text(size = 22),
