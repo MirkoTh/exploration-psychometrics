@@ -824,9 +824,9 @@ pl_2ab <- ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
   geom_label(data = tbl_cor_avg_sam1, aes(6, .15 * as.numeric(as.factor(name)), label = str_c("avg. r = ", round(value, 2)), color = as.factor(name))) +
   facet_wrap(~cond) +
   theme_bw() +
-  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_x_continuous(expand = c(0.01, 0), breaks = 3:3:9) +
   scale_y_continuous(expand = c(0.01, 0)) +
-  labs(x = "Trial ID", y = "Pearson Correlation") +
+  labs(x = "Trial ID", y = "Pearson Correlation", title = "a) Two-Armed Bandit") +
   theme(
     strip.background = element_rect(fill = "white"),
     text = element_text(size = 22),
@@ -847,7 +847,7 @@ pl_horizon <- ggplot(tbl_cor_trial_horizon1, aes(trial, value)) +
   theme_bw() +
   scale_x_continuous(expand = c(0.03, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
-  labs(x = "Trial ID", y = "Correlation") +
+  labs(x = "Trial ID", y = "Correlation", title = c("b) Horizon Task")) +
   theme(
     strip.background = element_rect(fill = "white"),
     text = element_text(size = 22),
@@ -855,23 +855,31 @@ pl_horizon <- ggplot(tbl_cor_trial_horizon1, aes(trial, value)) +
   ) +
   scale_color_brewer(palette = "Set2", name = "")
 
-tbl_restless_cor <- readRDS("analysis/bandits/var-cors-restless.rds")
-pl_restless <- ggplot(tbl_restless_cor, aes(var_in, var_out)) +
-  geom_tile(aes(fill = value)) +
-  geom_text(aes(label = round(value, 2)), color = "white") +
-  theme_bw() +
-  scale_x_discrete(expand = c(0.01, 0)) +
-  scale_y_discrete(expand = c(0.01, 0)) +
-  labs(x = "Var In", y = "Var Out") +
-  theme(
-    strip.background = element_rect(fill = "white"),
-    text = element_text(size = 22),
-    legend.position = "bottom",
-    axis.text.x = element_text(angle = 90)
+tbl_restless_cor <- readRDS("analysis/bandits/var-cors-restless-constrain.rds")
+pl_restless <- ggplot(tbl_restless_cor, aes(var_in, value)) +
+  geom_hline(yintercept = 0, linetype = "dotdash", linewidth = 1) +
+  geom_col(
+    aes(fill = str_c(str_extract(var_in_out, "^[R,V,T,U]+"), "-", "1-4 ")), 
+    position = position_dodge2(width = .9, preserve = "single")
   ) +
-  scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white")
+  geom_label(
+    aes(y = ifelse(value > 0, value - .1, value + .1), label = round(value, 2), alpha = var_in_out), 
+    position = position_dodge2(width = .9, preserve = "single")
+  ) +
+  theme_bw() +
+  scale_x_discrete(expand = c(0.05, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  scale_alpha_manual(values = c(1, 1, 1), guide = "none") +
+  scale_fill_brewer(palette = "Set2", name = "Variable Out") +
+  coord_cartesian(ylim = c(-1, 1)) +
+  labs(x = "Variable In", y = "Correlation", title = "c) Restless Bandit") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  )
 
-pl_strat_cor <- arrangeGrob(pl_2ab, pl_horizon, pl_restless, nrow = 1)
+pl_strat_cor <- grid.arrange(pl_2ab, arrangeGrob(pl_horizon, pl_restless, ncol = 1), ncol = 2)
 grid.draw(pl_strat_cor)
 
-save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 23, 8)
+save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 14, 10)

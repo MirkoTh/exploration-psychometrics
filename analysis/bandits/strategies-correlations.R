@@ -68,7 +68,7 @@ ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0)) +
   scale_y_continuous(expand = c(0.01, 0)) +
-  labs(x = "Trial ID", y = "Correlation") +
+  labs(x = "Trial ID", y = "Pearson Correlation") +
   theme(
     strip.background = element_rect(fill = "white"),
     text = element_text(size = 22),
@@ -244,11 +244,79 @@ tbl_restless1_info <- tbl_restless1_info %>%
 n_excl <- str_c(rep(c("m_", "v_", "th_"), 4), rep(1:4, each = 3))
 tbl_restless_cor <-
   cor(tbl_restless1_info %>%
-    select(-n_excl) %>%
-    select(starts_with(c("m_", "v_", "th_")))) %>%
+        select(-n_excl) %>%
+        select(starts_with(c("m_", "v_", "th_")))) %>%
   as.data.frame() %>%
   mutate(var_in = rownames(.)) %>%
   pivot_longer(-var_in, names_to = "var_out")
+
+tmp <- tbl_restless_cor %>% filter(
+  var_in != var_out & 
+    !(str_starts(var_in, "m") & str_starts(var_out, "m")) &
+    !(str_starts(var_in, "v") & str_starts(var_out, "v")) &
+    !(str_starts(var_in, "th") & str_starts(var_out, "th")) &
+    (
+      (str_ends(var_in, "1") & str_ends(var_out, "1")) |
+        (str_ends(var_in, "2") & str_ends(var_out, "2")) |
+        (str_ends(var_in, "3") & str_ends(var_out, "3")) |
+        (str_ends(var_in, "4") & str_ends(var_out, "4"))
+    )
+)
+tbl_restless_corr_constrain <- tmp %>% group_by(tmp = round(value, 2)) %>%
+  mutate(
+    rwn = row_number(var_in),
+    max_rwn = max(rwn)
+  ) %>%
+  ungroup() %>%
+  filter(rwn == 1)
+if(max(tmp$max_rwn) > 2) error("need better method for grouping")
+tbl_restless_corr_constrain <- tbl_restless_corr_constrain  %>%
+  select(-c(tmp, rwn, max_rwn)) 
+
+ggplot(tbl_restless_corr_constrain, aes(var_in, var_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_label(aes(label = round(value, 2)))
+
+tbl_restless_corr_constrain$var_in <- factor(tbl_restless_corr_constrain$var_in, labels = c("V 1", "V 2", "V 3", "V 4", "VTU 1", "VTU 2", "VTU 3", "VTU 4"))
+tbl_restless_corr_constrain$var_out <- factor(tbl_restless_corr_constrain$var_out, labels = c("VTU 1", "VTU 2", "VTU 3", "VTU 4", "RU 1", "RU 2", "RU 3", "RU 4"))
+tbl_restless_corr_constrain$var_in_out <- interaction(str_extract(tbl_restless_corr_constrain$var_out, "^[A-Z]+"), str_extract(tbl_restless_corr_constrain$var_in, "^[A-Z]+"), sep = "-")
+saveRDS(tbl_restless_corr_constrain, file = "analysis/bandits/var-cors-restless-constrain.rds")
+
+ggplot(tbl_restless_corr_constrain, aes(var_in, value)) +
+  geom_col(
+    aes(fill = var_in_out), 
+    position = position_dodge2(width = .9, preserve = "single")
+  ) +
+  geom_label(
+    aes(y = ifelse(value > 0, value - .1, value + .1), label = round(value, 2), alpha = var_in_out), 
+    position = position_dodge2(width = .9, preserve = "single")
+  ) +
+  theme_bw() +
+  scale_x_discrete(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  scale_alpha_manual(values = c(1, 1, 1), guide = "none") +
+  scale_fill_brewer(palette = "Set2", name = "Variable Out") +
+  coord_cartesian(ylim = c(-1, 1)) +
+  labs(x = "Variable In", y = "Correlation") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  )
+
+  lbls <- c(
+  str_c("V ", c(1, 1, 1, 2, 2, 3), "-", c(2, 3, 4, 3, 4, 4)),
+  str_c("VTU ", c(1, 1, 1, 2, 2, 3), "-", c(2, 3, 4, 3, 4, 4)),
+  str_c("RU ", c(1, 1, 1, 2, 2, 3), "-", c(2, 3, 4, 3, 4, 4))
+)
+
+
+tbl_restless_cor$var_in <- factor(
+  tbl_restless_cor$var_in, labels = lbls
+)
+tbl_restless_cor$var_out <- factor(
+  tbl_restless_cor$var_out, labels = lbls
+)
 
 
 saveRDS(tbl_restless_cor, "analysis/bandits/var-cors-restless.rds")
