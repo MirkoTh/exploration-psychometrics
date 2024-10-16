@@ -58,6 +58,7 @@ tbl_cor_trial_sam1 <- sam1 %>%
   pivot_longer(cols = -c(cond, trial)) %>%
   ungroup()
 
+saveRDS(tbl_cor_avg_sam1, "analysis/bandits/var-cors-avg-2armed.rds")
 saveRDS(tbl_cor_trial_sam1, "analysis/bandits/var-cors-2armed.rds")
 ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
   geom_line(aes(color = name)) +
@@ -148,13 +149,15 @@ tbl_cor_trial_horizon1 <- horizon_learned1 %>%
   pivot_longer(cols = -c(Horizon, trial)) %>%
   ungroup()
 
+
+saveRDS(tbl_cor_avg_horizon1, "analysis/bandits/var-cors-avg-horizon.rds")
 saveRDS(tbl_cor_trial_horizon1, "analysis/bandits/var-cors-horizon.rds")
-ggplot(tbl_cor_trial_horizon1, aes(trial, value)) +
+ggplot(tbl_cor_trial_horizon1 %>% filter(!str_detect(name, "VTU")), aes(trial, value)) +
   geom_line(aes(color = name)) +
   geom_point(color = "white", size = 4) +
   geom_point(aes(color = name)) +
-  geom_label(data = tbl_cor_avg_horizon1, aes(
-    6, .15 * as.numeric(as.factor(name)),
+  geom_label(data = tbl_cor_avg_horizon1 %>% filter(!str_detect(name, "VTU")), aes(
+    7.5, -.2,
     label = str_c("avg. r = ", round(value, 2)), color = as.factor(name)
   )) +
   facet_wrap(~Horizon) +

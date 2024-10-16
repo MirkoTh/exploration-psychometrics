@@ -812,11 +812,13 @@ save_my_pdf_and_tiff_and_png(conv2,
                              w = 14,
                              h = 5)
 
-# Supplementary Information ------------------------------------------------
+# Supplementary Information -----------------------------------------------
 
+## Correlations between Indendent Variables -------------------------------
 
 # the following three plots display correlations between the independent variables in the three bandit tasks (i.e., V, VTU, and RU)
 tbl_cor_trial_2ab <- readRDS("analysis/bandits/var-cors-2armed.rds")
+tbl_cor_avg_sam1 <- readRDS("analysis/bandits/var-cors-avg-2armed.rds")
 pl_2ab <- ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
   geom_line(aes(color = name)) +
   geom_point(color = "white", size = 4) +
@@ -835,12 +837,15 @@ pl_2ab <- ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
   scale_color_brewer(palette = "Set2", name = "")
 
 tbl_cor_trial_horizon1 <- readRDS("analysis/bandits/var-cors-horizon.rds")
-pl_horizon <- ggplot(tbl_cor_trial_horizon1, aes(trial, value)) +
+tbl_cor_avg_horizon1 <- readRDS("analysis/bandits/var-cors-avg-horizon.rds")
+
+#  %>% filter(!str_detect(name, "VTU"))
+pl_horizon <- ggplot(tbl_cor_trial_horizon1 %>% filter(!str_detect(name, "VTU")), aes(trial, value)) +
   geom_line(aes(color = name)) +
   geom_point(color = "white", size = 4) +
   geom_point(aes(color = name)) +
-  geom_label(data = tbl_cor_avg_horizon1, aes(
-    6, .15 * as.numeric(as.factor(name)),
+  geom_label(data = tbl_cor_avg_horizon1 %>% filter(!str_detect(name, "VTU")), aes(
+    7.5, -.2,
     label = str_c("avg. r = ", round(value, 2)), color = as.factor(name)
   )) +
   facet_wrap(~Horizon) +
@@ -856,6 +861,12 @@ pl_horizon <- ggplot(tbl_cor_trial_horizon1, aes(trial, value)) +
   scale_color_brewer(palette = "Set2", name = "")
 
 tbl_restless_cor <- readRDS("analysis/bandits/var-cors-restless-constrain.rds")
+
+tbl_restless_cor_avg <- tbl_restless_cor %>% 
+  mutate(in_gr = str_extract(var_in, "^[VTU]+"), out_gr = str_extract(var_out, "^[VTUR]+")) %>%
+  group_by(in_gr, out_gr) %>%
+  summarize(value = mean(value)) %>% ungroup()
+
 pl_restless <- ggplot(tbl_restless_cor, aes(var_in, value)) +
   geom_hline(yintercept = 0, linetype = "dotdash", linewidth = 1) +
   geom_col(
@@ -879,7 +890,7 @@ pl_restless <- ggplot(tbl_restless_cor, aes(var_in, value)) +
     legend.position = "bottom"
   )
 
-pl_strat_cor <- grid.arrange(pl_2ab, arrangeGrob(pl_horizon, pl_restless, ncol = 1), ncol = 2)
+pl_strat_cor <- arrangeGrob(pl_2ab, pl_horizon, ncol = 1, heights = c(1, .6))
 grid.draw(pl_strat_cor)
 
-save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 14, 10)
+save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 8, 12)
