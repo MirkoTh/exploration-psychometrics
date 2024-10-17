@@ -894,3 +894,32 @@ pl_strat_cor <- arrangeGrob(pl_2ab, pl_horizon, ncol = 1, heights = c(1, .6))
 grid.draw(pl_strat_cor)
 
 save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 8, 12)
+
+
+## 2AB Choice Position Analysis ------------------------------------------
+
+tbl_plot <- readRDS("data/2ab-choice-position.RDS")
+
+tbl_plot$parameter <- factor(tbl_plot$parameter, labels = c("Intercept", "Directed", "Value-Guided"))
+
+pl_choice_position <- ggplot(tbl_plot %>% filter(parameter != "Intercept"), aes(position, random, group = parameter)) +
+  geom_vline(xintercept = 5, color = "grey60", linetype = "dotdash", linewidth = 1) +
+  geom_hline(yintercept = 0, color = "grey60", linetype = "dotdash", linewidth = 1) +
+  geom_line(aes(color = parameter)) +
+  geom_point(size = 5, color = "white") +
+  geom_point(aes(color = parameter)) +
+  geom_point(data = tbl_plot %>% filter(parameter != "Intercept" & position == 5), size = 5, shape = 1) +
+  geom_label(data = tbl_plot %>% filter(parameter == "Directed" & position == 5), aes(y = random + 1.475, label = "Horizon\nTask")) +
+  theme_bw() +
+  scale_x_continuous(breaks = seq(2, 9, by = 1), expand = c(0.02, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Trial", y = "Parameter Value") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) + 
+  scale_color_brewer(palette = "Set2", name = "")
+
+grid.draw(pl_choice_position)
+save_my_pdf_and_tiff_and_png(pl_choice_position, str_c(my_dir, "/2ab-choice-position"), 6, 4)
