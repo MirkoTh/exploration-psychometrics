@@ -634,3 +634,46 @@ tbl_wm_wide %>% select(contains("processing")) %>%
   ggplot(aes(value)) +
   geom_histogram() +
   facet_grid(session ~ task)
+
+
+## CFA behaviour and questionnaires --------
+
+
+# vg & ru CFA session 2
+vg_ru_wmc_model_session2 <- '
+
+  g_ru_2  =~ RU_2Armed_2 + RU_Horizon_2 + RU_Restless_2
+  g_v_2  =~ V_2Armed_2 + V_Horizon_2 + V_Restless_2
+  g_wm_2 =~ WMU_recall_2 + OS_recall_2 + SS_recall_2
+  
+  AxDep =~  STICSAcog_2 + STICSAsoma_2 + PHQ_9_2
+  posMood =~ PANASpos_2
+  negMood =~PANASneg_2
+  Exp =~ BIG_5_2 + CEI_2
+
+  
+  RU_2Armed_2 ~~ V_2Armed_2
+  RU_Horizon_2 ~~ V_Horizon_2
+  RU_Restless_2 ~~ V_Restless_2
+  WMU_recall_2 ~~ OS_recall_2
+
+'
+
+fit_vg_rug_wm2 <- sem(vg_ru_wmc_model_session2, data = tbl_wm_bandits)
+summary(fit_vg_rug_wm2, fit.measures = TRUE, standardized = TRUE)
+
+tbl_latents <- as_tibble(predict(fit_vg_rug_wm2))
+colnames(tbl_latents) <- c("G Directed", "G Value Guided", "WMC")
+my_corr_plot(cor(tbl_latents), "", "", "Convergent Validity Exploration", "latent")
+
+write_csv(tbl_latents, "data/behavioral-tasks-latents-s2.csv")
+# plot results
+lavaanPlot(
+  fit_vg_rug_wm2, coefs = TRUE, covs = TRUE, sig = TRUE, stars = "covs",
+  stand = TRUE,
+  edge_options = list(color = "grey"), 
+  node_options = list(shape = "box", fontname = "Helvetica")
+)
+
+
+

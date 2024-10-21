@@ -215,7 +215,8 @@ cors <- cors %>%
   mutate(recovered = factor(recovered, levels = c("info", "delta_mean", "Intercept"),
                             labels = c("Directed", "Value-guided", "Intercept")),
          true = factor(true, levels = c("Intercept", "delta_mean", "info"),
-                       labels = c("Intercept", "Value-guided", "Directed")))
+                       labels = c("Intercept", "Value-guided", "Directed"))) %>% 
+  subset(recovered != "Intercept" & true != "Intercept")
 
 p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
   labs(title = "Horizon task",
@@ -233,7 +234,8 @@ cors <- cors %>%
   mutate(recovered = factor(recovered, levels = c("VTU", "RU", "V", "Intercept"),
                             labels = c("Random","Directed", "Value-guided", "Intercept")),
          true = factor(true, levels = c("Intercept", "V", "RU", "VTU"),
-                       labels = c("Intercept", "Value-guided", "Directed", "Random")))
+                       labels = c("Intercept", "Value-guided", "Directed", "Random"))) %>% 
+  subset(recovered != "Intercept" & true != "Intercept")
 
 p2 <- heatmap(cors, x = cors$true, y = cors$recovered) +
   labs(title = "Two-armed bandit",
@@ -443,7 +445,7 @@ save_my_pdf_and_tiff_and_png(converge,
 # 1.5. Variable Correlations --------------------------------------------------
 
 
-load("analysis/external_validity_cors_session1.Rda") 
+load("analysis/external_validity_cors_session2.Rda") 
 
 cors$y <- row.names(cors)
 cors <- cors %>% 
@@ -456,9 +458,9 @@ cors <- cors %>%
                     "PHQ_9" = "Depression",
                     "PANASneg" = "Negative mood",
                     "PANASpos" = "Positive mood",
-                    "OS_recall_0" = "Operation span",
-                    "SS_recall_0" = "Symmetry span",
-                    "WMU_recall_0" = "Updating"
+                    "OS_recall_1" = "Operation span",
+                    "SS_recall_1" = "Symmetry span",
+                    "WMU_recall_1" = "Updating"
   ),
   y = recode(y,
              "restless_V" = "Value-guided restless",
@@ -719,12 +721,10 @@ pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept" & me
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
   labs(title = "Test-Retest Reliability", x = "ICC3(C,1)", y = "") + 
-  theme_bw() +
   scale_x_continuous(expand = c(0, 0), breaks = seq(0, .8, by = .2)) +
   scale_y_discrete(expand = c(0.025, 0)) +
   theme(
     strip.background = element_rect(fill = "white"), 
-    text = element_text(size = 22),
     legend.position = "none",
     axis.text.x = element_text(angle = 40, hjust = .95, vjust = .95)
   ) + 
@@ -787,23 +787,41 @@ cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>%
                 254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
                 294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
                 320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
-  left_join(read.csv("analysis/questionnaire_factors_s2.csv") %>% select(-X), by = "ID") %>% 
+  left_join(read.csv("analysis/CFA_compound_questionnaire_factors_s2.csv") %>% select(-X), by = "ID") %>% 
   self_cor() %>% 
-  mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC", "Exp", "posMood", "negMood", "AxDep"),
-                    labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration", "Positive mood", "Negative mood", "Anxiety/depression")),
-         y = factor(y, levels = c("AxDep", "negMood", "posMood", "Exp","WMC", "G.Directed", "G.Value.Guided"),
-                    labels = c("Anxiety/depression", "Negative mood", "Positive mood", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
+  mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "Exp", "posMood", "negMood", "AxDep"),
+                    labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration","Positive mood", "Negative mood", "Anxiety/depression")),
+         y = factor(y, levels = c("AxDep", "negMood","posMood", "Exp","WMC", "G.Directed", "G.Value.Guided"),
+                    labels = c("Anxiety/depression","Negative mood","Positive", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
+  # mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2", "MR3", "MR4", "MR5", "MR6"),
+  #                   labels = c("Value-guided", "Directed","Working memory","cog. anxiety/depression","pos. affect", 
+  #                              "Self-reported exploration", "soma. anxiety 1", "soma. anxiety 2", "unknown")),
+  #        y = factor(y, levels = c("MR6","MR5","MR4", "MR3","MR2", "MR1","WMC", "G.Directed", "G.Value.Guided"),
+  #                   labels = c("unknown","soma.anxiety 2","soma. anxiety 1", "Self-reported exploration", "pos. affect",
+  #                              "cog. anxiety/depression" ,"Working memory", "Directed", "Value-guided")))
+  # 
+  # mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2"),
+  #                   labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration", "Anxiety/depression")),
+  #        y = factor(y, levels = c("MR2", "MR1","WMC", "G.Directed", "G.Value.Guided"),
+  #                   labels = c("Anxiety/depression", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
 
 
 latent <- heatmap(cors) + 
   labs(title = "External validity on the latent level",
        x = element_blank(), y = element_blank())+
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))+
+  geom_hline(yintercept = 4.5, color = "white", size = 3)+
+  geom_vline(xintercept = 3.5, color = "white", size = 3)
 
 latent
 
+<<<<<<< Updated upstream
 conv2 <- ggarrange(converge, latent, ncol = 2, labels = "AUTO", common.legend = T,
                    legend = "right")
+=======
+conv2 <- ggarrange(converge, latent, ncol = 2, labels = c("B", "C"), common.legend = T,
+          legend = "bottom")
+>>>>>>> Stashed changes
 
 conv2
 
@@ -812,7 +830,93 @@ save_my_pdf_and_tiff_and_png(conv2,
                              w = 14,
                              h = 5)
 
+<<<<<<< Updated upstream
 # Supplementary Information -----------------------------------------------
+=======
+pl_rel <- ggarrange(pl_rel, ncol = 1, labels = c("A"))
+rel_conv_improved <- ggarrange(pl_rel, conv2, ncol = 1, nrow = 2, heights = c(1.5,3))
+
+rel_conv_improved
+
+save_my_pdf_and_tiff_and_png(rel_conv_improved,
+                             str_c(my_dir, "/reliability_convergence_improved"),
+                             h = 8,
+                             w = 13)
+
+
+## variable correlations latent level vs compound scores #########
+
+allOfIt <- read.csv("analysis/questionnaireScores.csv") %>% 
+  subset(session == 2, -c(session)) %>% 
+  pivot_wider(id_cols = ID, names_from = measure, values_from = score) %>% 
+  mutate(BIG_5 = as.numeric(BIG_5),
+         CEI = as.numeric(CEI))
+  
+qs <- c("BIG_5","CEI","PANASneg", "PANASpos", "PHQ_9","STICSAcog", "STICSAsoma")
+
+cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
+  mutate(ID = c(2, 3, 4, 6, 7 , 10 , 11  ,12 , 13  ,14,  16 , 20  ,21 , 23 , 24,
+                25,  26 , 27 , 28 , 29 , 31 , 32 , 33 , 34 , 35 , 36 , 37,  40  ,
+                48 , 49,  52  ,55 , 56,  59 , 60 , 61 , 63 , 65 , 69 , 71,
+                72 , 73 , 74 , 76 , 77 , 78,  79 , 83  ,84  ,85 , 90 , 93,  94 ,
+                95,  96 , 97,  98  ,99 ,100, 101 ,102 ,103 ,105 ,108 ,109, 110,
+                113 ,114, 117, 118, 119, 120, 122, 123, 124, 125, 128 ,129, 131, 132,
+                133, 134, 135, 137, 142, 149 ,151, 154, 162, 163, 165, 166, 168 ,169,
+                170 ,171 ,172, 175 ,176, 180 ,182 ,183, 185, 187 ,188 ,190, 193 ,195,
+                197, 198 ,199, 200 ,202 ,203, 204, 205, 206, 207, 208, 209,
+                213 ,216 ,219, 220, 222, 229 ,232, 233, 239, 243, 244, 245, 246 ,251,
+                254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
+                294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
+                320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
+  left_join(allOfIt, by = "ID") %>% 
+  self_cor() 
+
+cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
+  mutate(ID = c(2, 3, 4, 6, 7 , 10 , 11  ,12 , 13  ,14,  16 , 20  ,21 , 23 , 24,
+                25,  26 , 27 , 28 , 29 , 31 , 32 , 33 , 34 , 35 , 36 , 37,  40  ,
+                48 , 49,  52  ,55 , 56,  59 , 60 , 61 , 63 , 65 , 69 , 71,
+                72 , 73 , 74 , 76 , 77 , 78,  79 , 83  ,84  ,85 , 90 , 93,  94 ,
+                95,  96 , 97,  98  ,99 ,100, 101 ,102 ,103 ,105 ,108 ,109, 110,
+                113 ,114, 117, 118, 119, 120, 122, 123, 124, 125, 128 ,129, 131, 132,
+                133, 134, 135, 137, 142, 149 ,151, 154, 162, 163, 165, 166, 168 ,169,
+                170 ,171 ,172, 175 ,176, 180 ,182 ,183, 185, 187 ,188 ,190, 193 ,195,
+                197, 198 ,199, 200 ,202 ,203, 204, 205, 206, 207, 208, 209,
+                213 ,216 ,219, 220, 222, 229 ,232, 233, 239, 243, 244, 245, 246 ,251,
+                254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
+                294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
+                320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
+  left_join(allOfIt %>% subset(is.element(measure, qs)) %>% pivot_wider(id_cols = ID, names_from = measure, values_from = value), by = "ID") %>% 
+  self_cor() %>% 
+  mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  qs),
+                    labels = c("Value-guided", "Directed","Working memory", "Openness", "Exploration",
+                               "Negative mood", "Positive mood", "Depression", "cog. anxiety", "soma. anxiety")),
+         y = factor(y, levels = c(qs[length(qs):1],"WMC", "G.Directed", "G.Value.Guided"),
+                    labels = c("soma. anxiety","cog. anxiety","Depression","Positive mood","Negative mood", 
+                               "Exploration", "Openness","Working memory", "Directed", "Value-guided")))
+# mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2", "MR3", "MR4", "MR5", "MR6"),
+#                   labels = c("Value-guided", "Directed","Working memory","cog. anxiety/depression","pos. affect", 
+#                              "Self-reported exploration", "soma. anxiety 1", "soma. anxiety 2", "unknown")),
+#        y = factor(y, levels = c("MR6","MR5","MR4", "MR3","MR2", "MR1","WMC", "G.Directed", "G.Value.Guided"),
+#                   labels = c("unknown","soma.anxiety 2","soma. anxiety 1", "Self-reported exploration", "pos. affect",
+#                              "cog. anxiety/depression" ,"Working memory", "Directed", "Value-guided")))
+# 
+# mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2"),
+#                   labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration", "Anxiety/depression")),
+#        y = factor(y, levels = c("MR2", "MR1","WMC", "G.Directed", "G.Value.Guided"),
+#                   labels = c("Anxiety/depression", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
+
+
+latent <- heatmap(cors) + 
+  labs(title = "External validity on the latent level",
+       x = element_blank(), y = element_blank())+
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))#+
+#geom_hline(yintercept = 2.5, color = "white", size = 3)+
+#geom_vline(xintercept = 3.5, color = "white", size = 3)
+
+latent
+
+# Supplmentary Information ------------------------------------------------
+>>>>>>> Stashed changes
 
 ## Correlations between Indendent Variables -------------------------------
 
@@ -893,6 +997,7 @@ pl_restless <- ggplot(tbl_restless_cor, aes(var_in, value)) +
 pl_strat_cor <- arrangeGrob(pl_2ab, pl_horizon, ncol = 1, heights = c(1, .6))
 grid.draw(pl_strat_cor)
 
+<<<<<<< Updated upstream
 save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 8, 12)
 
 
@@ -923,3 +1028,64 @@ pl_choice_position <- ggplot(tbl_plot %>% filter(parameter != "Intercept"), aes(
 
 grid.draw(pl_choice_position)
 save_my_pdf_and_tiff_and_png(pl_choice_position, str_c(my_dir, "/2ab-choice-position"), 6, 4)
+=======
+save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 23, 8)
+
+
+## Test-retest reliability of questionnaire items ----------------
+
+load("analysis/qswave1.Rda")
+qdat1 <- qdat
+
+load("analysis/qswave2.Rda")
+
+info <- read.csv("task/questionnaires.csv", sep = ";")
+check_items <- paste(info$Measure, info$num, sep = "_")[info$Attention.check > 0]
+
+descr <- read.csv("analysis/descr_for_efa.csv")%>% 
+  subset(ID == 2) %>% 
+  select(Q, measure) %>% 
+  rename(item = Q)
+
+load("analysis/reliabilityResults/questionnaires.Rda")
+compound_rel <- cors %>% 
+  subset(session1 == session2) %>% 
+  rename(measure = session1,
+         compound_cor = cor)
+
+# they have different sample sizes but we will deal with this by matching by ID and doing correlations for pairwise complete obs
+colnames(qdat1)
+qdat1 <- qdat1 %>% 
+  select(-c(attention1, motiv_mem_0, motiv_slot_0, mem_aid_0, slot_aid_0, Sex_0, feedback, age, edu, 
+            income_0, rt)) %>% 
+  pivot_longer(cols = -ID, names_to = "item", values_to = "session1") 
+
+qdat2 <- qdat%>% 
+  select(-c(attention1, motiv_mem_0, motiv_slot_0, mem_aid_0, slot_aid_0, Sex_0, feedback, age, edu, 
+            income_0, rt)) %>% 
+  pivot_longer(cols = -ID, names_to = "item", values_to = "session2")
+
+
+cors <- left_join(qdat1, qdat2, by = c("ID", "item")) %>% 
+  subset(!is.element(item, check_items)) %>% # take out attention check items
+  group_by(item) %>% 
+  summarise(cor = cor(as.numeric(session1), as.numeric(session2), use = "pairwise.complete.obs")) %>% 
+  left_join(descr, by = "item") %>% 
+  left_join(compound_rel %>% select(measure, compound_cor), by = "measure")
+
+ggplot(cors, aes(cor)) + geom_histogram()+
+  geom_vline(aes(xintercept = compound_cor), linewidth = 2, color = "#FC8D62")+
+  facet_wrap(vars(measure)) 
+
+
+ 
+
+
+
+
+
+
+
+
+
+>>>>>>> Stashed changes
