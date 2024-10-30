@@ -142,8 +142,12 @@ load("analysis/bandits/model_selection_horizon.Rda")
 
 lims = c(min(c(params_t1$subject_level, params_t1$hierarchical)), max(c(params_t1$subject_level, params_t1$hierarchical)))
 
+params <- params_t1 %>% 
+  mutate(predictor = recode(predictor,"delta_mean" = "value-guided",
+                            "info" = "directed"))
+
 # Plot
-ggplot(params_t1, aes(subject_level, hierarchical, color = predictor)) + 
+sl <- ggplot(params, aes(subject_level, hierarchical, color = predictor)) + 
   geom_jitter(alpha = 0.5) +
   geom_abline(aes(slope = 1, intercept = 0)) +
   coord_cartesian(xlim = lims, ylim = lims) + 
@@ -151,21 +155,58 @@ ggplot(params_t1, aes(subject_level, hierarchical, color = predictor)) +
   facet_grid(cols = vars(predictor), rows = vars(horizon))+
   scale_color_manual(values = c("#66C2A5", "#FC8D62"))+
   theme(strip.background = element_rect(fill = "white"),
-        legend.position = "none") 
+        legend.position = "none") +
+  labs(title = "Correspondence of hierachical and subject-level estimates",
+       x = "subject-level")
+sl
 
+fi <- fixed %>% 
+  mutate(predictor = recode(predictor, "delta_mean" = "value-guided",
+                            "info" = "directed"),
+         method = recode(method, "hb" = "hierarchical",
+                         "sl" = "subject-level"))
 
-ggplot(fixed, aes(predictor, Estimate, fill = horizon)) + geom_col(position = position_dodge(0.9)) +
+fix <- ggplot(fi, aes(predictor, Estimate, fill = horizon)) + geom_col(position = position_dodge(0.9)) +
   geom_errorbar(aes(ymin = lower, ymax = upper), position = position_dodge(0.9), width = 0.25)+
   facet_wrap(vars(method)) + 
   scale_fill_manual(values = c("#66C2A5", "#FC8D62")) +
-  theme(strip.background = element_rect(fill = "white"))
+  theme(strip.background = element_rect(fill = "white"))+
+  labs(title = "Correspondence of hierarchical and subject-level effects")
+
+fix
 
 cors <- params_all %>%
   group_by(method, predictor, horizon) %>%
-  summarize(correlation = cor(session1, session2, use = "pairwise.complete.obs"))
+  summarize(correlation = cor(session1, session2, use = "pairwise.complete.obs")) %>% 
+  mutate(method = recode(method, "subject_level" = "subject-level"),
+         predictor = recode(predictor, "delta_mean" = "value-guided",
+                            "info" = "directed"),
+         correlation = round(correlation, digits = 2))
 
 print(cors)
+
+selection <- ggarrange(fix, sl, ncol = 2, labels = "AUTO")
+selection
+
+save_my_pdf_and_tiff_and_png(
+  selection,
+  str_c(my_dir, "/horizon_model_selection"),
+  14, 4
+)
+
+stargazer::stargazer(cors, summary = F, rownames = F)
+
 print(log_liks)
+
+logs <- log_liks %>% 
+  mutate(method = recode(method, "hb" = "hierarchical",
+                         "sl" = "subject-level"),
+         Horizon = recode(Horizon, "5" = "short",
+                          "10" = "long")) %>% 
+  rename(`Log Likelihood`= log_lik)
+
+stargazer::stargazer(logs, summary = F, rownames = F)
+
 
 
 ## two-armed bd -----------------------------------------------------------
@@ -295,7 +336,7 @@ rep <- ggplot(fixed, aes(predictor, Estimate,fill = predictor)) + geom_col()+
   theme(legend.position = "none",
         strip.background = element_rect(fill = "white"),
         axis.text.x = element_text(angle = 25, hjust = 1)) +
-  labs(title = "Fixed effects across tasks and sessions",
+  labs(title = "Group-level effects across tasks and sessions",
        x = element_blank(),
        y = "Parameter estimate ± 95% HDI")+
   geom_hline(yintercept = 0, linetype = "dotdash")
@@ -303,7 +344,7 @@ rep <- ggplot(fixed, aes(predictor, Estimate,fill = predictor)) + geom_col()+
 rep
 
 save_my_pdf_and_tiff_and_png(rep, str_c(my_dir, "/replicability_default"), 
-                             w = 5,
+                             w = 6,
                              h = 5)
 
 # 1.2. Reliability --------------------------------------------------------
@@ -313,11 +354,11 @@ levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Dire
 levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
-pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
-  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 8), fill = "tomato3", alpha = .1) +
-  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 8), fill = "orange", alpha = .1) +
-  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 8), fill = "lightgreen", alpha = .1) +
-  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 8), fill = "darkgreen", alpha = .1) +
+pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Intercept"), aes(value, fct_rev(parameter))) +
+  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 7), fill = "tomato3", alpha = .1) +
+  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 7), fill = "orange", alpha = .1) +
+  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 7), fill = "lightgreen", alpha = .1) +
+  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 7), fill = "darkgreen", alpha = .1) +
   geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
@@ -332,6 +373,7 @@ pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), ae
   scale_shape_manual(values = c(16, 3), name = "")
 
 pl_rel
+
 save_my_pdf_and_tiff_and_png(
   pl_rel,
   str_c(my_dir, "/reliability-bandits-literature"),
@@ -625,7 +667,8 @@ cors <- cors %>%
   mutate(recovered = factor(recovered, levels = c("info", "delta_mean", "Intercept"),
                             labels = c("Directed", "Value-guided", "Intercept")),
          true = factor(true, levels = c("Intercept", "delta_mean", "info"),
-                       labels = c("Intercept", "Value-guided", "Directed")))
+                       labels = c("Intercept", "Value-guided", "Directed"))) %>% 
+  subset(recovered != "Intercept" & true != "Intercept")
 
 p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
   labs(title = "Horizon task",
@@ -643,7 +686,8 @@ cors <- cors %>%
   mutate(recovered = factor(recovered, levels = c("RU", "V", "Intercept"),
                             labels = c("Directed", "Value-guided", "Intercept")),
          true = factor(true, levels = c("Intercept", "V", "RU"),
-                       labels = c("Intercept", "Value-guided", "Directed")))
+                       labels = c("Intercept", "Value-guided", "Directed"))) %>% 
+  subset(recovered != "Intercept" & true != "Intercept")
 
 p2 <- heatmap(cors, x = cors$true, y = cors$recovered) +
   labs(title = "Two-armed bandit task",
@@ -685,7 +729,7 @@ rep <- ggplot(fixed, aes(predictor, Estimate,fill = predictor)) + geom_col()+
   theme(legend.position = "none",
         strip.background = element_rect(fill = "white"),
         axis.text.x = element_text(angle = 25, hjust = 1)) +
-  labs(title = "Fixed effects across tasks and sessions",
+  labs(title = "Group-level effects across tasks and sessions",
        x = element_blank(),
        y = "Parameter estimate ± 95% CI")+
   geom_hline(yintercept = 0, linetype = "dotdash")
@@ -702,7 +746,7 @@ recov_rep
 
 save_my_pdf_and_tiff_and_png(recov_rep,
                              str_c(my_dir, "/replicability_recovery_improved"),
-                             w = 15,
+                             w = 17,
                              h = 5)
 
 # 2.2. Reliability --------------------------------------------------------
@@ -712,11 +756,11 @@ levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Dire
 levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
-pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept" & measure != "Task Measure" & task != "Restless"), aes(value, fct_rev(parameter))) +
-  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 3.5), fill = "tomato3", alpha = .2) +
-  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 3.5), fill = "orange", alpha = .2) +
-  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 3.5), fill = "lightgreen", alpha = .2) +
-  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 3.5), fill = "darkgreen", alpha = .2) +
+pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Intercept" & measure != "Task Measure" & task != "Restless"), aes(value, fct_rev(parameter))) +
+  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 2.5), fill = "tomato3", alpha = .2) +
+  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 2.5), fill = "orange", alpha = .2) +
+  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 2.5), fill = "lightgreen", alpha = .2) +
+  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 2.5), fill = "darkgreen", alpha = .2) +
   geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
@@ -815,13 +859,9 @@ latent <- heatmap(cors) +
 
 latent
 
-<<<<<<< Updated upstream
-conv2 <- ggarrange(converge, latent, ncol = 2, labels = "AUTO", common.legend = T,
-                   legend = "right")
-=======
 conv2 <- ggarrange(converge, latent, ncol = 2, labels = c("B", "C"), common.legend = T,
           legend = "bottom")
->>>>>>> Stashed changes
+
 
 conv2
 
@@ -830,9 +870,9 @@ save_my_pdf_and_tiff_and_png(conv2,
                              w = 14,
                              h = 5)
 
-<<<<<<< Updated upstream
+
 # Supplementary Information -----------------------------------------------
-=======
+
 pl_rel <- ggarrange(pl_rel, ncol = 1, labels = c("A"))
 rel_conv_improved <- ggarrange(pl_rel, conv2, ncol = 1, nrow = 2, heights = c(1.5,3))
 
@@ -915,8 +955,6 @@ latent <- heatmap(cors) +
 
 latent
 
-# Supplmentary Information ------------------------------------------------
->>>>>>> Stashed changes
 
 ## Correlations between Indendent Variables -------------------------------
 
@@ -997,7 +1035,6 @@ pl_restless <- ggplot(tbl_restless_cor, aes(var_in, value)) +
 pl_strat_cor <- arrangeGrob(pl_2ab, pl_horizon, ncol = 1, heights = c(1, .6))
 grid.draw(pl_strat_cor)
 
-<<<<<<< Updated upstream
 save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 8, 12)
 
 
@@ -1028,8 +1065,7 @@ pl_choice_position <- ggplot(tbl_plot %>% filter(parameter != "Intercept"), aes(
 
 grid.draw(pl_choice_position)
 save_my_pdf_and_tiff_and_png(pl_choice_position, str_c(my_dir, "/2ab-choice-position"), 6, 4)
-=======
-save_my_pdf_and_tiff_and_png(pl_strat_cor, str_c(my_dir, "/strategies-correlations"), 23, 8)
+
 
 
 ## Test-retest reliability of questionnaire items ----------------
@@ -1081,11 +1117,3 @@ ggplot(cors, aes(cor)) + geom_histogram()+
  
 
 
-
-
-
-
-
-
-
->>>>>>> Stashed changes
