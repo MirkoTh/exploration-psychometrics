@@ -63,19 +63,7 @@ tbl_kalman_ucb <- tbl_kalman_ucb  %>%
 tbl_draws_hc_s1 <- readRDS("data/restless-hierarchical-model-posterior-s1.RDS")
 tbl_draws_hc_s2 <- readRDS("data/restless-hierarchical-model-posterior-s2.RDS")
 
-individual_posteriors <- function(tbl_df) {
-  tbl_df %>% 
-    select(-c(starts_with("choice_pred"), starts_with("log_lik"), "mu_beta", "mu_tau")) %>%
-    pivot_longer(cols = starts_with(c("beta", "tau"))) %>%
-    mutate(
-      parameter = str_extract(name, "^[a-z]*"),
-      ID_stan = as.numeric(str_extract(name, "[0-9]+"))
-    ) %>%
-    left_join(
-      tbl_lookup, by = "ID_stan"
-    ) %>% select(-c(ID_stan, name, .draw, .iteration, .chain)) %>%
-    relocate(ID, .before = value)
-}
+
 
 tbl_draws_hc_s1_long <- individual_posteriors(tbl_draws_hc_s1) %>% mutate(Session = 1)
 tbl_draws_hc_s2_long <- individual_posteriors(tbl_draws_hc_s2) %>% mutate(Session = 2)

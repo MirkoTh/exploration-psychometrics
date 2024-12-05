@@ -20,36 +20,6 @@ dirs_homegrown <- c(
 walk(dirs_homegrown, source)
 
 
-posteriors_and_maps <- function(tbl_draws, s, pars_interest, ids_sample) {
-  
-  n_params <- length(pars_interest)
-  if (n_params == 2) filt <- 1:2 else filt <- 2
-  
-  tbl_posterior <- tbl_draws %>% 
-    dplyr::select(starts_with(pars_interest), .chain) %>%
-    rename(chain = .chain) %>%
-    pivot_longer(starts_with(pars_interest), names_to = "parameter", values_to = "value") %>%
-    mutate(
-      id_stan = as.integer(str_extract(parameter, "[0-9]+")),
-      parameter = str_extract(parameter, "^[a-z]+")
-    ) %>%
-    left_join(ids_sample, by = "id_stan") %>%
-    relocate(ID, .before = parameter) %>%
-    select(-c(id_stan))
-  
-  tbl_map <- tbl_posterior %>% group_by(ID, parameter) %>% 
-    summarize(map = mean(value)) %>%
-    ungroup() %>%
-    mutate(
-      parameter = factor(parameter, labels = c("ru", "v")[filt]),
-      session = s
-    )
-  
-  return(list(tbl_posterior = tbl_posterior, tbl_map = tbl_map))
-  
-}
-
-
 # Read and Preprocess Data ------------------------------------------------
 
 
@@ -298,23 +268,7 @@ hist_maps <- l_posterior_hc_ucb_1[[2]] %>% select(-session) %>%
 save_my_pdf_and_tiff(hist_maps, "figures/4arlb-hierarchical-histograms-maps",  6, 5.5)
 
 ## fixed effects
-group_posteriors <- function(tbl_draws) {
-  tbl_posterior <- tbl_draws %>% 
-    dplyr::select(starts_with(pars_group), .chain) %>%
-    rename(chain = .chain) %>%
-    pivot_longer(starts_with(pars_group), names_to = "parameter", values_to = "value")
-  
-  l <- sd_bfs(tbl_posterior, pars_group, .5, limits = c(.025, .975))
-  bfs <- l[[1]]
-  tbl_thx <- l[[2]]
-  bfs <- bfs[names(bfs) %in% pars_group]
-  tbl_thx <- tbl_thx %>% filter(parameter %in% pars_group)
-  
-  # plot the posteriors and the bfs
-  l_pl <- map(as.list(pars_group), plot_posterior, tbl_posterior, tbl_thx, bfs)
-  
-  return(list(tbl_posterior = tbl_posterior, l_pl = l_pl))
-}
+
 
 l_post_hc_1 <- group_posteriors(tbl_draws_hc_s1)
 l_post_hc_2 <- group_posteriors(tbl_draws_hc_s2)
@@ -329,24 +283,7 @@ grid.arrange(
 
 params_bf <- c("RU", "V")
 library(kde1d)
-hdi_etc <- function(tbl_draws) {
-  tbl_posterior <- tbl_draws %>% 
-    dplyr::select(starts_with(c("mu_beta", "mu_tau")), .chain) %>%
-    rename(chain = .chain) %>%
-    pivot_longer(starts_with(c("mu_beta", "mu_tau")), names_to = "parameter", values_to = "value") %>%
-    mutate(parameter = factor(parameter, labels = params_bf))
-  kdes <- estimate_kd(tbl_posterior, params_bf)
-  limits <- c(0.0025, 0.9975)
-  par_lims <- limit_axes(kdes, limits = limits)
-  bfs <- map2_dbl(kdes, c(dt(0, 1, 1), dnorm(0, 0, 1)), ~ (..2)/dkde1d(0, ..1))
-  return(
-    list(
-      par_lims = par_lims,
-      bfs = bfs
-    )
-  )
-  
-}
+
 
 l_hdi_etc_s1 <- hdi_etc(tbl_draws_hc_s1)
 l_hdi_etc_s2 <- hdi_etc(tbl_draws_hc_s2)
@@ -370,38 +307,7 @@ save_my_pdf_and_tiff(pl_fixed_both, "figures/4arlb-fixed-effects-posteriors", 5.
 
 
 # get predictions from bayesian model and append to original data
-my_mode <- function(x) {
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-}
 
-
-my_bayesian_preds <- function(tbl_draws) {
-  tbl_pred <- tbl_draws %>% select(contains("choice_pred"))
-  randomly_drawn_ids <- sample(1:nrow(tbl_pred), ncol(tbl_pred), replace = TRUE)
-  
-  tbl_subj <- tbl_pred[1, ] %>% 
-    mutate(it = 1:nrow(.)) %>% 
-    pivot_longer(-it, names_pattern = "\\[([0-9]+),", names_to = "ID") %>%
-    mutate(ID = as.numeric(ID)) %>% select(-c(it, value))
-  tbl_trial <- tbl_pred[1, ] %>% 
-    mutate(it = 1:nrow(.)) %>% 
-    pivot_longer(-it, names_pattern = "([0-9]+)\\]$", names_to = "trial") %>%
-    mutate(trial = as.numeric(trial)) %>% select(-it)
-  
-  tbl_lookup_id <- tibble(
-    ID_stan = sort(unique(tbl_subj$ID)),
-    ID = unique(tbl_restless_s1$ID)
-  )
-  
-  tbl_pred_arranged <- tibble(cbind(tbl_subj, trial = tbl_trial$trial))
-  tbl_pred_arranged$choice_pred <- map2_dbl(randomly_drawn_ids, tbl_pred, ~ .y[.x])
-  tbl_pred_arranged$choice_pred_map <- map_dbl(tbl_pred, my_mode)
-  tbl_pred_arranged <- tbl_pred_arranged %>% 
-    left_join(tbl_lookup_id, by = c("ID" = "ID_stan"), suffix = c("_stan", ""))
-  
-  return(tbl_pred_arranged)
-}
 
 tbl_preds_s1 <- my_bayesian_preds(tbl_draws_hc_s1)
 tbl_preds_s2 <- my_bayesian_preds(tbl_draws_hc_s2)
@@ -472,64 +378,6 @@ if (!is_fit) {
 
 # compute correlations between input maps and output maps
 
-by_participant_maps <- function(tbl_draws, f_time) {
-  tbl_draws %>% select(starts_with(pars_interest)) %>%
-    mutate(n_sample = 1:nrow(.)) %>%
-    pivot_longer(-n_sample) %>%
-    mutate(
-      ID = as.integer(str_extract(name, "[0-9]+")),
-      parameter = str_extract(name, "^[a-z]*")
-    ) %>%
-    group_by(ID, parameter) %>%
-    summarize(map = mean(value)) %>%
-    ungroup() %>%
-    mutate(fit_time = f_time)
-}
-
-map_cor <- function(tbl_draws_hc, tbl_draws_hc_recovery) {
-  
-  l_tbl_draws <- list(tbl_draws_hc, tbl_draws_hc_recovery)
-  l_tbl_maps <- map2(l_tbl_draws, c("data", "preds"), by_participant_maps)
-  
-  tbl_recovery <- reduce(
-    l_tbl_maps, 
-    ~ left_join(.x, .y, by = c("ID", "parameter"), suffix = c("_data", "_preds"))
-  )
-  cor_recovery <- tbl_recovery %>%
-    pivot_wider(names_from = parameter, values_from = c(map_data, map_preds)) %>%
-    select(-c(fit_time_data, fit_time_preds)) %>%
-    summarize(
-      beta_in_beta_out = cor(map_data_beta, map_preds_beta),
-      tau_in_tau_out = cor(map_data_tau, map_preds_tau),
-      beta_in_tau_out = cor(map_data_beta, map_preds_tau),
-      tau_in_beta_out = cor(map_data_tau, map_preds_beta)
-    )
-  
-  return(list(tbl_recovery = tbl_recovery, cor_recovery = cor_recovery))
-}
-
-recovery_heatmap <- function(l_recovery, ttl) {
-  tbl_in_out <- l_recovery$cor_recovery %>%
-    pivot_longer(colnames(.)) %>%
-    mutate(
-      param_in = str_match(name, "([a-z]*)_")[, 2],
-      param_out = str_match(name, "_([a-z]*)_out")[, 2]
-    )
-  ggplot(tbl_in_out, aes(param_in, param_out)) +
-    geom_tile(aes(fill = value)) +
-    geom_text(aes(label = round(value, 2)), size = 6, color = "white") +
-    theme_bw() +
-    scale_x_discrete(expand = c(0.01, 0)) +
-    scale_y_discrete(expand = c(0.01, 0)) +
-    scale_fill_viridis_c(guide = "none") +
-    labs(x = "MAP (Data)", y = "MAP (Prediction)", title = ttl) + 
-    theme(
-      strip.background = element_rect(fill = "white"), 
-      text = element_text(size = 22)
-    ) + 
-    scale_color_gradient(name = "", low = "skyblue2", high = "tomato4")
-}
-
 l_recovery_s1 <- map_cor(tbl_draws_hc_s1, tbl_draws_hc_s1_recovery)
 l_recovery_s2 <- map_cor(tbl_draws_hc_s2, tbl_draws_hc_s2_recovery)
 pl_heatmap_s1 <- recovery_heatmap(l_recovery_s1, "Session 1")
@@ -545,10 +393,6 @@ grid.draw(pl_heatmaps)
 save_my_pdf_and_tiff(
   pl_heatmaps, "figures/4arlb-hierarchical-ucb-recovery", 10, 4
 )  
-
-
-
-
 
 tbl_sam <- as_tibble(rbind(sam1, sam2)) %>%
   inner_join(tbl_exclude %>% select(ID), by = "ID") %>%
@@ -594,6 +438,7 @@ tbl_reliability_rl <- tbl_restless %>%
   ungroup() %>%
   pivot_wider(names_from = session, values_from = c(p_switch, p_optimal, regret)) %>%
   mutate(task = "Restless")
+
 tbl_reliability_sam <- tbl_sam %>%
   group_by(ID, session) %>%
   summarize(
@@ -604,6 +449,7 @@ tbl_reliability_sam <- tbl_sam %>%
   ungroup() %>%
   pivot_wider(names_from = session, values_from = c(p_switch, p_optimal, regret)) %>%
   mutate(task = "Sam")
+
 tbl_reliability_horizon <- tbl_horizon %>%
   group_by(ID, session) %>%
   summarize(
