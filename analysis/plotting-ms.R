@@ -311,11 +311,12 @@ levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Dire
 levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
-pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept"), aes(value, fct_rev(parameter))) +
-  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 8), fill = "tomato3", alpha = .1) +
-  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 8), fill = "orange", alpha = .1) +
-  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 8), fill = "lightgreen", alpha = .1) +
-  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 8), fill = "darkgreen", alpha = .1) +
+
+pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Intercept"), aes(value, fct_rev(parameter))) +
+  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 7), fill = "tomato3", alpha = .1) +
+  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 7), fill = "orange", alpha = .1) +
+  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 7), fill = "lightgreen", alpha = .1) +
+  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 7), fill = "darkgreen", alpha = .1) +
   geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
@@ -371,14 +372,33 @@ swi <- heatmap(Pswitch) +
 swi
 
 ### WM
+# here, we really just need the WM data from the first session, so use a different source than 4arlb-overviewAll.rds
 
-wm <- readRDS("analysis/4arlb-overviewAll.rds") %>% 
-  subset(session == 1, select = c(ID,OS_recall, SS_recall, WMU_recall)) %>% 
-  self_cor() %>% 
+tbl_include <- read_csv("data/exclusions1.csv") %>% 
+  left_join(read_csv("data/exclusions2.csv"), by = "ID", suffix = c("_1", "_2")) %>%
+  filter(exclude_1 == 0 & exclude_2 == 0) %>%
+  select(ID) %>% rename(ID = participant_id)
+
+wm <- read_csv("data/wm-performance-1.csv") %>% 
+  rename(ID = participant_id) %>%
+  inner_join(tbl_include, by = "ID") %>%
+  select(c(ID, OS_recall_0, SS_recall_0, WMU_recall_0))
+colnames(wm) <- str_remove_all(colnames(wm), "_0")
+wm <- wm %>% self_cor() %>% 
   mutate(x = factor(x, levels = c("OS_recall", "SS_recall", "WMU_recall"),
                     labels = c("Oper. span", "Sym. span", "Updating")),
          y = factor(y, levels = c("WMU_recall", "SS_recall", "OS_recall"),
                     labels = c("Updating", "Symmetry span", "Operation span")))
+
+# wm <- readRDS("analysis/4arlb-overviewAll.rds") %>% 
+#   subset(session == 1, select = c(ID,OS_recall, SS_recall, WMU_recall)) %>% 
+#   mutate(ID = as.numeric(as.character(ID))) %>%
+#   inner_join(tbl_include, by = "ID") %>%
+#   self_cor() %>% 
+#   mutate(x = factor(x, levels = c("OS_recall", "SS_recall", "WMU_recall"),
+#                     labels = c("Oper. span", "Sym. span", "Updating")),
+#          y = factor(y, levels = c("WMU_recall", "SS_recall", "OS_recall"),
+#                     labels = c("Updating", "Symmetry span", "Operation span")))
 
 WM <- heatmap(wm) +
   labs(title = "Working Memory",
@@ -710,11 +730,11 @@ levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Dire
 levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
 
-pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Interept" & measure != "Task Measure" & task != "Restless"), aes(value, fct_rev(parameter))) +
-  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 3.5), fill = "tomato3", alpha = .2) +
-  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 3.5), fill = "orange", alpha = .2) +
-  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 3.5), fill = "lightgreen", alpha = .2) +
-  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 3.5), fill = "darkgreen", alpha = .2) +
+pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Intercept" & measure != "Task Measure" & task != "Restless"), aes(value, fct_rev(parameter))) +
+  geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 3), fill = "tomato3", alpha = .2) +
+  geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 3), fill = "orange", alpha = .2) +
+  geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 3), fill = "lightgreen", alpha = .2) +
+  geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 3), fill = "darkgreen", alpha = .2) +
   geom_point(aes(shape = measure), size = 3, color = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
@@ -818,12 +838,12 @@ save_my_pdf_and_tiff_and_png(conv2,
 
 # the following three plots display correlations between the independent variables in the three bandit tasks (i.e., V, VTU, and RU)
 tbl_cor_trial_2ab <- readRDS("analysis/bandits/var-cors-2armed.rds")
-tbl_cor_avg_sam1 <- readRDS("analysis/bandits/var-cors-avg-2armed.rds")
-pl_2ab <- ggplot(tbl_cor_trial_sam1, aes(trial, value)) +
+tbl_cor_avg_2ab <- readRDS("analysis/bandits/var-cors-avg-2armed.rds")
+pl_2ab <- ggplot(tbl_cor_trial_2ab, aes(trial, value)) +
   geom_line(aes(color = name)) +
   geom_point(color = "white", size = 4) +
   geom_point(aes(color = name)) +
-  geom_label(data = tbl_cor_avg_sam1, aes(6, .15 * as.numeric(as.factor(name)), label = str_c("avg. r = ", round(value, 2)), color = as.factor(name))) +
+  geom_label(data = tbl_cor_avg_2ab, aes(6, .15 * as.numeric(as.factor(name)), label = str_c("avg. r = ", round(value, 2)), color = as.factor(name))) +
   facet_wrap(~cond) +
   theme_bw() +
   scale_x_continuous(expand = c(0.01, 0), breaks = 3:3:9) +
