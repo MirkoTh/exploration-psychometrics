@@ -5,7 +5,7 @@
 // settings
 
 var quickrunthrough = false // if true, we use placeholder rewards and only 2 blocks per task
-var shorter = false // uses true rewards but not extra verbose but only 2 blocks per task
+var shorter = true // uses true rewards but not extra verbose but only 2 blocks per task
 
 // variables we need
 //var session = 1

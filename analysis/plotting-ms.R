@@ -156,8 +156,8 @@ sl <- ggplot(params, aes(subject_level, hierarchical, color = predictor)) +
   scale_color_manual(values = c("#66C2A5", "#FC8D62"))+
   theme(strip.background = element_rect(fill = "white"),
         legend.position = "none") +
-  labs(title = "Correspondence of hierachical and subject-level estimates",
-       x = "subject-level")
+  labs(title = "Subject-level estimates",
+       x = "subject-level implementation")
 sl
 
 fi <- fixed %>% 
@@ -171,7 +171,7 @@ fix <- ggplot(fi, aes(predictor, Estimate, fill = horizon)) + geom_col(position 
   facet_wrap(vars(method)) + 
   scale_fill_manual(values = c("#66C2A5", "#FC8D62")) +
   theme(strip.background = element_rect(fill = "white"))+
-  labs(title = "Correspondence of hierarchical and subject-level effects")
+  labs(title = "Group-level effects")
 
 fix
 
@@ -385,11 +385,14 @@ pl_rel <- ggarrange(pl_rel, ncol =1, labels = c("A"))
 
 # 1.3. Convergent Validity --------------------------------------------------
 
+# load bandit data
+horizon <- load_and_prep_bandit_data(1)$horizon
+sam <- load_and_prep_bandit_data(1)$sam
+restless <- load_and_prep_bandit_data(1)$restless
+
 ## task based
-load("analysis/bandits/optimal_switch_session1.Rda")
 
 relabel <- function(df) {
-  
   relabelled <- df %>% 
     mutate(x = factor(x, levels = c("horizon", "2AB", "restless"),
                       labels = c("Horizon", "Two-armed", "Restless")),
@@ -401,7 +404,24 @@ relabel <- function(df) {
 
 ### P(switch)
 
-Pswitch <- switch %>% 
+horizon$prev <- c(NA, horizon$chosen[1:nrow(horizon)-1])
+horizon$switch <- ifelse(horizon$chosen == horizon$prev, 0, 1)
+horizon$switch[horizon$trial == 1] <- NA
+
+sam$prev <- c(NA, sam$chosen[1:nrow(sam)-1])
+sam$switch <- ifelse(sam$chosen == sam$prev, 0, 1)
+sam$switch[sam$trial == 1] <- NA
+
+restless$prev <- c(NA, restless$chosen[1:nrow(restless)-1])
+restless$switch <- ifelse(restless$chosen == restless$prev, 0, 1)
+restless$switch[restless$trial == 1] <- NA
+
+Hswitch <- ddply(horizon[horizon$trial > 4, ],~ID,summarise, Pswitch = meann(switch))
+Sswitch <- ddply(sam, ~ID,summarise, Pswitch = meann(switch))
+Rswitch <- ddply(restless, ~ID, summarise, Pswitch = meann(switch))
+
+Pswitch <- list("horizon" = Hswitch, "2AB" = Sswitch, "restless" = Rswitch) %>% 
+  bind_rows(.id = "model") %>% 
   pivot_wider(id_cols = ID, names_from = model, values_from = Pswitch) %>% 
   self_cor() %>% 
   relabel()
@@ -888,6 +908,64 @@ save_my_pdf_and_tiff_and_png(conv2,
                              w = 14,
                              h = 5)
 
+
+######### do we suddenly have links between behaviour and questionnaires if we account for WM?
+
+df <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
+  mutate(ID = c(2, 3, 4, 6, 7 , 10 , 11  ,12 , 13  ,14,  16 , 20  ,21 , 23 , 24,
+                25,  26 , 27 , 28 , 29 , 31 , 32 , 33 , 34 , 35 , 36 , 37,  40  ,
+                48 , 49,  52  ,55 , 56,  59 , 60 , 61 , 63 , 65 , 69 , 71,
+                72 , 73 , 74 , 76 , 77 , 78,  79 , 83  ,84  ,85 , 90 , 93,  94 ,
+                95,  96 , 97,  98  ,99 ,100, 101 ,102 ,103 ,105 ,108 ,109, 110,
+                113 ,114, 117, 118, 119, 120, 122, 123, 124, 125, 128 ,129, 131, 132,
+                133, 134, 135, 137, 142, 149 ,151, 154, 162, 163, 165, 166, 168 ,169,
+                170 ,171 ,172, 175 ,176, 180 ,182 ,183, 185, 187 ,188 ,190, 193 ,195,
+                197, 198 ,199, 200 ,202 ,203, 204, 205, 206, 207, 208, 209,
+                213 ,216 ,219, 220, 222, 229 ,232, 233, 239, 243, 244, 245, 246 ,251,
+                254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
+                294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
+                320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
+  left_join(read.csv("analysis/CFA_compound_questionnaire_factors_s2.csv"), by = "ID")
+
+colnames(df)
+brm(G.Directed ~ WMC * Exp,# 1 datapoint per participant so no random intercepts or slopes
+    df,
+    cores = 2,
+    chains = 2, 
+    iter = 4000, 
+    control = list(adapt_delta = 0.9))
+
+brm(G.Value.Guided ~ WMC * Exp,# 1 datapoint per participant so no random intercepts or slopes
+    df,
+    cores = 2,
+    chains = 2, 
+    iter = 4000, 
+    control = list(adapt_delta = 0.9))
+
+m1 <- brm(G.Value.Guided ~ WMC * AxDep, # 1 datapoint per participant so no random intercepts or slopes
+    df,
+    cores = 2,
+    chains = 2, 
+    iter = 4000, 
+    control = list(adapt_delta = 0.9))
+m1
+
+# get bayes factor for main effect of axdep
+m2 <- brm(G.Value.Guided ~ WMC : AxDep + WMC, # 1 datapoint per participant so no random intercepts or slopes
+          df,
+          cores = 2,
+          chains = 2, 
+          iter = 4000, 
+          control = list(adapt_delta = 0.9))
+
+bayes_factor(m1, m2)
+
+brm(G.Directed ~ WMC * AxDep, # 1 datapoint per participant so no random intercepts or slopes
+    df,
+    cores = 2,
+    chains = 2, 
+    iter = 4000, 
+    control = list(adapt_delta = 0.9))
 
 # Supplementary Information -----------------------------------------------
 

@@ -1,7 +1,6 @@
 ############# relating bandit task behaviour to questionnaire scores ##############
 rm(list = ls())
 
-
 library(plyr)
 library(tidyverse)
 library(ggplot2)
@@ -11,7 +10,7 @@ library(ggridges)
 theme_set(theme_classic(base_size = 14))
 library(here)
 
-session <- 2
+session <- 1
 
 load(sprintf("analysis/bandits/banditsWave%i.Rda", session))
 source("analysis/recovery_utils.R")

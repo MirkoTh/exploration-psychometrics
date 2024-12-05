@@ -995,7 +995,7 @@ exclusion_criteria <- function(session) {
   table(lookup$attention)
   
   
-  # wm
+  #### wm
   tbl_lookup_wm <- exclusion_criteria_wm_tasks(session)
   tbl_lookup_wm$any_task_too_few <- as.numeric(tbl_lookup_wm$any_task_too_few)
   tbl_lookup_wm$proc_below_thx <- as.numeric(tbl_lookup_wm$proc_below_thx)
