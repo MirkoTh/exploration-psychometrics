@@ -1151,9 +1151,50 @@ exclusion_criteria_wm_tasks <- function(s_id) {
   tbl_wmu_recall <- tbl_wmu_recall %>% inner_join(tbl_complete_p, "participant_id")
   
   
+  ## Recall ------------------------------------------------------------------
+  
+  tbl_os_agg <- agg_by_ss(tbl_os_recall, "OS")
+  tbl_ss_agg <- agg_by_ss(tbl_ss_recall, "SS")
+  tbl_wmu_agg <- agg_by_ss(tbl_wmu_recall, "WMU")
+  
+  # for every set size separately
+  tbl_os_ss_agg_ci <- summary_se_within(
+    tbl_os_agg, "prop_correct", 
+    withinvars = c("session_id", "set_size", "task"), idvar = "participant_id"
+  ) %>%
+    mutate(set_size = as.numeric(as.character(set_size)))
+  tbl_ss_ss_agg_ci <- summary_se_within(
+    tbl_ss_agg, "prop_correct", 
+    withinvars = c("session_id", "set_size", "task"), idvar = "participant_id"
+  ) %>%
+    mutate(set_size = as.numeric(as.character(set_size)))
+  tbl_wmu_ss_agg_ci <- summary_se_within(
+    tbl_wmu_agg, "prop_correct",
+    withinvars = c("session_id", "set_size", "task"),
+    idvar = "participant_id"
+  ) %>%
+    mutate(set_size = as.numeric(as.character(set_size)))
+  
+  # marginalize over set sizes
+  tbl_os_participant_agg <- grouped_agg(tbl_os_agg, c(participant_id, session_id, task), prop_correct)
+  tbl_ss_participant_agg <- grouped_agg(tbl_ss_agg, c(participant_id, session_id, task), prop_correct)
+  tbl_wmu_participant_agg <- grouped_agg(tbl_wmu_agg, c(participant_id, session_id, task), prop_correct)
+  
+  tbl_recall_performance_participants <- tbl_os_participant_agg %>%
+    select(participant_id, session_id, task, mean_prop_correct) %>%
+    rbind(
+      tbl_ss_participant_agg %>% select(participant_id, session_id, task, mean_prop_correct)
+    ) %>% rbind(
+      tbl_wmu_participant_agg %>% select(participant_id, session_id, task, mean_prop_correct)
+    ) %>% pivot_wider(
+      id_cols = c(participant_id, session_id), names_from = task, values_from = mean_prop_correct
+    ) %>% pivot_wider(
+      id_cols = participant_id, names_from = session_id, values_from = c(OS, SS, WMU)
+    ) %>%
+    ungroup()
+  
   
   # Processing --------------------------------------------------------------
-  
   
   tbl_os_proc_agg <- agg_by_ss(
     tbl_os_processing %>% filter(processing_position == 1), "OS"
@@ -1211,6 +1252,28 @@ exclusion_criteria_wm_tasks <- function(s_id) {
       tbl_proc_performance_participants[, c("participant_id", "proc_below_thx")], 
       by = "participant_id"
     )
+  
+  # save aggregate wm data
+  
+  add_word_cols <- function(my_tbl, my_word) {
+    old_colnames <- colnames(my_tbl)
+    s_id <- str_match(colnames(my_tbl), "[0-1]$")[, 1]
+    colnames_cut <- str_remove(old_colnames, "_[0-1]$")
+    to_consider <- (1:length(old_colnames))[str_detect(old_colnames, "[0-1]$")]
+    colnames_cut[to_consider] <- str_c(colnames_cut[to_consider], "_", my_word, "_", s_id[!is.na(s_id)])
+    return(colnames_cut)
+  }
+  colnames(tbl_recall_performance_participants) <- add_word_cols(tbl_recall_performance_participants, "recall")
+  colnames(tbl_proc_performance_participants) <- add_word_cols(tbl_proc_performance_participants, "processing")
+  colnames(tbl_proc_performance_participants) <- str_replace_all(colnames(tbl_proc_performance_participants), "9999", as.character(s_id - 1))
+  
+  
+  tbl_performance_all <- tbl_recall_performance_participants %>%
+    left_join(
+      tbl_proc_performance_participants, 
+      by = c("participant_id")
+    )
+  write_csv(tbl_performance_all, str_c("data/wm-performance-", s_id, ".csv"))
   
   return(tbl_ids_lookup)
   
