@@ -21,7 +21,7 @@ walk(dirs_homegrown, source)
 # Definition of Used Model Parameters -------------------------------------
 
 # models as from the literature or all three tasks ucb?
-is_ucb <- FALSE
+is_ucb <- TRUE
 
 
 
@@ -37,8 +37,8 @@ rename_and_add_id <- function(my_df, nm_model) {
 }
 
 # exclusion criteria
-tbl_exclude2 <- read_csv(file = "data/exclusions2.csv")
-tbl_exclude1 <- read_csv(file = "data/exclusions1.csv")
+tbl_exclude2 <- read_csv(file = "data/exclusions2_noPID.csv")
+tbl_exclude1 <- read_csv(file = "data/exclusions1_noPID.csv")
 
 # seems like two people were invited to session 2, who should not have been
 tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
@@ -104,7 +104,7 @@ tbl_bandits_rel$parameter[tbl_bandits_rel$is_vtu] <- "VTU"
 calc_icc_3_1 <- function(s1, s2) {
   r <- icc(tibble(s1, s2), model = "twoway", type = "consistency", unit = "single")
   r$value
-
+  
 }
 
 tbl_bandits_rel <- tbl_bandits_rel %>% select(-c(is_v, is_ic, is_vtu, name))
@@ -114,7 +114,7 @@ tbl_bandits_param_rel <- tbl_bandits_rel %>%
   summarize(
     #value = cor(`1`, `2`),
     value = calc_icc_3_1(`1`, `2`),
-    ) %>%
+  ) %>%
   ungroup()
 tbl_bandits_param_rel$task <- as.character(factor(tbl_bandits_param_rel$task, labels = c("Horizon", "Restless", "Sam")))
 
@@ -328,6 +328,24 @@ ggplot(tbl_rel_wm_q %>% filter(!str_detect(measure, "Processing")), aes(reliabil
   scale_fill_manual(values = c("skyblue2", "tomato4"), name = "")
 
 
+# item-based questionnaire data
+tbl_q_item <- read.csv("analysis/dat_for_efa_s2.csv") %>% as_tibble() %>% select(-X)
+
+tbl_q_item <- tbl_q_item %>% mutate(
+  PANAS_0 = 4 - PANAS_0,
+  PANAS_2 = 4 - PANAS_2,
+  PANAS_4 = 4 - PANAS_4,
+  PANAS_8 = 4 - PANAS_8,
+  PANAS_9 = 4 - PANAS_9,
+  PANAS_11 = 4 - PANAS_11,
+  PANAS_13 = 4 - PANAS_13,
+  PANAS_15 = 4 - PANAS_15,
+  PANAS_16 = 4 - PANAS_16,
+  PANAS_18 = 4 - PANAS_18
+)
+# this file only imports session 2 data
+colnames(tbl_q_item) <- str_c(colnames(tbl_q_item), "_2")
+colnames(tbl_q_item)[1] <- "ID"
 
 
 # CFAs --------------------------------------------------------------------
@@ -355,6 +373,7 @@ pl_switch_s2 <- my_corr_plot(tbl_cor_2, "Measure 1", "Measure 2", "Session 2", t
 grid::grid.draw(gridExtra::arrangeGrob(pl_switch_s1, pl_switch_s2, nrow = 1))
 
 
+
 # recode v and ru from sam and horizon to map to restless params
 
 colnames(tbl_bandits_1) <- str_c("1_", colnames(tbl_bandits_1))
@@ -365,7 +384,8 @@ tbl_bandits_corr <- cbind(tbl_bandits_1, tbl_bandits_2) %>%
 
 tbl_wm_bandits <- tbl_wm_wide %>% 
   left_join(tbl_bandits_corr, by = "ID") %>%
-  left_join(tbl_q_wide, by = "ID")
+  #left_join(tbl_q_wide, by = "ID")
+  left_join(tbl_q_item, by = "ID")
 tbl_wm_bandits <- tbl_wm_bandits[complete.cases(tbl_wm_bandits), ]
 colnames(tbl_wm_bandits) <- str_remove(colnames(tbl_wm_bandits), "estimate_")
 
@@ -376,6 +396,17 @@ suffixes <- str_c("_", str_remove(suffixes, "_"))
 
 colnames(tbl_wm_bandits) <- str_remove(colnames(tbl_wm_bandits), "^[1-2]_")
 colnames(tbl_wm_bandits)[!is.na(suffixes)] <- str_c(colnames(tbl_wm_bandits), suffixes)[!is.na(suffixes)]
+
+
+tbl_wm_bandits %>% 
+  select(starts_with("RU 2Armed") | starts_with("RU Horizon") | starts_with("RU Restless") |
+           starts_with("V 2Armed") | starts_with("V Horizon") | starts_with("V Restless")) %>% 
+  mutate(rwn = 1:nrow(.)) %>% pivot_longer(-rwn) %>% 
+  mutate(
+    session = str_extract(name, "[1-2]$"),
+    parameter = str_match(name, "(.*)_[1-2]$")[,2]
+  ) %>%
+  ggplot(aes(value)) + geom_histogram() + facet_grid(session~parameter, scales = "free_x")
 
 
 my_cols <- colnames(tbl_wm_bandits)[!str_detect(colnames(tbl_wm_bandits), "ID$")]
@@ -389,6 +420,27 @@ colnames(tbl_wm_bandits_1) <- str_remove(colnames(tbl_wm_bandits_1), "_1")
 colnames(tbl_wm_bandits_2) <- str_remove(colnames(tbl_wm_bandits_1), "_2")
 
 
+# some helper functions
+
+approximate_bf <- function(bic1, bic2) exp((bic2 - bic1)/2)
+
+extract_indices <- function(ms, modelname) {
+  out <- vector()
+  out["modelname"] <- modelname
+  out <- c(out, ms[c(
+    "chisq", "df", "pvalue", "cfi", "rmsea", 
+    "rmsea.ci.lower", "rmsea.ci.upper", "srmr", "aic", "bic"
+  )])
+  return(out)
+}
+
+extract_loadings <- function(ms, gvar) {
+  ms$pe %>% filter(lhs == gvar) %>% select(c(rhs, std.all))
+}
+
+
+# Session 1 ---------------------------------------------------------------
+
 
 # WM CFA session 1
 wm_model_session1 <- ' 
@@ -396,8 +448,9 @@ wm_model_session1 <- '
 '
 
 fit_wm <- cfa(wm_model_session1, data = tbl_wm_bandits)
-summary(fit_wm, fit.measures = TRUE, standardized = TRUE)
+s_wm <- summary(fit_wm, fit.measures = TRUE, standardized = TRUE)
 resid(fit_wm)
+
 
 # value-guided CFA session 1
 value_guided_model_session1 <- ' 
@@ -405,7 +458,7 @@ value_guided_model_session1 <- '
 '
 
 fit_vg <- cfa(value_guided_model_session1, data = tbl_wm_bandits)
-summary(fit_vg, fit.measures = TRUE, standardized = TRUE)
+s_vg <- summary(fit_vg, fit.measures = TRUE, standardized = TRUE)
 resid(fit_vg)
 
 # directed CFA session 1
@@ -414,7 +467,84 @@ ru_model_session1 <- '
 '
 
 fit_rug <- sem(ru_model_session1, data = tbl_wm_bandits)
-summary(fit_rug, fit.measures = TRUE, standardized = TRUE)
+s_rug <- summary(fit_rug, fit.measures = TRUE, standardized = TRUE)
+
+# extract factor loadings
+
+
+tbl_loadings <- map2(list(s_wm, s_vg, s_rug), list("g_wm_1", "g_v_1", "g_ru_1"), extract_loadings) %>%
+  map2(.y = list("Working-Memory Capacity", "Value-Guided", "Directed"), function(x, y) {x$model = y; return(x)}) %>%
+  reduce(rbind) %>%
+  as.data.frame() %>% as_tibble() %>%
+  filter(!startsWith(rhs, "g_")) %>%
+  relocate(model, .before = rhs)
+tbl_loadings$rhs <- c(
+  "Updating", "Operation Span", "Symmetry Span",
+  rep(c("Two-armed", "Horizon", "Restless"), 2)
+)
+tbl_loadings$rhs <- factor(
+  tbl_loadings$rhs, levels = c(
+    "Updating", "Operation Span", "Symmetry Span", "Horizon", "Two-armed", "Restless"
+  ), ordered = TRUE
+)
+tbl_loadings_show <- tbl_loadings %>% arrange(desc(model), rhs)
+colnames(tbl_loadings_show) <- c("Model", "Indicator", "Standardized Loading")
+
+# vg & ru CFA session 1
+# negative variance problem
+vg_ru_model_session1 <- '
+
+  g_ru_1  =~ RU_2Armed_1 + RU_Horizon_1 + RU_Restless_1
+  g_v_1  =~ V_2Armed_1 + V_Horizon_1 + V_Restless_1
+
+  
+  RU_2Armed_1 ~~ V_2Armed_1
+  RU_Horizon_1 ~~ V_Horizon_1
+  RU_Restless_1 ~~ V_Restless_1
+
+'
+fit_vg_rug1 <- sem(vg_ru_model_session1, data = tbl_wm_bandits)
+summary(fit_vg_rug1, fit.measures = TRUE, standardized = TRUE)
+
+
+
+# Session 2 ---------------------------------------------------------------
+
+
+wm_model_session2 <- ' 
+  g_wm_2 =~ WMU_recall_2 + OS_recall_2 + SS_recall_2
+'
+
+fit_wm <- cfa(wm_model_session2, data = tbl_wm_bandits)
+s_wm <- summary(fit_wm, fit.measures = TRUE, standardized = TRUE)
+resid(fit_wm)
+
+
+value_guided_model_session2 <- ' 
+  g_v_2  =~ V_2Armed_2 + V_Horizon_2 + V_Restless_2
+'
+
+fit_vg <- cfa(value_guided_model_session2, data = tbl_wm_bandits)
+s_vg <- summary(fit_vg, fit.measures = TRUE, standardized = TRUE)
+resid(fit_vg)
+
+# directed CFA session 1
+ru_model_session2 <- ' 
+  g_ru_2  =~ RU_2Armed_2 + RU_Horizon_2 + RU_Restless_2
+'
+
+fit_rug <- cfa(ru_model_session2, data = tbl_wm_bandits)
+s_rug <- summary(fit_rug, fit.measures = TRUE, standardized = TRUE)
+
+
+
+
+# yeo.johnson tf does not work either
+tbl_wm_bandits_sqrt <- tbl_wm_bandits %>% mutate(
+  RU_Restless_1 = yeo.johnson(RU_Restless_1, 1),
+  RU_Horizon_1 = yeo.johnson(RU_Horizon_1, 1)
+)
+
 
 # vg & ru CFA session 2
 vg_ru_model_session2 <- '
@@ -430,7 +560,34 @@ vg_ru_model_session2 <- '
 '
 
 fit_vg_rug2 <- sem(vg_ru_model_session2, data = tbl_wm_bandits)
-summary(fit_vg_rug2, fit.measures = TRUE, standardized = TRUE)
+s_vg_rug2 <- summary(fit_vg_rug2, fit.measures = TRUE, standardized = TRUE)
+
+
+one_factor_model <- '
+  # General factor
+  g_e =~ RU_2Armed_2 + RU_Horizon_2 + RU_Restless_2 + V_2Armed_2 + V_Horizon_2 + V_Restless_2
+  
+  # Correlations between indicators from the same method
+  RU_2Armed_2 ~~ V_2Armed_2
+  RU_Horizon_2 ~~ V_Horizon_2
+  RU_Restless_2 ~~ V_Restless_2
+'
+
+fit_onefactor_2 <- sem(one_factor_model, data = tbl_wm_bandits)
+s_onefactor <- summary(fit_onefactor_2, fit.measures = TRUE, standardized = TRUE)
+
+
+# compare one- and two-factor models
+
+tbl_indices <- map2(list(s_vg_rug2$fit, s_onefactor$fit), list("2 Factors", "1 Factor"), extract_indices) %>%
+  reduce(rbind) %>%
+  as.data.frame() %>% as_tibble()
+cols_num <- colnames(tbl_indices)[colnames(tbl_indices) != "modelname"]
+approximate_bf(as.numeric(tbl_indices$bic[1]), as.numeric(tbl_indices$bic[2]))
+tbl_indices[, cols_num] <- map(tbl_indices[, cols_num], .f = function(x) round(as.numeric(x), 2))
+
+
+
 
 # plot results
 lavaanPlot(
@@ -440,18 +597,61 @@ lavaanPlot(
   node_options = list(shape = "box", fontname = "Helvetica")
 )
 
+# List of variables
+vars <- c("x1", "x2", "x3")
+
+make_pairwise_strings <- function(vars) {
+  # Generate pairwise residual correlations
+  resid_correlations <- combn(vars, 2, function(x) paste(x[1], "~~", x[2]), simplify = TRUE)
+  
+  # Combine into a single string
+  resid_correlations_string <- paste(resid_correlations, collapse = "\n")
+  
+  # Print the result
+  cat(resid_correlations_string)
+}
+
+make_pairwise_strings(c("STICSA_0_2", "STICSA_1_2", "STICSA_2_2", "STICSA_3_2", "STICSA_4_2", "STICSA_5_2", "STICSA_6_2", "STICSA_7_2",
+                          "STICSA_8_2", "STICSA_10_2", "STICSA_11_2", "STICSA_12_2", "STICSA_13_2", "STICSA_14_2", "STICSA_15_2",
+                          "STICSA_16_2", "STICSA_17_2", "STICSA_18_2", "STICSA_19_2", "STICSA_20_2", "STICSA_21_2", "PHQ_9_0_2",
+                          "PHQ_9_1_2", "PHQ_9_2_2", "PHQ_9_3_2", "PHQ_9_4_2", "PHQ_9_5_2", "PHQ_9_7_2", "PHQ_9_8_2", "PHQ_9_9_2"))
+
 # vg & ru CFA session 2
 vg_ru_wmc_model_session2 <- '
 
+ 
+  # behavioral
   g_ru_2  =~ RU_2Armed_2 + RU_Horizon_2 + RU_Restless_2
   g_v_2  =~ V_2Armed_2 + V_Horizon_2 + V_Restless_2
   g_wm_2 =~ WMU_recall_2 + OS_recall_2 + SS_recall_2
-
   
   RU_2Armed_2 ~~ V_2Armed_2
   RU_Horizon_2 ~~ V_Horizon_2
   RU_Restless_2 ~~ V_Restless_2
-  WMU_recall_2 ~~ OS_recall_2
+  WMU_recall_2 ~~ OS_recall_2  
+  
+  
+  
+  
+  Open =~ BIG_5_0_2 + BIG_5_1_2 + BIG_5_2_2 + BIG_5_3_2 + BIG_5_4_2 + BIG_5_5_2
+  
+  
+  negMood =~ PANAS_1_2 + PANAS_3_2 +  PANAS_5_2 + PANAS_6_2 +
+  PANAS_7_2 + PANAS_10_2 +  PANAS_12_2 + PANAS_14_2 + PANAS_17_2 +  PANAS_19_2
+  
+  posMood =~ PANAS_0_2 + PANAS_2_2 +  PANAS_4_2 + PANAS_8_2 + PANAS_9_2 +  PANAS_11_2 +
+  PANAS_13_2 + PANAS_15_2 + PANAS_16_2 + PANAS_18_2
+
+  # questionnaire
+  AxDep =~ STICSA_0_2 +
+  STICSA_1_2 + STICSA_2_2 + STICSA_3_2 + STICSA_4_2 + STICSA_5_2 + STICSA_6_2 + STICSA_7_2 +
+  STICSA_8_2 + STICSA_10_2 + STICSA_11_2 + STICSA_12_2 + STICSA_13_2 + STICSA_14_2 + STICSA_15_2 +
+  STICSA_16_2 + STICSA_17_2 + STICSA_18_2 + STICSA_19_2 + STICSA_20_2 + STICSA_21_2 + PHQ_9_0_2 +
+  PHQ_9_1_2 + PHQ_9_2_2 + PHQ_9_3_2 + PHQ_9_4_2 + PHQ_9_5_2 + PHQ_9_7_2 + PHQ_9_8_2 + PHQ_9_9_2
+  
+  Exp =~ CEI_0_2 +  CEI_1_2 + CEI_2_2 + CEI_3_2
+
+  
 
 '
 
@@ -472,18 +672,6 @@ lavaanPlot(
 )
 
 
-# vg & ru CFA session 1 does not work
-vg_ru_model_session1 <- ' 
-  g_ru_1  =~ RU_2Armed_1 + RU_Horizon_1 + RU_Restless_1
-  g_v_1  =~ V_2Armed_1 + V_Horizon_1 + V_Restless_1
-  
-  RU_2Armed_1 ~~ V_2Armed_1
-  RU_Horizon_1 ~~ V_Horizon_1
-
-'
-
-fit_vg_rug1 <- sem(vg_ru_model_session1, data = tbl_wm_bandits)
-summary(fit_vg_rug1, fit.measures = TRUE, standardized = TRUE)
 
 
 

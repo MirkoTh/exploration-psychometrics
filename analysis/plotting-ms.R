@@ -374,11 +374,10 @@ swi
 ### WM
 # here, we really just need the WM data from the first session, so use a different source than 4arlb-overviewAll.rds
 
-tbl_include <- read_csv("data/exclusions1.csv") %>% 
-  left_join(read_csv("data/exclusions2.csv"), by = "ID", suffix = c("_1", "_2")) %>%
+tbl_include <- read_csv("data/exclusions1_noPID.csv") %>% 
+  left_join(read_csv("data/exclusions2_noPID.csv"), by = "ID", suffix = c("_1", "_2")) %>%
   filter(exclude_1 == 0 & exclude_2 == 0) %>%
-  select(ID) %>% rename(ID = participant_id)
-
+  select(ID)
 wm <- read_csv("data/wm-performance-1.csv") %>% 
   rename(ID = participant_id) %>%
   inner_join(tbl_include, by = "ID") %>%

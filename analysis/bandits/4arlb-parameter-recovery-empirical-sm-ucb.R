@@ -24,10 +24,11 @@ home_grown <- c("utils/analysis-utils.R", "utils/modeling-utils.R", "utils/plott
 walk(home_grown, source)
 
 
+is_sample <- FALSE
 fit_or_load <- "fit"
 tbl_rb <- read_csv("data/finalRestlessSession1.csv")
-tbl_exclude2 <- read_csv(file = "data/exclusions2.csv")
-tbl_exclude1 <- read_csv(file = "data/exclusions1.csv")
+tbl_exclude2 <- read_csv(file = "data/exclusions2_noPID.csv")
+tbl_exclude1 <- read_csv(file = "data/exclusions1_noPID.csv")
 
 
 # seems like two people were invited to session 2, who should not have been
@@ -36,7 +37,9 @@ tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
   filter(exclude_2 == 0 & exclude_1 == 0)
 
 # for testing, just take 4 subjects
-tbl_exclude <- tbl_exclude %>% filter(ID <= 6)
+if (is_sample) {
+  tbl_exclude <- tbl_exclude %>% filter(ID <= 6)
+}
 
 tbl_rb <- tbl_rb %>%
   inner_join(tbl_exclude[, c("ID")], by = "ID") %>%
@@ -156,6 +159,55 @@ tbl_cor_softmax_0var_long <- tbl_recovery_kalman_softmax %>%
   rename("Gamma" = r_gamma) %>%
   pivot_longer(cols = c(Gamma))
 
+tbl_recovery_kalman_sm_long <- tbl_recovery_kalman_softmax  %>% 
+  mutate(
+    gamma_mn = "empirical"
+  ) %>%
+  rename(
+    "Gamma" = r_gamma,
+  ) %>%
+  pivot_longer(cols = c(Gamma)) %>%
+  mutate(
+    param_in = rep(c("Gamma"), 1),
+    param_out = c("Gamma")
+  )
+
+pl_recov_kalman_sm <- ggplot(tbl_recovery_kalman_sm_long, aes(param_in, param_out)) +
+  geom_tile(aes(fill = value)) +
+  geom_text(aes(label = round(value, 2))) +
+  scale_fill_gradient2(name = "") +
+  geom_label(aes(label = str_c("r = ", round(value, 2)))) +
+  theme_bw() +
+  #theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = "Parameter In", y = "Parameter Out")
+
+
+
+save_my_pdf_and_tiff(
+  pl_recov_kalman_sm, "figures/4arlb-kalman-softmax-param-correlations-empirical", 5.5, 3
+)
+
+tbl_results_kalman_softmax %>%
+  unnest_wider(params_decision) %>%
+  pivot_longer(c(gamma), names_to = "Parameter In", values_to = "p_val_in") %>%
+  pivot_longer(c(gamma_ml), names_to = "Parameter Out", values_to = "p_val_out") %>%
+  ggplot(aes(p_val_in, p_val_out)) +
+  geom_abline(linewidth = 1, color = "grey") +
+  geom_point(shape = 1) +
+  facet_wrap(`Parameter In` ~ `Parameter Out`, scales = "free") +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Parameter Value In", y = "Parameter Value Out") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22)
+  ) + 
+  scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
+
+
 
 ## UCB with Softmax -------------------------------------------------------
 
@@ -170,7 +222,6 @@ if (fit_or_load == "fit") {
     sigma_prior, mu_prior,
     bds = bds_ucb, 
     decay_center = mu_prior,
-    
     .progress = TRUE
   )
   plan("sequential")
@@ -243,7 +294,7 @@ save_my_pdf_and_tiff(
 )
 
 tbl_results_kalman_ucb %>%
-  filter(between(beta, -3, 3)) %>%
+  #filter(between(beta, -3, 3)) %>%
   pivot_longer(c(gamma, beta), names_to = "Parameter In", values_to = "p_val_in") %>%
   pivot_longer(c(gamma_ml, beta_ml), names_to = "Parameter Out", values_to = "p_val_out") %>%
   ggplot(aes(p_val_in, p_val_out)) +
@@ -263,8 +314,10 @@ tbl_results_kalman_ucb %>%
 
 ## Mixture Thompson Sampling with UCB -------------------------------------
 
+# w mix means probability of thompson sampling; (1 - w mix) means proportion of ucb
 
-bds_mix_th_ucb <- list(gamma = list(lo = 0, hi = .5), beta = list(lo = -10, hi = 10), w_mix = list(lo = 0, hi = 1))
+
+bds_mix_th_ucb <- list(gamma = list(lo = 0, hi = 2), beta = list(lo = -20, hi = 20), w_mix = list(lo = 0, hi = 1))
 
 if (fit_or_load == "fit") {
   plan(multisession, workers = availableCores() - 1)
@@ -275,6 +328,7 @@ if (fit_or_load == "fit") {
     sigma_xi_sq, sigma_epsilon_sq,
     sigma_prior, mu_prior,
     bds = bds_mix_th_ucb, 
+    params_init = c(.25, 0, .5),
     decay_center = decay_center,
     .progress = TRUE
   )
@@ -303,8 +357,6 @@ if (fit_or_load == "fit") {
   tbl_results_kalman_ucb_thompson <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-thompson-recovery.rds")
 }
 
-
-tbl_results_kalman_ucb_thompson <- tbl_results_kalman_ucb
 
 tbl_results_kalman_ucb_thompson <- tbl_results_kalman_ucb_thompson %>%
   unnest_wider(params_decision)
@@ -383,8 +435,10 @@ tbl_results_kalman_ucb_thompson %>%
 
 ## Mixture Thompson Sampling with RU -------------------------------------
 
+# w mix means probability of thompson sampling; (1 - w mix) means proportion of ru
 
-bds_mix_th_ru <- list(beta = list(lo = -10, hi = 10), w_mix = list(lo = 0, hi = 1))
+
+bds_mix_th_ru <- list(beta = list(lo = -20, hi = 20), w_mix = list(lo = 0, hi = 1))
 
 if (fit_or_load == "fit") {
   plan(multisession, workers = availableCores() - 1)
@@ -395,6 +449,7 @@ if (fit_or_load == "fit") {
     sigma_xi_sq, sigma_epsilon_sq,
     sigma_prior, mu_prior,
     bds = bds_mix_th_ru, 
+    params_init = c(0, .5),
     decay_center = decay_center,
     .progress = TRUE, .options = furrr_options(seed = NULL)
   )
@@ -706,6 +761,31 @@ tbl_results_decay %>%
 
 
 # Summarize Results -------------------------------------------------------
+
+
+l_kalman_softmax_no_variance <- readRDS(file = "data/empirical-parameter-recovery-kalman-softmax-fit.rds")
+tbl_kalman_softmax <- reduce(l_kalman_softmax_no_variance, rbind) %>%
+  as.data.frame() %>% as_tibble() %>% rename(gamma = V1, ll = V2) %>%
+  mutate(ID = 1:nrow(.))
+
+l_kalman_ucb_no_variance <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-fit.rds")
+tbl_kalman_ucb <- reduce(l_kalman_ucb_no_variance, rbind) %>%
+  as.data.frame() %>% as_tibble() %>% rename(gamma = V1, beta = V2, ll = V3) %>%
+  mutate(ID = 1:nrow(.))
+
+
+l_kalman_ucb_thompson <- readRDS(file = "data/empirical-parameter-recovery-kalman-ucb-thompson-fit.rds")
+tbl_kalman_ucb_thompson <- reduce(l_kalman_ucb_thompson, rbind) %>%
+  as.data.frame() %>% as_tibble() %>% rename(gamma = V1, beta = V2, w_mix = V3, ll = V4) %>%
+  mutate(ID = 1:nrow(.))
+
+
+tbl_kalman_softmax %>%
+  left_join(tbl_)
+
+
+
+
 
 wrangle_recoveries <- function(my_tbl, modelname) {
   tbl_summary <- crossing(

@@ -22,11 +22,11 @@ walk(dirs_homegrown, source)
 # Read and Preprocess Data ------------------------------------------------
 
 
-load(file = "analysis/bandits/banditsWave1full.Rda")
+load(file = "analysis/bandits/banditsWave1.Rda")
 restless1 <- restless
 horizon1 <- horizon
 sam1 <- sam
-load(file = "analysis/bandits/banditsWave2full.Rda")
+load(file = "analysis/bandits/banditsWave2.Rda")
 restless2 <- restless
 horizon2 <- horizon
 sam2 <- sam
@@ -34,8 +34,8 @@ sam2 <- sam
 tbl_wm <- readRDS("data/all-data/tbl-performance-wm.rds")
 #tbl_exclude <- readRDS(file = "analysis/wm/subjects-excl-wm.rds")
 
-tbl_excl_bandits_1 <- read_csv("data/exclusions1.csv")
-tbl_excl_bandits_2 <- read_csv("data/exclusions2.csv")
+tbl_excl_bandits_1 <- read_csv("data/exclusions1_noPID.csv")
+tbl_excl_bandits_2 <- read_csv("data/exclusions2_noPID.csv")
 tbl_excl_wm <- readRDS("analysis/wm/subjects-excl-wm.rds")
 
 tbl_exclude <- tbl_excl_wm %>%

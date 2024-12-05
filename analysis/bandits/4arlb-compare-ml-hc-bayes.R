@@ -21,8 +21,8 @@ walk(dirs_homegrown, source)
 
 # get fits and ids --------------------------------------------------------
 
-tbl_exclude2 <- read_csv(file = "data/exclusions2.csv")
-tbl_exclude1 <- read_csv(file = "data/exclusions1.csv")
+tbl_exclude2 <- read_csv(file = "data/exclusions2_noPID.csv")
+tbl_exclude1 <- read_csv(file = "data/exclusions1_noPID.csv")
 
 # seems like two people were invited to session 2, who should not have been
 tbl_exclude <- tbl_exclude1 %>% select(ID, exclude) %>%
