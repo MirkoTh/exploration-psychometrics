@@ -1036,6 +1036,11 @@ exclusion_criteria <- function(session) {
 }
 
 exclusion_criteria_wm_tasks <- function(s_id) {
+  #' create an overview table with applied exclusion criteria
+  #' 
+  #' @description create an overview table with applied exclusion criteria, 
+  #' and write a file with the aggregate working-memory data 
+  #' @param s_id session id (1 or 2)
   
   path_data <- "data/all-data/"
   
