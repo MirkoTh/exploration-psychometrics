@@ -778,14 +778,14 @@ save_my_pdf_and_tiff_and_png(rep, str_c(my_dir, "/replicability_improved"),
                              w = 6,
                              h = 5)
 
-recov_rep <- ggarrange(p1, p2, rep, ncol = 3, labels = "AUTO", common.legend = T, legend = "bottom")
+recov_rep <- ggarrange(p1, p2, rep, ncol = 3,widths = c(0.3, 0.3, 0.4), labels = "AUTO", common.legend = T, legend = "bottom")
 
 recov_rep
 
 save_my_pdf_and_tiff_and_png(recov_rep,
                              str_c(my_dir, "/replicability_recovery_improved"),
-                             w = 17,
-                             h = 5)
+                             w = 14,
+                             h = 4)
 
 # 2.2. Reliability --------------------------------------------------------
 
@@ -1166,48 +1166,39 @@ save_my_pdf_and_tiff_and_png(pl_choice_position, str_c(my_dir, "/2ab-choice-posi
 
 ## Test-retest reliability of questionnaire items ----------------
 
-load("analysis/qswave1.Rda")
-qdat1 <- qdat
+qdat1 <- read.csv("data/trial_level_questionnaire_session1.csv") # created in prep_questionnaire_data.R
 
-load("analysis/qswave2.Rda")
+qdat2 <- read.csv("data/trial_level_questionnaire_session2.csv")
 
-info <- read.csv("task/questionnaires.csv", sep = ";")
-check_items <- paste(info$Measure, info$num, sep = "_")[info$Attention.check > 0]
-
-descr <- read.csv("analysis/descr_for_efa.csv")%>% 
-  subset(ID == 2) %>% 
-  select(Q, measure) %>% 
-  rename(item = Q)
-
-load("analysis/reliabilityResults/questionnaires.Rda")
-compound_rel <- cors %>% 
-  subset(session1 == session2) %>% 
-  rename(measure = session1,
-         compound_cor = cor)
-
-# they have different sample sizes but we will deal with this by matching by ID and doing correlations for pairwise complete obs
-colnames(qdat1)
+colnames(qdat2)
 qdat1 <- qdat1 %>% 
-  select(-c(attention1, motiv_mem_0, motiv_slot_0, mem_aid_0, slot_aid_0, Sex_0, feedback, age, edu, 
-            income_0, rt)) %>% 
-  pivot_longer(cols = -ID, names_to = "item", values_to = "session1") 
+  rename("item" = Q,
+         "session1" = response)
+qdat2 <- qdat2%>% 
+  rename("item" = Q,
+         "session2" = response)
 
-qdat2 <- qdat%>% 
-  select(-c(attention1, motiv_mem_0, motiv_slot_0, mem_aid_0, slot_aid_0, Sex_0, feedback, age, edu, 
-            income_0, rt)) %>% 
-  pivot_longer(cols = -ID, names_to = "item", values_to = "session2")
+qdat <- left_join(qdat1, qdat2 %>% select(ID, item, session2), by = c("ID", "item"))
 
+compound_rel <- qdat %>% 
+  group_by(Measure, ID) %>% 
+  summarise(score1 = mean(session1),
+            score2 = mean(session2))  %>% 
+  ungroup() %>% 
+  group_by(Measure) %>% 
+  summarise(compound_cor = cor(as.numeric(score1), as.numeric(score2), use = "pairwise.complete.obs"))
 
-cors <- left_join(qdat1, qdat2, by = c("ID", "item")) %>% 
-  subset(!is.element(item, check_items)) %>% # take out attention check items
-  group_by(item) %>% 
+cors <- qdat %>% 
+  #subset(!is.element(item, check_items)) %>% # take out attention check items
+  group_by(item, Measure) %>% 
   summarise(cor = cor(as.numeric(session1), as.numeric(session2), use = "pairwise.complete.obs")) %>% 
-  left_join(descr, by = "item") %>% 
-  left_join(compound_rel %>% select(measure, compound_cor), by = "measure")
+  #left_join(descr, by = "item") %>% 
+  left_join(compound_rel, by = "Measure")
+
 
 ggplot(cors, aes(cor)) + geom_histogram()+
   geom_vline(aes(xintercept = compound_cor), linewidth = 2, color = "#FC8D62")+
-  facet_wrap(vars(measure)) 
+  facet_wrap(vars(Measure)) 
 
 
  
