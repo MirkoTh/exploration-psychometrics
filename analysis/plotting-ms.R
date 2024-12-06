@@ -8,6 +8,7 @@ library(ggplot2)
 library(ggpubr)
 library(brms)
 library(here)
+library(patchwork)
 theme_set(theme_bw(base_size = 14))
 
 source("analysis/recovery_utils.R")
@@ -416,9 +417,9 @@ restless$prev <- c(NA, restless$chosen[1:nrow(restless)-1])
 restless$switch <- ifelse(restless$chosen == restless$prev, 0, 1)
 restless$switch[restless$trial == 1] <- NA
 
-Hswitch <- ddply(horizon[horizon$trial > 4, ],~ID,summarise, Pswitch = meann(switch))
-Sswitch <- ddply(sam, ~ID,summarise, Pswitch = meann(switch))
-Rswitch <- ddply(restless, ~ID, summarise, Pswitch = meann(switch))
+Hswitch <- plyr::ddply(horizon[horizon$trial > 4, ],~ID,summarise, Pswitch = meann(switch))
+Sswitch <- plyr::ddply(sam, ~ID,summarise, Pswitch = meann(switch))
+Rswitch <- plyr::ddply(restless, ~ID, summarise, Pswitch = meann(switch))
 
 Pswitch <- list("horizon" = Hswitch, "2AB" = Sswitch, "restless" = Rswitch) %>% 
   bind_rows(.id = "model") %>% 
@@ -430,7 +431,7 @@ swi <- heatmap(Pswitch) +
   labs(title = "P(switch)",
        x = element_blank(),
        y = element_blank())+
-  theme(legend.position = "none")
+  theme(legend.position = "none", axis.text.x = element_text(angle = 30, hjust = 1))
 
 swi
 
@@ -450,7 +451,7 @@ wm <- wm %>% self_cor() %>%
   mutate(x = factor(x, levels = c("OS_recall", "SS_recall", "WMU_recall"),
                     labels = c("Oper. span", "Sym. span", "Updating")),
          y = factor(y, levels = c("WMU_recall", "SS_recall", "OS_recall"),
-                    labels = c("Updating", "Symmetry span", "Operation span")))
+                    labels = c("Updating", "Sym. span", "Oper. span")))
 
 # wm <- readRDS("analysis/4arlb-overviewAll.rds") %>% 
 #   subset(session == 1, select = c(ID,OS_recall, SS_recall, WMU_recall)) %>% 
@@ -466,11 +467,13 @@ WM <- heatmap(wm) +
   labs(title = "Working Memory",
        x = element_blank(),
        y = element_blank())+
-  theme(legend.position = "none")
+  theme(legend.position = "none", axis.text.x = element_text(angle = 30, hjust = 1))
 
 WM
 
-task_based <- ggarrange(swi, WM, ncol = 1, nrow = 2, labels = c("B", "C"), align = "hv")
+combined_plots <- ggarrange(swi, WM, ncol = 1, labels = c("B", "C")) 
+task_based <- combined_plots + plot_spacer() + plot_layout(heights = c(1, .075))
+#task_based <- ggarrange(swi, WM, ncol = 1, nrow = 2, labels = c("B", "C"), align = "hv")
 task_based
 
 ### model parameters
@@ -511,7 +514,7 @@ param_based <- heatmap(cors) +
   theme(legend.position = "none")
 
 param_based <- ggarrange(param_based, labels = c("D"))
-converge <- ggarrange(task_based, param_based, ncol = 2, widths = c(2,3))
+converge <- ggarrange(task_based, param_based, ncol = 2, widths = c(1.65,3))
 converge
 
 save_my_pdf_and_tiff_and_png(converge,
@@ -582,15 +585,16 @@ save_my_pdf_and_tiff_and_png(ext_validty,
 
 ext_validty <- ext_validty +theme(legend.position = "bottom")
 ext_validty <- ggarrange(ext_validty, ncol = 1, labels = c("E"))
+ext_validty_centered <- plot_spacer() + ext_validty + plot_spacer() + plot_layout(widths = c(1, 4, 1))
 
-rel_conv_default <- ggarrange(pl_rel, converge, ext_validty, ncol = 1, nrow = 3,
+rel_conv_default <- ggarrange(pl_rel, converge, ext_validty_centered, ncol = 1, nrow = 3,
                               heights = c(1.5,2,3))
 rel_conv_default
 
 save_my_pdf_and_tiff_and_png(rel_conv_default,
                              str_c(my_dir, "/reliability_convergence_default"),
-                             h = 14,
-                             w = 10)
+                             h = 20,
+                             w = 10.5)
 
 ########## P(switch) over trials #############
 
