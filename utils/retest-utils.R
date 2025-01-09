@@ -21,7 +21,7 @@ overview <- function(tbl_df) {
     group_by(subjectID) %>%
     summarize(n_sessions = length(subjectNumber))
   
-  tbl_nsessions <- tbl_df %>% count(subjectID, subjectNumber, sessionNum) %>% 
+  tbl_nsessions <- tbl_retest_ntrials %>% 
     arrange(subjectID, subjectNumber, sessionNum) %>%
     count(subjectID) %>% count(n)
   
@@ -45,6 +45,7 @@ time_elapsed_retest <- function(tbl_full) {
       date_session_prep1 = str_extract(file_name, ".*_.*_"),
       date_session_prep2 = str_match(date_session_prep1, ".*_(.*)_")[,2],
       session_day = as.numeric(str_extract(date_session_prep2, "^[0-9]+")),
+      session_day = as.character(ifelse(session_day <= 9, str_c("0", session_day), session_day)),
       session_month = str_match(date_session_prep2, "[0-9]+([a-zA-Z]*)")[,2],
       session_year = as.numeric(str_extract(date_session_prep2, "[0-9]*$")),
       session_date = str_c(session_day, "-", session_month, "-", session_year),
@@ -110,6 +111,7 @@ bring_rewards_to_long <- function(l_retest, l_vaccine) {
         "game", "gameLength", "uc", "m1", "m2", "gID", "trial"
       )
     )
+  # remove trials 6-10 in short horizon games
   tbl_both_full_long <- tbl_both_full_long %>% filter(choice != "NaN")
   return(tbl_both_full_long)
 }

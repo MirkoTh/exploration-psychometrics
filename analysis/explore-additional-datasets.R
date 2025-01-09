@@ -14,6 +14,9 @@ dirs_homegrown <- c(
 )
 walk(dirs_homegrown, source)
 
+# date conversion depends on locale
+Sys.setlocale("LC_ALL","English")
+
 tbl_retest <- read_csv("data/bob-wilson/TEST-RETEST-2015_HorizonTask.csv") %>%
   select(-c(repeatNumber, age, gender))
 # cols to drop: repeatNumber (always 1), age (range from 11-23), gender
@@ -62,9 +65,9 @@ only_first_frc <- only_first_frc %>%
     is_higher_info = choice == which_higher_info,
     # ground truth (mean), and forced-choice info diff (info)
     which_lower_mean_gt = factor(m2 < m1, labels = c(1, 2)),
-    which_higher_info_gt = factor(uc == 3, labels = c(1, 2)),
+    which_higher_info_gt = factor(uc, labels = c(1, "equal", 2)),
     is_lower_mean_gt = choice == which_lower_mean_gt,
-    is_higher_info_gt = choice == which_higher_info_gt,
+    is_higher_info_gt = as.character(choice) == as.character(which_higher_info_gt),
     # numeric variables
     mean_diff = running_mean_2 - running_mean_1,
     mean_diff_bin = cut(mean_diff, c(-Inf, -25, seq(-16, 16, by = 4), 25, Inf))
@@ -84,7 +87,7 @@ agg_means <- only_first_frc %>%
   ) %>% ungroup()
 
 agg_info <- only_first_frc %>% 
-  filter(n_choices_1 != 2 & n_choices_2 != 2) %>%
+  filter(which_higher_info_gt != "equal") %>%
   group_by(
     expt_name, subjectID, sessionNum, gameLength
   ) %>%
@@ -158,4 +161,4 @@ only_first_frc %>%
   geom_line(aes(color = gameLength)) +
   geom_point(aes(color = gameLength, size = n)) +
   facet_wrap(expt_name ~ sessionNum)
-
+s
