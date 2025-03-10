@@ -129,6 +129,53 @@ ggplot(tbl_beta_fixed, aes(serial_position, value, group = name)) +
   scale_color_manual(values = c("skyblue2", "tomato4"), name = "")
 
 
+# check convergence
+
+
+summarize_convergence <- function(serial_position) {
+  v_rhat <- rhat(l_models[[(serial_position - 1)]]$m)
+  tbl_rhat <- tibble(
+    param = names(v_rhat),
+    rhat = v_rhat
+  )
+  pl_rhat <- tbl_rhat %>%
+    arrange(desc(rhat)) %>%
+    mutate(param = fct_inorder(factor(param))) %>%
+    ggplot(aes(rhat, param)) +
+    geom_vline(xintercept = 1.05, color = "tomato4", linetype = "dotdash", linewidth = 1) +
+    #geom_line() +
+    geom_point(size = .65, shape = 1, alpha = .3) +
+    geom_point(data = tbl_rhat %>% filter(rhat == max(rhat)), aes(rhat, param), size = 5, color = "tomato4", shape = 1) +
+    scale_x_continuous(
+      expand = c(0.01, 0),
+      breaks = seq(1, 1.1, by = 0.01),     # Adjust the major gridline spacing
+      minor_breaks = seq(1, 1.1, by = 0.005)
+    ) +
+    scale_y_discrete(expand = c(0.01, 0), breaks = c()) +
+    labs(x = "Rhat", y = "Model Parameter (Rank Ordered)") +
+    theme_minimal() +
+    theme(
+      panel.background = element_rect(fill = "white", color = NA),
+      text = element_text(size = 22),
+      axis.text.y = element_blank(),
+    ) +
+    coord_cartesian(xlim = c(1, 1.055))
+  problematic_rhat <- nrow(tbl_rhat %>% filter(rhat >= 1.05)) >= 1
+  
+  return(list(
+    tbl_rhat = tbl_rhat,
+    problematic_rhat = problematic_rhat,
+    pl_rhat = pl_rhat
+  ))
+}
+
+l_rhat <- map(seq(2, 10, by = 1), summarize_convergence)
+
+# any rhat problematic?
+sum(reduce(map(l_rhat, "problematic_rhat"), c))
+
+
+
 # Parameter Recovery ------------------------------------------------------
 
 
@@ -167,9 +214,7 @@ recover_model <- function(serial_position) {
 }
 
 
-plan(multisession, workers = availableCores() - 2)
-l_recover_model <- furrr::future_map(seq(2, 10, by = 1), recover_model)
-plan("sequential")
+l_recover_model <- map(seq(2, 10, by = 1), recover_model, .progress = TRUE)
 
 saveRDS(l_recover_model, file = "analysis/bandits/choice-position-recovery-models.RDS")
 
