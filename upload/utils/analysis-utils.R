@@ -1399,12 +1399,17 @@ reliability_task_measures <- function() {
   tbl_reliability_measures <- tbl_all_three %>%
     group_by(task) %>%
     summarize(
-      reliability_switching = calc_icc_3_1(p_switch_1, p_switch_2),
-      reliability_optimal = calc_icc_3_1(p_optimal_1, p_optimal_2),
-      reliability_regret = calc_icc_3_1(regret_1, regret_2)
-    ) %>% pivot_longer(-task) %>%
+      reliability_switching_c = calc_icc_3_1(p_switch_1, p_switch_2, t = "consistency"),
+      reliability_optimal_c = calc_icc_3_1(p_optimal_1, p_optimal_2, t = "consistency"),
+      reliability_regret_c = calc_icc_3_1(regret_1, regret_2, t = "consistency"),
+      reliability_switching_a = calc_icc_3_1(p_switch_1, p_switch_2, t = "agreement"),
+      reliability_optimal_a = calc_icc_3_1(p_optimal_1, p_optimal_2, t = "agreement"),
+      reliability_regret_a = calc_icc_3_1(regret_1, regret_2, t = "agreement")
+    ) %>% 
+    pivot_longer(-task) %>%
     mutate(
-      parameter = str_remove(name, "reliability_")
+      icc_type = factor(str_extract(name, "[a,c]$"), labels = c("Agreement", "Consistency")), 
+      parameter = str_remove(str_remove(name, "reliability_"), "_[a,c]$")
     )
   tbl_reliability_measures$parameter <- factor(tbl_reliability_measures$parameter, labels = c("p(optimal)", "regret", "p(switch)"))
   tbl_reliability_measures <- tbl_reliability_measures %>% select(-name)

@@ -14,7 +14,7 @@ library(furrr)
 library(grid)
 library(gridExtra)
 
-home_grogridExtrahome_grown <- c("utils/analysis-utils.R", "utils/modeling-utils.R", "utils/plotting-utils.R")
+home_grown <- c("utils/analysis-utils.R", "utils/modeling-utils.R", "utils/plotting-utils.R")
 walk(home_grown, source)
 
 
@@ -83,7 +83,7 @@ tbl_params <- crossing(gamma, beta)
 l_results_w1 <- list()
 l_results_w2 <- list()
 
-is_fit <- TRUE
+is_fit <- FALSE
 # takes approx. 17 mins for n_iter = 10, and 10x10 parameter grid
 if (is_fit) {
   plan(multisession, workers = availableCores() - 3)
@@ -113,6 +113,8 @@ if (is_fit) {
   plan("sequential")
 } else if (!is_fit) {
   l_results_both <- readRDS("data/4arlb-optimal-2-fixed.rds")
+  l_results_w1 <- l_results_both[[1]]
+  l_results_w2 <- l_results_both[[2]]
 }
 
 
@@ -178,6 +180,9 @@ tbl_results_random <- cbind(tbl_params, tbl_results_random) %>%
 tbl_results <- rbind(tbl_results_w1, tbl_results_w2, tbl_results_random)
 tbl_results$gamma <- factor(round(tbl_results$gamma, 2))
 tbl_results$beta <- factor(round(tbl_results$beta, 2))
+tbl_results$stim_set <- factor(tbl_results$stim_set, labels = c("Random Set", "Session 1", "Session 2"))
+
+saveRDS(tbl_results, file = "analysis/bandits/optimal-strategy-restless.RDS")
 
 pl_optimal_strategy_2d <- grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
   group_by(stim_set) %>%
@@ -190,11 +195,12 @@ pl_optimal_strategy_2d <- grouped_agg(tbl_results, c(gamma, beta, stim_set), val
   theme_bw() +
   scale_x_discrete(expand = c(0.01, 0)) +
   scale_y_discrete(expand = c(0.01, 0)) +
-  labs(x = expression(gamma), y = expression(beta)) + 
+  labs(x = "Value-Guided", y = "Directed") + 
   theme(
     strip.background = element_rect(fill = "white"),
     text = element_text(size = 22)
   )
+
 
 pd <- position_dodge(width = .15)
 tbl_results_agg <- grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
@@ -208,9 +214,9 @@ tbl_results_agg <- grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
       pivot_longer(beta)
   ) %>% ungroup()
 tbl_results_agg$value <- as.factor(as.numeric(as.character(tbl_results_agg$value)))
-tbl_results_agg$name <- factor(tbl_results_agg$name, labels = c("beta", "gamma"))
+tbl_results_agg$name <- factor(tbl_results_agg$name, labels = c("Directed", "Value-Guided"))
 
-pl_optimal_strategy_1d <- ggplot(tbl_results_agg, aes(value, mean_value, group = stim_set)) +
+pl_optimal_strategy_1d <- ggplot(tbl_results_agg , aes(value, mean_value, group = stim_set)) +
   geom_line(aes(color = stim_set), position = pd) +
   geom_errorbar(aes(
     ymin = mean_value - 1.96 * se_value, 

@@ -37,7 +37,7 @@ walk(dirs_homegrown, source)
 
 # Which Models? ---------------------------------------------------------
 
-my_dir <- "figures/figures-ms/submission-1"
+my_dir <- "figures/figures-ms/revision-1"
 if (!dir.exists(my_dir)){dir.create(my_dir, recursive = TRUE)}
 
 
@@ -253,11 +253,13 @@ params <- unique(trueParams$predictor)
 cors <- expand.grid(true = params, recovered = params)
 cors$cor <- mapply(function(t, r) cor(trueParams$estimate[trueParams$predictor == t], recoveredParams$estimate[recoveredParams$predictor == r]), cors$true, cors$recovered)
 
+saveRDS(cors, file = "recovery-cors-horizon-s1.RDS")
+
 cors <- cors %>% 
   mutate(recovered = factor(recovered, levels = c("info", "delta_mean", "Intercept"),
-                            labels = c("Directed", "Value-guided", "Intercept")),
+                            labels = c("Directed", "Value-Guided", "Intercept")),
          true = factor(true, levels = c("Intercept", "delta_mean", "info"),
-                       labels = c("Intercept", "Value-guided", "Directed"))) %>% 
+                       labels = c("Intercept", "Value-Guided", "Directed"))) %>% 
   subset(recovered != "Intercept" & true != "Intercept")
 
 p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
@@ -272,6 +274,8 @@ p1
 ## two-armed bd ------------------------------------
 sam <- load_and_prep_bandit_data(session = 1)$sam
 load("analysis/bandits/modellingResults/recoverySamSession1hybrid_hierarchical_notIterative.Rda")
+saveRDS(cors, file = "recovery-cors-2ab-s1.RDS")
+
 cors <- cors %>% 
   mutate(recovered = factor(recovered, levels = c("VTU", "RU", "V", "Intercept"),
                             labels = c("Random","Directed", "Value-guided", "Intercept")),
@@ -312,6 +316,32 @@ save_my_pdf_and_tiff_and_png(
   str_c(my_dir, "/recovery_default"),
   14, 4
 )
+
+tbl_recovery_horizon <- readRDS("analysis/bandits/recovery-cors-horizon-s1.RDS") %>%
+  mutate(
+    task = "Horizon",
+    true = as.character(factor(true, labels = c("Directed", "Value-Guided"))),
+    recovered = as.character(factor(recovered, labels = c("Directed", "Value-Guided")))
+  )
+tbl_recovery_2ab <- readRDS("analysis/bandits/recovery-cors-2ab-s1.RDS") %>%
+  mutate(task = "Two-Armed",
+         true = as.character(factor(true, labels = c("Intercept", "Directed", "Value-Guided", "Random"))),
+         recovered = as.character(factor(recovered, labels = c("Intercept", "Directed", "Value-Guided", "Random")))
+  )
+tbl_recovery_restless <- l_recovery_s1$cor_recovery %>%
+  pivot_longer(colnames(.)) %>%
+  mutate(
+    true = str_extract(name, "^[a-z]*"),
+    recovered = str_match(name, ".*_.*_([a-z]*)_")[, 2],
+    true = factor(true, labels = c("Value-Guided", "Directed")),
+    recovered = factor(recovered, labels = c("Value-Guided", "Directed")),
+    task = "Restless"
+  ) %>%
+  select(-name) %>%
+  rename(cor = value)
+
+tbl_recovery_tasks <- rbind(tbl_recovery_horizon, tbl_recovery_2ab, tbl_recovery_restless)
+
 
 # replicability (fixed effects) ----------------------------------------------------
 
@@ -354,13 +384,31 @@ tbl_reliability_bandits <- readRDS("analysis/bandits/reliabilities-hybrid.csv")
 levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Directed", "Random", "Regret", "p(optimal)", "p(switch)")
 levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
+tbl_reliability_bandits$property <- "Reliability"
+tbl_recovery_tasks$property <- "Recovery"
+tbl_ceiling <- tbl_recovery_tasks %>% filter(true == recovered)
 
-pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Intercept"), aes(value, fct_rev(parameter))) +
+tbl_rel_rec <- tbl_reliability_bandits %>% select(-property) %>%
+  filter(parameter != "Intercept") %>% 
+  mutate(parameter = as.character(parameter)) %>% 
+  left_join(tbl_ceiling %>% select(-property), by = c("task" = "task", "parameter" = "true"), suffix = c("_rel", "")) %>%
+  rename(reliability = value, recoverability = cor) %>%
+  pivot_longer(cols = c("reliability", "recoverability")) %>%
+  mutate(name_display = "]")
+
+
+tbl_rel_rec$parameter <- factor(fct_inorder(tbl_rel_rec$parameter), ordered = TRUE)
+
+
+pl_rel <- ggplot(tbl_rel_rec %>% filter(icc_type == "Consistency" & name == "reliability"), aes(value, fct_rev(parameter))) +
   geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 7), fill = "tomato3", alpha = .1) +
   geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 7), fill = "orange", alpha = .1) +
   geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 7), fill = "lightgreen", alpha = .1) +
   geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 7), fill = "darkgreen", alpha = .1) +
-  geom_point(aes(shape = measure), size = 3, color = "black") +
+  geom_text(aes(label = str_extract(measure, "^[P,T]")), size = 5, color = "black") +
+  geom_text(data = tbl_rel_rec %>% filter(name == "recoverability"), aes(value, fct_rev(parameter), label = name_display), size = 7, alpha = .3) +
+  #geom_point(aes(shape = measure), size = 3, color = "black", fill = "black") +
+  theme_bw() +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
   labs(title = "Test-Retest Reliability", x = "ICC3(C,1)", y = "") + 
@@ -369,9 +417,10 @@ pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Intercept"), a
   theme(
     strip.background = element_rect(fill = "white"), 
     legend.position = "bottom",
-    axis.text.x = element_text(angle = 40, hjust = .95, vjust = .95)
+    axis.text.x = element_text(angle = 40, hjust = .95, vjust = .95),
+    text = element_text(size = 18)
   ) + 
-  scale_shape_manual(values = c(16, 3), name = "")
+  scale_shape_manual(values = c(16, 25), name = "")
 
 pl_rel
 
@@ -381,6 +430,9 @@ save_my_pdf_and_tiff_and_png(
   12, 5
 )
 pl_rel <- ggarrange(pl_rel, ncol =1, labels = c("A"))
+
+
+tbl_reliability_bandits %>% filter(parameter != "Intercept")
 
 
 
@@ -588,7 +640,7 @@ ext_validty <- ggarrange(ext_validty, ncol = 1, labels = c("E"))
 ext_validty_centered <- plot_spacer() + ext_validty + plot_spacer() + plot_layout(widths = c(1, 4, 1))
 
 rel_conv_default <- ggarrange(pl_rel, converge, ext_validty_centered, ncol = 1, nrow = 3,
-                              heights = c(1.5,2,3))
+                              heights = c(1,2,3))
 rel_conv_default
 
 save_my_pdf_and_tiff_and_png(rel_conv_default,
@@ -596,7 +648,7 @@ save_my_pdf_and_tiff_and_png(rel_conv_default,
                              h = 20,
                              w = 10.5)
 
-########## P(switch) over trials #############
+  ########## P(switch) over trials #############
 
 horizon <- load_and_prep_bandit_data(1)$horizon
 sam <- load_and_prep_bandit_data(1)$sam
@@ -879,17 +931,17 @@ cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>%
                     labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration","Positive mood", "Negative mood", "Anxiety/depression")),
          y = factor(y, levels = c("AxDep", "negMood","posMood", "Exp","WMC", "G.Directed", "G.Value.Guided"),
                     labels = c("Anxiety/depression","Negative mood","Positive", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
-  # mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2", "MR3", "MR4", "MR5", "MR6"),
-  #                   labels = c("Value-guided", "Directed","Working memory","cog. anxiety/depression","pos. affect", 
-  #                              "Self-reported exploration", "soma. anxiety 1", "soma. anxiety 2", "unknown")),
-  #        y = factor(y, levels = c("MR6","MR5","MR4", "MR3","MR2", "MR1","WMC", "G.Directed", "G.Value.Guided"),
-  #                   labels = c("unknown","soma.anxiety 2","soma. anxiety 1", "Self-reported exploration", "pos. affect",
-  #                              "cog. anxiety/depression" ,"Working memory", "Directed", "Value-guided")))
-  # 
-  # mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2"),
-  #                   labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration", "Anxiety/depression")),
-  #        y = factor(y, levels = c("MR2", "MR1","WMC", "G.Directed", "G.Value.Guided"),
-  #                   labels = c("Anxiety/depression", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
+# mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2", "MR3", "MR4", "MR5", "MR6"),
+#                   labels = c("Value-guided", "Directed","Working memory","cog. anxiety/depression","pos. affect", 
+#                              "Self-reported exploration", "soma. anxiety 1", "soma. anxiety 2", "unknown")),
+#        y = factor(y, levels = c("MR6","MR5","MR4", "MR3","MR2", "MR1","WMC", "G.Directed", "G.Value.Guided"),
+#                   labels = c("unknown","soma.anxiety 2","soma. anxiety 1", "Self-reported exploration", "pos. affect",
+#                              "cog. anxiety/depression" ,"Working memory", "Directed", "Value-guided")))
+# 
+# mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2"),
+#                   labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration", "Anxiety/depression")),
+#        y = factor(y, levels = c("MR2", "MR1","WMC", "G.Directed", "G.Value.Guided"),
+#                   labels = c("Anxiety/depression", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
 
 
 latent <- heatmap(cors) + 
@@ -902,7 +954,7 @@ latent <- heatmap(cors) +
 latent
 
 conv2 <- ggarrange(converge, latent, ncol = 2, labels = c("B", "C"), common.legend = T,
-          legend = "bottom")
+                   legend = "bottom")
 
 
 conv2
@@ -947,11 +999,11 @@ brm(G.Value.Guided ~ WMC * Exp,# 1 datapoint per participant so no random interc
     control = list(adapt_delta = 0.9))
 
 m1 <- brm(G.Value.Guided ~ WMC * AxDep, # 1 datapoint per participant so no random intercepts or slopes
-    df,
-    cores = 2,
-    chains = 2, 
-    iter = 4000, 
-    control = list(adapt_delta = 0.9))
+          df,
+          cores = 2,
+          chains = 2, 
+          iter = 4000, 
+          control = list(adapt_delta = 0.9))
 m1
 
 # get bayes factor for main effect of axdep
@@ -991,7 +1043,7 @@ allOfIt <- read.csv("analysis/questionnaireScores.csv") %>%
   pivot_wider(id_cols = ID, names_from = measure, values_from = score) %>% 
   mutate(BIG_5 = as.numeric(BIG_5),
          CEI = as.numeric(CEI))
-  
+
 qs <- c("BIG_5","CEI","PANASneg", "PANASpos", "PHQ_9","STICSAcog", "STICSAsoma")
 
 cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
@@ -1205,6 +1257,67 @@ ggplot(cors, aes(cor)) + geom_histogram()+
   facet_wrap(vars(Measure)) 
 
 
- 
+# 2.5 Optimality Analysis -------------------------------------------------
+
+tbl_results <- readRDS("analysis/bandits/optimal-strategy-restless.RDS")
+## Restless Bandit
+pl_optimal_strategy_2d <- grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
+  group_by(stim_set) %>%
+  mutate(mean_value_prop = mean_value/max(mean_value)) %>%
+  ggplot(aes(gamma, beta)) +
+  geom_tile(aes(fill = mean_value_prop)) +
+  geom_text(aes(label = round(mean_value_prop, 3)), color = "white") + 
+  facet_wrap(~ stim_set) +
+  scale_fill_viridis_c(guide = "none") +
+  theme_bw() +
+  scale_x_discrete(expand = c(0.01, 0)) +
+  scale_y_discrete(expand = c(0.01, 0)) +
+  labs(x = "Value-Guided", y = "Directed") + 
+  theme(
+    strip.background = element_rect(fill = "white"),
+    text = element_text(size = 22)
+  )
+
+
+
+pd <- position_dodge(width = .15)
+tbl_results_agg <- grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
+  pivot_longer(gamma) %>%
+  rbind(
+    grouped_agg(tbl_results, c(beta, stim_set), value) %>%
+      pivot_longer(beta)
+  ) %>% ungroup()
+tbl_results_agg$value <- as.factor(as.numeric(as.character(tbl_results_agg$value)))
+tbl_results_agg$name <- factor(tbl_results_agg$name, labels = c("Directed", "Value-Guided"))
+
+pl_optimal_strategy_1d <- ggplot(tbl_results_agg , aes(value, mean_value, group = stim_set)) +
+  geom_line(aes(color = stim_set), position = pd, linewidth = 1) +
+  geom_errorbar(aes(
+    ymin = mean_value - 1.96 * se_value, 
+    ymax = mean_value + 1.96 * se_value, 
+    color = stim_set
+  ), width = .15, position = pd, linewidth = 1) +
+  geom_point(color = "white", size = 3, position = pd) +
+  geom_point(aes(color = stim_set), position = pd) +
+  facet_wrap(~ name, scales = "free_x", labeller = label_parsed) +
+  theme_bw() +
+  scale_x_discrete(expand = c(0.02, 0)) +
+  scale_y_continuous(expand = c(0.01, 0), labels = scales::comma) +
+  labs(x = "Parameter Value", y = "Cum. Rewards") + 
+  theme(
+    text = element_text(size = 22),
+    axis.text.y = element_text(),
+    legend.position = "bottom",
+    strip.background = element_rect(fill = "white")
+  ) + 
+  scale_color_brewer(palette = "Set2", name = "")
+  
+
+pl_optimal_stratagy_1d_2d <- arrangeGrob(pl_optimal_strategy_2d, pl_optimal_strategy_1d, nrow = 2)
+save_my_pdf_and_tiff_and_png(
+  pl_optimal_stratagy_1d_2d,
+  "figures/figures-ms/revision-1/4arlb-optimal-strategy", 16, 10
+)
+
 
 

@@ -3311,7 +3311,7 @@ hdi_etc <- function(tbl_draws) {
 }
 
 
-by_participant_maps <- function(tbl_draws, f_time) {
+by_participant_maps <- function(tbl_draws, f_time, pars_interest) {
   tbl_draws %>% select(starts_with(pars_interest)) %>%
     mutate(n_sample = 1:nrow(.)) %>%
     pivot_longer(-n_sample) %>%
@@ -3325,10 +3325,10 @@ by_participant_maps <- function(tbl_draws, f_time) {
     mutate(fit_time = f_time)
 }
 
-map_cor <- function(tbl_draws_hc, tbl_draws_hc_recovery) {
+map_cor <- function(tbl_draws_hc, tbl_draws_hc_recovery, pars_interest) {
   
   l_tbl_draws <- list(tbl_draws_hc, tbl_draws_hc_recovery)
-  l_tbl_maps <- map2(l_tbl_draws, c("data", "preds"), by_participant_maps)
+  l_tbl_maps <- map2(l_tbl_draws, c("data", "preds"), by_participant_maps, pars_interest = pars_interest)
   
   tbl_recovery <- reduce(
     l_tbl_maps, 
@@ -3347,29 +3347,30 @@ map_cor <- function(tbl_draws_hc, tbl_draws_hc_recovery) {
   return(list(tbl_recovery = tbl_recovery, cor_recovery = cor_recovery))
 }
 
-recovery_heatmap <- function(l_recovery, ttl) {
+recovery_heatmap <- function(l_recovery, ttl, lvls = NULL) {
   tbl_in_out <- l_recovery$cor_recovery %>%
     pivot_longer(colnames(.)) %>%
     mutate(
       param_in = str_match(name, "([a-z]*)_")[, 2],
       param_out = str_match(name, "_([a-z]*)_out")[, 2]
     )
+  if(!is.null(lvls)) {
+    tbl_in_out$param_in <- factor(tbl_in_out$param_in, labels = lvls)
+    tbl_in_out$param_out <- factor(tbl_in_out$param_out, labels = lvls)
+  }
   ggplot(tbl_in_out, aes(param_in, param_out)) +
     geom_tile(aes(fill = value)) +
     geom_text(aes(label = round(value, 2)), size = 6, color = "white") +
     theme_bw() +
-    scale_x_discrete(expand = c(0.01, 0)) +
-    scale_y_discrete(expand = c(0.01, 0)) +
-    scale_fill_viridis_c(guide = "none") +
+    scale_x_discrete(expand = c(0.01, 0), limits = rev) +
+    scale_y_discrete(expand = c(0.01, 0),) +
     labs(x = "MAP (Data)", y = "MAP (Prediction)", title = ttl) + 
     theme(
       strip.background = element_rect(fill = "white"), 
       text = element_text(size = 22)
     ) + 
-    scale_color_gradient(name = "", low = "skyblue2", high = "tomato4")
+    scale_fill_gradient2(name = "", high = "#66C2A5", low = "#FC8D62", mid = "white")
 }
-
-
 
 
 softmax_stan_hierarchical_generate <- function() {

@@ -21,7 +21,7 @@ walk(dirs_homegrown, source)
 # Definition of Used Model Parameters -------------------------------------
 
 # models as from the literature or all three tasks ucb?
-is_ucb <- TRUE
+is_ucb <- FALSE
 
 
 
@@ -101,8 +101,8 @@ tbl_bandits_rel$parameter[tbl_bandits_rel$is_vtu] <- "VTU"
 # Reliability & Validity --------------------------------------------------
 
 
-calc_icc_3_1 <- function(s1, s2) {
-  r <- icc(tibble(s1, s2), model = "twoway", type = "consistency", unit = "single")
+calc_icc_3_1 <- function(s1, s2, t = "consistency") {
+  r <- icc(tibble(s1, s2), model = "twoway", type = t, unit = "single")
   r$value
   
 }
@@ -112,12 +112,15 @@ tbl_bandits_param_rel <- tbl_bandits_rel %>%
   pivot_wider(id_cols = c(ID, task, parameter), names_from = c(session), values_from = value) %>%
   group_by(task, parameter) %>%
   summarize(
-    #value = cor(`1`, `2`),
-    value = calc_icc_3_1(`1`, `2`),
+    value_c = calc_icc_3_1(`1`, `2`, t = "consistency"),
+    value_a = calc_icc_3_1(`1`, `2`, t = "agreement")
   ) %>%
   ungroup()
 tbl_bandits_param_rel$task <- as.character(factor(tbl_bandits_param_rel$task, labels = c("Horizon", "Restless", "Sam")))
 
+tbl_bandits_param_rel <- tbl_bandits_param_rel %>%
+  pivot_longer(c(value_c, value_a), names_to = "icc_type") %>%
+  mutate(icc_type = factor(str_extract(icc_type, "_[a,c]$"), labels = c("Agreement", "Consistency")))
 
 # reliability task scores
 tbl_rel_task_measures <- reliability_task_measures()
@@ -134,8 +137,8 @@ if (is_ucb) {
   lvls <- c("IC", "V", "RU", "regret", "p(optimal)", "p(switch)")
 } else {
   lvls <- c("IC", "V", "RU", "VTU", "regret", "p(optimal)", "p(switch)")
-  
 }
+
 tbl_rel_both$parameter <- factor(tbl_rel_both$parameter, levels = lvls, ordered = TRUE)
 
 saveRDS(tbl_rel_both, str_c("analysis/bandits/reliabilities", c("-hybrid", "-ucb")[is_ucb + 1], ".csv"))
@@ -143,7 +146,7 @@ ggplot(tbl_rel_both %>% filter(parameter != "IC"), aes(value, parameter)) +
   geom_vline(xintercept = .5, color = "red", linewidth = 2, alpha = .3) +
   geom_vline(xintercept = .75, color = "lightgreen", linewidth = 2, alpha = .5) +
   geom_vline(xintercept = .9, color = "darkgreen", linewidth = 2, alpha = .3) +
-  geom_point(aes(fill = measure), shape = 23, size = 3, color = "black") +
+  geom_point(aes(fill = measure, shape = icc_type), size = 3, color = "black") +
   facet_wrap(~ task) +
   theme_bw() +
   scale_x_continuous(expand = c(0.02, 0), breaks = seq(0, 1, by = .2)) +
