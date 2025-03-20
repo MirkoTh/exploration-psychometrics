@@ -1290,18 +1290,52 @@ tbl_results_agg <- grouped_agg(tbl_results, c(gamma, stim_set), value) %>%
 tbl_results_agg$value <- as.factor(as.numeric(as.character(tbl_results_agg$value)))
 tbl_results_agg$name <- factor(tbl_results_agg$name, labels = c("Directed", "Value-Guided"))
 
-pl_optimal_strategy_1d <- ggplot(tbl_results_agg , aes(value, mean_value, group = stim_set)) +
-  geom_line(aes(color = stim_set), position = pd, linewidth = 1) +
-  geom_errorbar(aes(
+
+
+file_loc_hc_s1 <- "data/restless-hierarchical-model-posterior-s1.RDS"
+tbl_draws_hc_s1 <- readRDS(file_loc_hc_s1)
+
+ids_sample <- tibble(
+  ID = unique(tbl_restless$ID),
+  id_stan = 1:length(unique(tbl_restless$ID))
+)
+
+tbl_posterior <- tbl_draws_hc_s1 %>% 
+  dplyr::select(starts_with("beta") | starts_with("tau"), .chain) %>%
+  rename(chain = .chain) %>%
+  pivot_longer(starts_with("beta") | starts_with("tau"), names_to = "parameter", values_to = "value") %>%
+  mutate(
+    id_stan = as.integer(str_extract(parameter, "[0-9]+")),
+    parameter = str_extract(parameter, "^[a-z]+")
+  )
+tbl_posterior_agg <- tbl_posterior %>%
+  group_by(parameter, id_stan) %>% 
+  summarize(val_mn = mean(value)) %>% ungroup() %>%
+  mutate(
+    name = factor(parameter, labels = c("Directed", "Value-Guided"))
+  )
+tbl_ci <- summary_se(tbl_posterior_agg, "val_mn", "name")
+
+
+y_lower <- 9500
+y_upper <- 12500
+tbl_results_agg$value <- as.numeric(as.character(tbl_results_agg$value))
+
+pl_optimal_strategy_1d <- ggplot() +
+  geom_segment(data = tbl_ci, aes(y = y_lower + 500, x = val_mn - ci, xend = val_mn + ci), lineend = "round", linewidth = 2, alpha = .5) +
+  geom_point(data = tbl_ci, aes(x = val_mn, y = y_lower + 500), size = 4, color = "white") +
+  geom_point(data = tbl_ci, aes(x = val_mn, y = y_lower + 500), size = 3, alpha = 1) +
+  geom_line(data = tbl_results_agg , aes(value, mean_value, color = stim_set), linewidth = 1) +
+  geom_errorbar(data = tbl_results_agg , aes(
+    value, mean_value, color = stim_set,
     ymin = mean_value - 1.96 * se_value, 
-    ymax = mean_value + 1.96 * se_value, 
-    color = stim_set
-  ), width = .15, position = pd, linewidth = 1) +
-  geom_point(color = "white", size = 3, position = pd) +
-  geom_point(aes(color = stim_set), position = pd) +
+    ymax = mean_value + 1.96 * se_value
+  ), width = .15, linewidth = 1) +
+  geom_point(data = tbl_results_agg , aes(value, mean_value), color = "white", size = 3) +
+  geom_point(data = tbl_results_agg , aes(value, mean_value, color = stim_set)) +
   facet_wrap(~ name, scales = "free_x", labeller = label_parsed) +
   theme_bw() +
-  scale_x_discrete(expand = c(0.02, 0)) +
+  scale_x_continuous(expand = c(0.02, 0)) +
   scale_y_continuous(expand = c(0.01, 0), labels = scales::comma) +
   labs(x = "Parameter Value", y = "Cum. Rewards") + 
   theme(
@@ -1310,14 +1344,13 @@ pl_optimal_strategy_1d <- ggplot(tbl_results_agg , aes(value, mean_value, group 
     legend.position = "bottom",
     strip.background = element_rect(fill = "white")
   ) + 
-  scale_color_brewer(palette = "Set2", name = "")
+  scale_color_brewer(palette = "Set2", name = "") +
+  coord_cartesian(ylim = c(y_lower, y_upper))
   
 
 pl_optimal_stratagy_1d_2d <- arrangeGrob(pl_optimal_strategy_2d, pl_optimal_strategy_1d, nrow = 2)
 save_my_pdf_and_tiff_and_png(
   pl_optimal_stratagy_1d_2d,
-  "figures/figures-ms/revision-1/4arlb-optimal-strategy", 16, 10
+  str_c(my_dir, "/4arlb-optimal-strategy"), 16, 10
 )
-
-
 
