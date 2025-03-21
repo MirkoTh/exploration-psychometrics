@@ -21,7 +21,7 @@ walk(dirs_homegrown, source)
 # Definition of Used Model Parameters -------------------------------------
 
 # models as from the literature or all three tasks ucb?
-is_ucb <- FALSE
+is_ucb <- TRUE
 
 
 
@@ -299,7 +299,10 @@ tbl_rel_wm_q <- tbl_q %>% mutate(domain = "Questionnaire") %>%
   rbind(tbl_wm_reliability) %>%
   pivot_wider(id_cols = c(ID, domain, measure), names_from = c(session), values_from = score) %>%
   group_by(domain, measure) %>%
-  summarize(reliability = cor(`1`, `2`)) %>%
+  summarize(
+    #reliability_pcor = cor(`1`, `2`), 
+    reliability_icc_c = calc_icc_3_1(`1`, `2`, "consistency"), 
+    reliability_icc_a = calc_icc_3_1(`1`, `2`, "agreement")) %>%
   ungroup()
 
 tbl_rel_wm_q$measure <- factor(
@@ -312,7 +315,7 @@ tbl_rel_wm_q$measure <- factor(
   )
 )
 
-ggplot(tbl_rel_wm_q %>% filter(!str_detect(measure, "Processing")), aes(reliability, measure)) +
+ggplot(tbl_rel_wm_q %>% filter(!str_detect(measure, "Processing")), aes(reliability_icc_c, measure)) +
   geom_vline(xintercept = .5, color = "red", linewidth = 2, alpha = .3) +
   geom_vline(xintercept = .75, color = "lightgreen", linewidth = 2, alpha = .5) +
   geom_vline(xintercept = .9, color = "darkgreen", linewidth = 2, alpha = .3) +
@@ -330,6 +333,7 @@ ggplot(tbl_rel_wm_q %>% filter(!str_detect(measure, "Processing")), aes(reliabil
   ) + 
   scale_fill_manual(values = c("skyblue2", "tomato4"), name = "")
 
+saveRDS(tbl_rel_wm_q %>% filter(!str_detect(measure, "Processing")), file = "analysis/reliabilities-wm-qs.rds")
 
 # item-based questionnaire data
 tbl_q_item <- read.csv("analysis/dat_for_efa_s2.csv") %>% as_tibble() %>% select(-X)
@@ -654,8 +658,6 @@ vg_ru_wmc_model_session2 <- '
   
   Exp =~ CEI_0_2 +  CEI_1_2 + CEI_2_2 + CEI_3_2
 
-  
-
 '
 
 fit_vg_rug_wm2 <- sem(vg_ru_wmc_model_session2, data = tbl_wm_bandits)
@@ -678,8 +680,7 @@ lavaanPlot(
 
 
 
-
-# specify the model
+# reliability model
 
 value_guided_model_2_sessions <- ' 
   g_v_1  =~ V_2Armed_1 + V_Horizon_1 + V_Restless_1
@@ -698,8 +699,6 @@ value_guided_model_2_sessions <- '
   V_2Armed_1 ~~ V_2Armed_2
 '
 
-## todos
-## correlation with questionnaires
 
 # fit the model
 
@@ -710,157 +709,6 @@ resid(fit_l)
 # plot results
 lavaanPlot(
   fit_l, coefs = TRUE, covs = TRUE, sig = .05,
-  stand = TRUE,
-  edge_options = list(color = "grey"), 
-  node_options = list(shape = "box", fontname = "Helvetica")
-)
-
-
-# specify the model
-value_guided_model_1_session <- ' 
-
-  g_v  =~ V_2Armed_1 + V_Horizon_1 + V_Restless_1
-
-  BIG_5_1 ~~ g_v
-  #CEI_1 ~~ g_v
-  #STICSAsoma_1 ~~ g_v
-  #PHQ_9_1 ~~ g_v
-
-
-'
-
-
-fit_c <- cfa(value_guided_model_1_session, data = tbl_wm_bandits)
-summary(fit_c, fit.measures = TRUE, standardized = TRUE)
-
-
-directed_model_1_session <- ' 
-
-  g_ru  =~ RU_2Armed_1 + RU_Horizon_1 + RU_Restless_1
-
-  #BIG_5_1 ~~ g_ru
-  #CEI_1 ~~ g_ru
-  #STICSAsoma_1 ~~ g_ru
-  PHQ_9_1 ~~ g_ru
-
-
-'
-fit_c <- cfa(directed_model_1_session, data = tbl_wm_bandits)
-summary(fit_c, fit.measures = TRUE, standardized = TRUE)
-
-
-# plot results
-lavaanPlot(
-  fit_c, coefs = TRUE, covs = TRUE, sig = TRUE, stars = "covs",
-  stand = TRUE,
-  edge_options = list(color = "grey"), 
-  node_options = list(shape = "box", fontname = "Helvetica")
-)
-
-# specify the model
-value_guided_wm_model_1_session <- ' 
-
-  g_wm =~ WMU_recall_1 + OS_recall_1 + SS_recall_1
-  g_v  =~ V_2Armed_1 + V_Horizon_1 + V_Restless_1
-
-'
-
-
-fit_c <- cfa(value_guided_wm_model_1_session, data = tbl_wm_bandits)
-summary(fit_c, fit.measures = TRUE)
-
-# plot results
-lavaanPlot(
-  fit_c, coefs = TRUE, covs = TRUE, sig = TRUE, stars = "covs",
-  edge_options = list(color = "grey"), 
-  node_options = list(shape = "box", fontname = "Helvetica")
-)
-
-tbl_bandits_switch <- tbl_wm_bandits %>% inner_join(tbl_all_three, by = "ID")
-
-tbl_bandits_switch <- tbl_bandits_switch %>%
-  mutate(
-    p_switch_Horizon_1 = scale(p_switch_Horizon_1)[,1],
-    p_switch_2Armed_1 = scale(p_switch_Sam_1)[,1],
-    p_switch_Restless_1 = scale(p_switch_Restless_1)[,1]
-  )
-# specify the model
-switch_model_1_session <- ' 
-
-
-  g_switch_1  =~ p_switch_Horizon_1 + p_switch_Sam_1 + p_switch_Restless_1
-  g_switch_2  =~ p_switch_Horizon_2 + p_switch_Sam_2 + p_switch_Restless_2
-  
-  p_switch_Restless_1 ~~ p_switch_Restless_2
-  p_switch_Horizon_1 ~~ p_switch_Horizon_2
-  p_switch_Sam_1 ~~ p_switch_Sam_2
-
-  
-
-'
-
-fit_switch <- cfa(switch_model_1_session, data = tbl_bandits_switch)
-summary(fit_switch, fit.measures = TRUE)
-
-# plot results
-lavaanPlot(
-  fit_switch, coefs = TRUE, covs = TRUE, sig = TRUE, stars = "covs",
-  edge_options = list(color = "grey"), 
-  node_options = list(shape = "box", fontname = "Helvetica")
-)
-
-
-
-cor(tbl_wm_bandits_1)
-cor(tbl_wm_bandits_2)
-
-
-
-tbl_wm_wide %>% select(contains("processing")) %>%
-  mutate(rwn = 1:nrow(.)) %>%
-  pivot_longer(-rwn) %>%
-  mutate(
-    session = str_extract(name, "[1-2]$"),
-    task = str_extract(name, "^[A-Z]*")) %>%
-  ggplot(aes(value)) +
-  geom_histogram() +
-  facet_grid(session ~ task)
-
-
-## CFA behaviour and questionnaires --------
-
-
-# vg & ru CFA session 2
-vg_ru_wmc_model_session2 <- '
-
-  g_ru_2  =~ RU_2Armed_2 + RU_Horizon_2 + RU_Restless_2
-  g_v_2  =~ V_2Armed_2 + V_Horizon_2 + V_Restless_2
-  g_wm_2 =~ WMU_recall_2 + OS_recall_2 + SS_recall_2
-  
-  AxDep =~  STICSAcog_2 + STICSAsoma_2 + PHQ_9_2
-  posMood =~ PANASpos_2
-  negMood =~PANASneg_2
-  Exp =~ BIG_5_2 + CEI_2
-
-  
-  RU_2Armed_2 ~~ V_2Armed_2
-  RU_Horizon_2 ~~ V_Horizon_2
-  RU_Restless_2 ~~ V_Restless_2
-  WMU_recall_2 ~~ OS_recall_2
-
-'
-
-fit_vg_rug_wm2 <- sem(vg_ru_wmc_model_session2, data = tbl_wm_bandits)
-summary(fit_vg_rug_wm2, fit.measures = TRUE, standardized = TRUE)
-
-tbl_latents <- as_tibble(predict(fit_vg_rug_wm2))
-colnames(tbl_latents) <- c("G Directed", "G Value Guided", "WMC")
-my_corr_plot(cor(tbl_latents), "", "", "Convergent Validity Exploration", "latent")
-
-write_csv(tbl_latents, "data/behavioral-tasks-latents-s2.csv")
-# plot results
-lavaanPlot(
-  fit_vg_rug_wm2, coefs = TRUE, covs = TRUE, sig = TRUE, stars = "covs",
   stand = TRUE,
   edge_options = list(color = "grey"), 
   node_options = list(shape = "box", fontname = "Helvetica")
