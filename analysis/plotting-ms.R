@@ -405,9 +405,9 @@ pl_rel <- ggplot(tbl_rel_rec %>% filter(icc_type == "Consistency" & name == "rel
   geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 7), fill = "orange", alpha = .1) +
   geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 7), fill = "lightgreen", alpha = .1) +
   geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 7), fill = "darkgreen", alpha = .1) +
-  geom_text(aes(label = str_extract(measure, "^[P,T]")), size = 5, color = "black") +
+  geom_text(aes(label = str_extract(measure, "^[P,T]")), size = 1, color = "black") +
   geom_text(data = tbl_rel_rec %>% filter(name == "recoverability"), aes(value, fct_rev(parameter), label = name_display), size = 7, alpha = .3) +
-  #geom_point(aes(shape = measure), size = 3, color = "black", fill = "black") +
+  geom_point(aes(shape = measure), size = 3, color = "black", fill = "black") +
   theme_bw() +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
@@ -434,6 +434,18 @@ pl_rel <- ggarrange(pl_rel, ncol =1, labels = c("A"))
 
 tbl_reliability_bandits %>% filter(parameter != "Intercept")
 
+
+# reliability wm tasks and questionnaires
+
+tbl_rel_wm_q <- readRDS(file = "analysis/reliabilities-wm-qs.rds")
+
+tbl_rel_wm_q %>% 
+  pivot_longer(cols = starts_with("reliability")) %>%
+  mutate(
+    ICC = factor(name, labels = c("Agreement", "Consistency"))
+  ) %>%
+  select(-name) %>%
+  rename(`Retest Reliability` = value)
 
 
 # 1.3. Convergent Validity --------------------------------------------------
@@ -648,7 +660,7 @@ save_my_pdf_and_tiff_and_png(rel_conv_default,
                              h = 20,
                              w = 10.5)
 
-  ########## P(switch) over trials #############
+########## P(switch) over trials #############
 
 horizon <- load_and_prep_bandit_data(1)$horizon
 sam <- load_and_prep_bandit_data(1)$sam
@@ -759,9 +771,9 @@ cors$cor <- mapply(function(t, r) cor(trueParams$estimate[trueParams$predictor =
 
 cors <- cors %>% 
   mutate(recovered = factor(recovered, levels = c("info", "delta_mean", "Intercept"),
-                            labels = c("Directed", "Value-guided", "Intercept")),
+                            labels = c("Directed", "Value-Guided", "Intercept")),
          true = factor(true, levels = c("Intercept", "delta_mean", "info"),
-                       labels = c("Intercept", "Value-guided", "Directed"))) %>% 
+                       labels = c("Intercept", "Value-Guided", "Directed"))) %>% 
   subset(recovered != "Intercept" & true != "Intercept")
 
 p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
@@ -769,6 +781,7 @@ p1 <- heatmap(cors, x = cors$true, y = cors$recovered) +
        x = "Fitted parameters",
        y = "Recovered parameters")
 p1
+cors_horizon <- cors %>% mutate(task = "Horizon")
 
 #ggsave("plots/submission1/recovery_horizon_only_long.png", p1)
 
@@ -778,9 +791,9 @@ sam <- load_and_prep_bandit_data(session = 1)$sam
 load("analysis/bandits/modellingResults/recoverySamSession1UCB_hierarchical_notIterative.Rda")
 cors <- cors %>% 
   mutate(recovered = factor(recovered, levels = c("RU", "V", "Intercept"),
-                            labels = c("Directed", "Value-guided", "Intercept")),
+                            labels = c("Directed", "Value-Guided", "Intercept")),
          true = factor(true, levels = c("Intercept", "V", "RU"),
-                       labels = c("Intercept", "Value-guided", "Directed"))) %>% 
+                       labels = c("Intercept", "Value-Guided", "Directed"))) %>% 
   subset(recovered != "Intercept" & true != "Intercept")
 
 p2 <- heatmap(cors, x = cors$true, y = cors$recovered) +
@@ -788,7 +801,7 @@ p2 <- heatmap(cors, x = cors$true, y = cors$recovered) +
        x = "Fitted parameters",
        y = "Recovered parameters")
 p2
-
+cors_sam <- cors %>% mutate(task = "Two-Armed")
 #ggsave("plots/submission1/recovery_2ab_UCB.png", p1)
 
 recovery <- ggarrange(p1, p2, ncol = 2, labels = "AUTO", common.legend = T, legend = "right")
@@ -799,6 +812,7 @@ save_my_pdf_and_tiff_and_png(recovery,
                              str_c(my_dir, "/recovery_improved"),
                              9,4)
 
+tbl_recovery_tasks_improved <- rbind(cors_horizon, cors_sam) %>% filter(recovered == true)
 
 # Replicability (fixed effects) ------------------------------------------
 
@@ -849,13 +863,29 @@ tbl_reliability_bandits <- readRDS("analysis/bandits/reliabilities-ucb.csv")
 levels(tbl_reliability_bandits$parameter) = c("Intercept", "Value-Guided", "Directed", "Regret", "p(optimal)", "p(switch)")
 levels(tbl_reliability_bandits$task) <- c("Horizon", "Two-Armed", "Restless")
 
+tbl_rel_rec_improved <- tbl_reliability_bandits %>% 
+  filter(parameter != "Intercept" & task != "Restless" & measure == "Parameter") %>% 
+  mutate(parameter = as.character(parameter)) %>% 
+  left_join(tbl_recovery_tasks_improved, by = c("task" = "task", "parameter" = "true")) %>%
+  rename(reliability = value, recoverability = cor) %>%
+  pivot_longer(cols = c("reliability", "recoverability")) %>%
+  mutate(name_display = "]")
 
-pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Intercept" & measure != "Task Measure" & task != "Restless"), aes(value, fct_rev(parameter))) +
+
+tbl_rel_rec_improved$parameter <- factor(fct_inorder(tbl_rel_rec_improved$parameter), ordered = TRUE)
+
+tmp <- tbl_reliability_bandits %>% filter(parameter != "Intercept" & task != "Restless" & measure == "Parameter") %>% arrange(task, icc_type, parameter)
+print(tmp, n = 30)
+
+
+pl_rel <- ggplot(tbl_reliability_bandits %>% filter(parameter != "Intercept" & measure != "Task Measure" & task != "Restless" & icc_type == "Consistency"), aes(value, fct_rev(parameter))) +
   geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 2.5), fill = "tomato3", alpha = .2) +
   geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 2.5), fill = "orange", alpha = .2) +
   geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 2.5), fill = "lightgreen", alpha = .2) +
   geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 2.5), fill = "darkgreen", alpha = .2) +
-  geom_point(aes(shape = measure), size = 3, color = "black") +
+  geom_text(aes(label = str_extract(measure, "^[P,T]")), size = 1, color = "black") +
+  geom_text(data = tbl_rel_rec_improved %>% filter(name == "recoverability"), aes(value, fct_rev(parameter), label = name_display), size = 7, alpha = .3) +
+  geom_point(aes(shape = measure), size = 3, color = "black", fill = "black") +
   facet_wrap(~ task) +
   coord_cartesian(xlim = c(0, 1)) +
   labs(title = "Test-Retest Reliability", x = "ICC3(C,1)", y = "") + 
