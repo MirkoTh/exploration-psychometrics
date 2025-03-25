@@ -37,7 +37,7 @@ walk(dirs_homegrown, source)
 
 # Which Models? ---------------------------------------------------------
 
-my_dir <- "figures/figures-ms/submission-1"
+my_dir <- "figures/figures-ms/revision-1"
 if (!dir.exists(my_dir)){dir.create(my_dir, recursive = TRUE)}
 
 
@@ -1165,6 +1165,29 @@ pl_choice_position <- ggplot(tbl_plot %>% filter(parameter != "Intercept"), aes(
 
 grid.draw(pl_choice_position)
 save_my_pdf_and_tiff_and_png(pl_choice_position, str_c(my_dir, "/2ab-choice-position"), 6, 4)
+
+
+# recovery analysis
+tbl_recovery_choice_position <- readRDS("data/choice-position-recovery.RDS")
+pl_recovery_choice_position <- ggplot(tbl_recovery, aes(trial, r, group = param)) +
+  geom_line(aes(color = param)) +
+  geom_point(color = "white", size = 3) +
+  geom_point(aes(color = param)) +
+  theme_bw() +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  scale_y_continuous(expand = c(0.01, 0)) +
+  labs(x = "Trial", y = "Recoverability") + 
+  theme(
+    strip.background = element_rect(fill = "white"), 
+    text = element_text(size = 22),
+    legend.position = "bottom"
+  ) + 
+  scale_color_brewer(palette = "Set2", name = "") +
+  coord_cartesian(ylim = c(0, 1))
+grid.draw(pl_recovery_choice_position)
+save_my_pdf_and_tiff_and_png(pl_recovery_choice_position, str_c(my_dir, "/2ab-choice-position-recovery"), 6, 4)
+
+
 
 
 
