@@ -45,7 +45,7 @@ model_trial_position <- function(serial_position) {
   m <- brm(
     chosen ~ V_z + RU_z + (V_z + RU_z | ID), 
     data = tbl_used, family = bernoulli(),
-    prior = bprior, iter = 5000, warmup = 1000,
+    prior = bprior, iter = 10000, warmup = 2000,
     chains = 3, cores = 3, control = list(adapt_delta = .95)
   )
   # extract by-participant posterior means
@@ -132,8 +132,8 @@ ggplot(tbl_beta_fixed, aes(serial_position, value, group = name)) +
 # check convergence
 
 
-summarize_convergence <- function(serial_position) {
-  v_rhat <- rhat(l_models[[(serial_position - 1)]]$m)
+summarize_convergence <- function(serial_position, l) {
+  v_rhat <- rhat(l[[(serial_position - 1)]]$m)
   tbl_rhat <- tibble(
     param = names(v_rhat),
     rhat = v_rhat
@@ -169,7 +169,7 @@ summarize_convergence <- function(serial_position) {
   ))
 }
 
-l_rhat <- map(seq(2, 10, by = 1), summarize_convergence)
+l_rhat <- map(seq(2, 10, by = 1), summarize_convergence, l = l_models)
 
 # any rhat problematic?
 sum(reduce(map(l_rhat, "problematic_rhat"), c))
@@ -189,7 +189,7 @@ recover_model <- function(serial_position) {
   m_trial_refit <- brm(
     chosen_pred ~ V_z + RU_z + (V_z + RU_z | ID), 
     data = tbl_used, family = bernoulli(), prior = bprior, 
-    iter = 5000, warmup = 1000, chains = 3, 
+    iter = 10000, warmup = 2000, chains = 3, 
     cores = 3, control = list(adapt_delta = .95)
   )
   # post-process
@@ -208,7 +208,7 @@ recover_model <- function(serial_position) {
   )
   
   return(list(
-    m_trial_refit = m_trial_refit,
+    m = m_trial_refit,
     tbl_posterior_means_ids = tbl_posterior_means_ids
   ))
 }
@@ -217,6 +217,12 @@ recover_model <- function(serial_position) {
 l_recover_model <- map(seq(2, 10, by = 1), recover_model, .progress = TRUE)
 
 saveRDS(l_recover_model, file = "analysis/bandits/choice-position-recovery-models.RDS")
+
+l_rhat_recovery <- map(seq(2, 10, by = 1), summarize_convergence, l = l_recover_model)
+
+# any rhat problematic?
+sum(reduce(map(l_rhat_recovery, "problematic_rhat"), c))
+
 
 
 analyze_recovery <- function(serial_position) {
@@ -255,10 +261,15 @@ analyze_recovery <- function(serial_position) {
   
 }
 
-l_analysis_recovery <- map(seq(2, 3, by = 1), analyze_recovery)
+l_analysis_recovery <- map(seq(2, 10, by = 1), analyze_recovery)
 
 
 tbl_recovery <- reduce(map(l_analysis_recovery, "tbl_cor"), rbind) %>% as_tibble()
+saveRDS(tbl_recovery, file = "data/choice-position-recovery.RDS")
+
+tbl_recovery %>%
+  group_by(param) %>%
+  summarize(mean(r))
 
 ggplot(tbl_recovery, aes(trial, r, group = param)) +
   geom_line(aes(color = param)) +
