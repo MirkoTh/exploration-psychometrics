@@ -179,9 +179,10 @@ sim_data_sam <- function(data, trueModel, i, bootstrapped = F, hierarchical = F,
   #' @param iterative boolean; simulate data iteratively or only simulate choices from existing learning
   #' @return data.frame with simulated data for that subject
   
-  id <- ifelse(bootstrapped, 1, i)
-  
-  simdat <- subset(data, ID == id, -c(chosen, V, RU, KLM0, KLM1, KLV0, KLV1, reward))
+  #id <- ifelse(bootstrapped, 1, i)
+  id <- i
+#! not subselecting a subject anymore!!
+  simdat <- subset(data, select = -c(chosen, V, RU, KLM0, KLM1, KLV0, KLV1, reward))
   
   blocks <- max(simdat$block)
   trials <- max(simdat$trial)
@@ -344,7 +345,7 @@ fit_model_sam <- function(data, model, hierarchical, it = 2000, save = T, no_int
     formula <- as.formula(formula)
     
     trueModel <- brm(formula, 
-                     family = "bernoulli", # has to be bernoulli, crashes otherwise
+                     family = "bernoulli", # has to be bernoulli, crashes otherwise, probit link crashes it too
                      data = data,
                      chains = 2,
                      cores = 2,

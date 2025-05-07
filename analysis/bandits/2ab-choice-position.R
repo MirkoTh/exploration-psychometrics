@@ -17,6 +17,23 @@ sam1 <- as_tibble(sam %>% filter(session == 1))
 sam1$V_z <- scale(sam1$V)[,1]
 sam1$RU_z <- scale(sam1$RU)[,1]
 
+sam1_init <- sam1 %>% filter(trial <= 3)
+sam1_end <- sam1 %>% filter(trial >=8)
+sam1 %>% pivot_longer(cols = c(V_z, RU_z)) %>% ggplot(aes(value)) + geom_histogram() + facet_wrap(~ name)
+
+
+some_ids <- sample(unique(sam1$ID), 50, replace = F)
+sam1 <- sam1 %>% filter(ID %in% some_ids & block %in% seq(1, 5, by = 1))
+
+# glmer(chosen ~ V_z + RU_z + (V_z | ID), data = sam1, family = binomial)
+# glmer(chosen ~ V_z + RU_z + (V_z + RU_z | ID), data = sam1_init, family = binomial)
+# glmer(chosen ~ V_z + RU_z + (-1 + V_z + RU_z | ID), data = sam1_end, family = binomial)
+
+horizon1 <- as_tibble(horizon %>% filter(trial == 5))
+
+horizon1 %>% pivot_longer(cols = c(V, RU)) %>% ggplot(aes(value)) + geom_histogram() + facet_wrap(~ name)
+#glmer(chosen ~ V*RU*Horizon + (1 + V | ID), data = horizon1, family = binomial)
+
 # for testing purposes
 # some_ids <- sample(unique(sam1$ID), 40)
 # sam1 <- sam1 %>% filter(ID %in% some_ids & block %in% seq(1, 5, by = 1))

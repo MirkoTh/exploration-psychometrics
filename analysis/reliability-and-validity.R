@@ -617,6 +617,10 @@ make_pairwise_strings <- function(vars) {
   # Print the result
   cat(resid_correlations_string)
 }
+tbl_wm_bandits_qs <- tbl_wm_bandits %>% 
+  left_join(read.csv("analysis/questionnaireScores.csv") %>% 
+  subset(session == 2, -c(session))%>% 
+    pivot_wider(id_cols = ID, values_from = score, names_from = measure), by = "ID")
 
 make_pairwise_strings(c("STICSA_0_2", "STICSA_1_2", "STICSA_2_2", "STICSA_3_2", "STICSA_4_2", "STICSA_5_2", "STICSA_6_2", "STICSA_7_2",
                           "STICSA_8_2", "STICSA_10_2", "STICSA_11_2", "STICSA_12_2", "STICSA_13_2", "STICSA_14_2", "STICSA_15_2",
@@ -635,42 +639,54 @@ vg_ru_wmc_model_session2 <- '
   RU_2Armed_2 ~~ V_2Armed_2
   RU_Horizon_2 ~~ V_Horizon_2
   RU_Restless_2 ~~ V_Restless_2
-  WMU_recall_2 ~~ OS_recall_2  
+  WMU_recall_2 ~~ OS_recall_2 
+  
+  # questionnaire (compound level)
+  
+  AxDep =~  STICSAcog + STICSAsoma + PHQ_9
+  
+  posMood =~ PANASpos
+  
+  negMood =~PANASneg
+  
+  Exp =~ BIG_5 + CEI
   
   
+  #Open =~ 
   
   
-  Open =~ BIG_5_0_2 + BIG_5_1_2 + BIG_5_2_2 + BIG_5_3_2 + BIG_5_4_2 + BIG_5_5_2
-  
-  
-  negMood =~ PANAS_1_2 + PANAS_3_2 +  PANAS_5_2 + PANAS_6_2 +
-  PANAS_7_2 + PANAS_10_2 +  PANAS_12_2 + PANAS_14_2 + PANAS_17_2 +  PANAS_19_2
-  
-  posMood =~ PANAS_0_2 + PANAS_2_2 +  PANAS_4_2 + PANAS_8_2 + PANAS_9_2 +  PANAS_11_2 +
-  PANAS_13_2 + PANAS_15_2 + PANAS_16_2 + PANAS_18_2
+  # negMood =~ PANAS_1_2 + PANAS_3_2 +  PANAS_5_2 + PANAS_6_2 +
+  # PANAS_7_2 + PANAS_10_2 +  PANAS_12_2 + PANAS_14_2 + PANAS_17_2 +  PANAS_19_2
+  # 
+  # posMood =~ PANAS_0_2 + PANAS_2_2 +  PANAS_4_2 + PANAS_8_2 + PANAS_9_2 +  PANAS_11_2 +
+  # PANAS_13_2 + PANAS_15_2 + PANAS_16_2 + PANAS_18_2
 
   # questionnaire
-  AxDep =~ STICSA_0_2 +
-  STICSA_1_2 + STICSA_2_2 + STICSA_3_2 + STICSA_4_2 + STICSA_5_2 + STICSA_6_2 + STICSA_7_2 +
-  STICSA_8_2 + STICSA_10_2 + STICSA_11_2 + STICSA_12_2 + STICSA_13_2 + STICSA_14_2 + STICSA_15_2 +
-  STICSA_16_2 + STICSA_17_2 + STICSA_18_2 + STICSA_19_2 + STICSA_20_2 + STICSA_21_2 + PHQ_9_0_2 +
-  PHQ_9_1_2 + PHQ_9_2_2 + PHQ_9_3_2 + PHQ_9_4_2 + PHQ_9_5_2 + PHQ_9_7_2 + PHQ_9_8_2 + PHQ_9_9_2
-  
-  Exp =~ CEI_0_2 +  CEI_1_2 + CEI_2_2 + CEI_3_2
+  # AxDep =~ STICSA_0_2 +
+  # STICSA_1_2 + STICSA_2_2 + STICSA_3_2 + STICSA_4_2 + STICSA_5_2 + STICSA_6_2 + STICSA_7_2 +
+  # STICSA_8_2 + STICSA_10_2 + STICSA_11_2 + STICSA_12_2 + STICSA_13_2 + STICSA_14_2 + STICSA_15_2 +
+  # STICSA_16_2 + STICSA_17_2 + STICSA_18_2 + STICSA_19_2 + STICSA_20_2 + STICSA_21_2 + PHQ_9_0_2 +
+  # PHQ_9_1_2 + PHQ_9_2_2 + PHQ_9_3_2 + PHQ_9_4_2 + PHQ_9_5_2 + PHQ_9_7_2 + PHQ_9_8_2 + PHQ_9_9_2
+  # 
+  # Exp =~ CEI_0_2 +  CEI_1_2 + CEI_2_2 + CEI_3_2 +BIG_5_0_2 + BIG_5_1_2 + BIG_5_2_2 + BIG_5_3_2 + BIG_5_4_2 + BIG_5_5_2
 
 '
 
-fit_vg_rug_wm2 <- sem(vg_ru_wmc_model_session2, data = tbl_wm_bandits)
+fit_vg_rug_wm2 <- sem(vg_ru_wmc_model_session2, data = tbl_wm_bandits_qs)
 summary(fit_vg_rug_wm2, fit.measures = TRUE, standardized = TRUE)
 
-tbl_latents <- as_tibble(predict(fit_vg_rug_wm2))
-colnames(tbl_latents) <- c("G Directed", "G Value Guided", "WMC")
+tbl_latents <- as_tibble(predict(fit_vg_rug_wm2)) %>% 
+  rename(`G Directed` = "g_ru_2",
+         `G Value Guided` = "g_v_2",
+         `WMC`= "g_wm_2") %>% 
+  mutate(ID = tbl_wm_bandits_qs$ID)
+#colnames(tbl_latents) <- c("G Directed", "G Value Guided", "WMC")
 my_corr_plot(cor(tbl_latents), "", "", "Convergent Validity Exploration", "latent")
 
 write_csv(tbl_latents, "data/behavioral-tasks-latents-s2.csv")
 # plot results
 lavaanPlot(
-  fit_vg_rug2, coefs = TRUE, covs = TRUE, sig = TRUE, stars = "covs",
+  fit_vg_rug_wm2, coefs = TRUE, covs = TRUE, sig = TRUE, stars = "covs",
   stand = TRUE,
   edge_options = list(color = "grey"), 
   node_options = list(shape = "box", fontname = "Helvetica")

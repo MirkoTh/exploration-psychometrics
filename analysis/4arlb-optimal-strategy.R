@@ -8,7 +8,7 @@ rm(list = ls())
 
 
 library(tidyverse)
-library(rutils)
+#library(rutils)
 library(future)
 library(furrr)
 library(grid)
@@ -83,7 +83,7 @@ tbl_params <- crossing(gamma, beta)
 l_results_w1 <- list()
 l_results_w2 <- list()
 
-is_fit <- FALSE
+is_fit <- TRUE
 # takes approx. 17 mins for n_iter = 10, and 10x10 parameter grid
 if (is_fit) {
   plan(multisession, workers = availableCores() - 3)
@@ -173,11 +173,31 @@ colnames(tbl_results_random) <- c(str_c("it", 1:(ncol(tbl_results_random) - 1)),
 tbl_results_random <- cbind(tbl_params, tbl_results_random) %>%
   pivot_longer(starts_with("it"))
 
+tbl_results_random$max <- NA
+tbl_results_random$comb <- rep(1:99, each = n_iter)
 
+for (i in 1:99){
+  for (j in 1:50){
+    rewards <- l_results_random[[i]][[j]]$tbl_rewards
+    maxes <- apply(as.array(1:nrow(rewards)), 1, function(x) max(rewards[x, ]))
+    tbl_results_random$max[tbl_results_random$comb == i & tbl_results_random$name == sprintf("it%i", j)] <-  sum(maxes)
+    
+  }
+  
+}
+maxes <- apply(as.array(1:nrow(tbl_rewards_w1)), 1, function(x) max(tbl_rewards_w1[x,1:4]))
+tbl_results_w1$max <- sum(maxes)
+
+maxes <- apply(as.array(1:nrow(tbl_rewards_w2)), 1, function(x) max(tbl_rewards_w2[x,1:4]))
+tbl_results_w2$max <- sum(maxes)
 
 # plot results ------------------------------------------------------------
 
-tbl_results <- rbind(tbl_results_w1, tbl_results_w2, tbl_results_random)
+tbl_results <- rbind(tbl_results_w1, tbl_results_w2, tbl_results_random %>% select(-comb))
+tbl_results$regret <- (tbl_results$max - tbl_results$value)/200
+tbl_results$value <- tbl_results$regret
+tbl_results <- tbl_results %>% select(-c(regret, max))
+
 tbl_results$gamma <- factor(round(tbl_results$gamma, 2))
 tbl_results$beta <- factor(round(tbl_results$beta, 2))
 tbl_results$stim_set <- factor(tbl_results$stim_set, labels = c("Random Set", "Session 1", "Session 2"))

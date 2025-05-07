@@ -318,6 +318,7 @@ save_my_pdf_and_tiff_and_png(
 )
 
 tbl_recovery_horizon <- readRDS("analysis/bandits/recovery-cors-horizon-s1.RDS") %>%
+  subset(true != "Intercept" & recovered != "Intercept") %>% 
   mutate(
     task = "Horizon",
     true = as.character(factor(true, labels = c("Directed", "Value-Guided"))),
@@ -400,13 +401,13 @@ tbl_rel_rec <- tbl_reliability_bandits %>% select(-property) %>%
 tbl_rel_rec$parameter <- factor(fct_inorder(tbl_rel_rec$parameter), ordered = TRUE)
 
 
-pl_rel <- ggplot(tbl_rel_rec %>% filter(icc_type == "Consistency" & name == "reliability"), aes(value, fct_rev(parameter))) +
+pl_rel <- ggplot(tbl_rel_rec %>% filter(name == "reliability"), aes(value, fct_rev(parameter))) +
   geom_rect(aes(xmin = 0, xmax = .5, ymin = 0, ymax = 7), fill = "tomato3", alpha = .1) +
   geom_rect(aes(xmin = .5, xmax = .75, ymin = 0, ymax = 7), fill = "orange", alpha = .1) +
   geom_rect(aes(xmin = .75, xmax = .9, ymin = 0, ymax = 7), fill = "lightgreen", alpha = .1) +
   geom_rect(aes(xmin = .9, xmax = 1, ymin = 0, ymax = 7), fill = "darkgreen", alpha = .1) +
   geom_text(aes(label = str_extract(measure, "^[P,T]")), size = 1, color = "black") +
-  geom_text(data = tbl_rel_rec %>% filter(name == "recoverability"), aes(value, fct_rev(parameter), label = name_display), size = 7, alpha = .3) +
+  geom_text(data = tbl_rel_rec %>% filter(name == "recoverability"), aes(value, fct_rev(parameter), label = name_display), size = 7, alpha = .8) +
   geom_point(aes(shape = measure), size = 3, color = "black", fill = "black") +
   theme_bw() +
   facet_wrap(~ task) +
@@ -502,30 +503,30 @@ swi
 ### WM
 # here, we really just need the WM data from the first session, so use a different source than 4arlb-overviewAll.rds
 
-tbl_include <- read_csv("data/exclusions1_noPID.csv") %>% 
-  left_join(read_csv("data/exclusions2_noPID.csv"), by = "ID", suffix = c("_1", "_2")) %>%
-  filter(exclude_1 == 0 & exclude_2 == 0) %>%
-  select(ID)
-wm <- read_csv("data/wm-performance-1.csv") %>% 
-  rename(ID = participant_id) %>%
-  inner_join(tbl_include, by = "ID") %>%
-  select(c(ID, OS_recall_0, SS_recall_0, WMU_recall_0))
-colnames(wm) <- str_remove_all(colnames(wm), "_0")
-wm <- wm %>% self_cor() %>% 
-  mutate(x = factor(x, levels = c("OS_recall", "SS_recall", "WMU_recall"),
-                    labels = c("Oper. span", "Sym. span", "Updating")),
-         y = factor(y, levels = c("WMU_recall", "SS_recall", "OS_recall"),
-                    labels = c("Updating", "Sym. span", "Oper. span")))
-
-# wm <- readRDS("analysis/4arlb-overviewAll.rds") %>% 
-#   subset(session == 1, select = c(ID,OS_recall, SS_recall, WMU_recall)) %>% 
-#   mutate(ID = as.numeric(as.character(ID))) %>%
+# tbl_include <- read_csv("data/exclusions1_noPID.csv") %>% 
+#   left_join(read_csv("data/exclusions2_noPID.csv"), by = "ID", suffix = c("_1", "_2")) %>%
+#   filter(exclude_1 == 0 & exclude_2 == 0) %>%
+#   select(ID)
+# wm <- read_csv("data/wm-performance-1.csv") %>% 
+#   rename(ID = participant_id) %>%
 #   inner_join(tbl_include, by = "ID") %>%
-#   self_cor() %>% 
+#   select(c(ID, OS_recall_0, SS_recall_0, WMU_recall_0))
+# colnames(wm) <- str_remove_all(colnames(wm), "_0")
+# wm <- wm %>% self_cor() %>% 
 #   mutate(x = factor(x, levels = c("OS_recall", "SS_recall", "WMU_recall"),
 #                     labels = c("Oper. span", "Sym. span", "Updating")),
 #          y = factor(y, levels = c("WMU_recall", "SS_recall", "OS_recall"),
-#                     labels = c("Updating", "Symmetry span", "Operation span")))
+#                     labels = c("Updating", "Sym. span", "Oper. span")))
+
+wm <- readRDS("analysis/4arlb-overviewAll.rds") %>%
+  subset(session == 1, select = c(ID,OS_recall, SS_recall, WMU_recall)) %>%
+  mutate(ID = as.numeric(as.character(ID))) %>%
+  inner_join(tbl_include, by = "ID") %>%
+  self_cor() %>%
+  mutate(x = factor(x, levels = c("OS_recall", "SS_recall", "WMU_recall"),
+                    labels = c("Oper. span", "Sym. span", "Updating")),
+         y = factor(y, levels = c("WMU_recall", "SS_recall", "OS_recall"),
+                    labels = c("Updating", "Symmetry span", "Operation span")))
 
 WM <- heatmap(wm) +
   labs(title = "Working Memory",
@@ -536,10 +537,10 @@ WM <- heatmap(wm) +
 WM
 
 combined_plots <- ggarrange(swi, WM, ncol = 1, labels = c("B", "C")) 
-task_based <- combined_plots + plot_spacer() + plot_layout(heights = c(1, .075))
-#task_based <- ggarrange(swi, WM, ncol = 1, nrow = 2, labels = c("B", "C"), align = "hv")
+#task_based <- combined_plots + plot_spacer() + plot_layout(heights = c(1, .075))
+task_based <- ggarrange(swi, WM, ncol = 1, nrow = 2, labels = c("B", "C"), align = "hv")
 task_based
-
+combined_plots
 ### model parameters
 
 
@@ -651,14 +652,14 @@ ext_validty <- ext_validty +theme(legend.position = "bottom")
 ext_validty <- ggarrange(ext_validty, ncol = 1, labels = c("E"))
 ext_validty_centered <- plot_spacer() + ext_validty + plot_spacer() + plot_layout(widths = c(1, 4, 1))
 
-rel_conv_default <- ggarrange(pl_rel, converge, ext_validty_centered, ncol = 1, nrow = 3,
-                              heights = c(1,2,3))
+rel_conv_default <- ggarrange(pl_rel, converge, ext_validty, ncol = 1, nrow = 3,
+                              heights = c(1.5,2,3))
 rel_conv_default
 
 save_my_pdf_and_tiff_and_png(rel_conv_default,
                              str_c(my_dir, "/reliability_convergence_default"),
-                             h = 20,
-                             w = 10.5)
+                             h = 14,
+                             w = 10)
 
 ########## P(switch) over trials #############
 
@@ -939,28 +940,34 @@ converge <- heatmap(cors) +
 converge
 
 # 2.4 Variable correlations (latent) -----------------------
-
-
-cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
-  mutate(ID = c(2, 3, 4, 6, 7 , 10 , 11  ,12 , 13  ,14,  16 , 20  ,21 , 23 , 24,
-                25,  26 , 27 , 28 , 29 , 31 , 32 , 33 , 34 , 35 , 36 , 37,  40  ,
-                48 , 49,  52  ,55 , 56,  59 , 60 , 61 , 63 , 65 , 69 , 71,
-                72 , 73 , 74 , 76 , 77 , 78,  79 , 83  ,84  ,85 , 90 , 93,  94 ,
-                95,  96 , 97,  98  ,99 ,100, 101 ,102 ,103 ,105 ,108 ,109, 110,
-                113 ,114, 117, 118, 119, 120, 122, 123, 124, 125, 128 ,129, 131, 132,
-                133, 134, 135, 137, 142, 149 ,151, 154, 162, 163, 165, 166, 168 ,169,
-                170 ,171 ,172, 175 ,176, 180 ,182 ,183, 185, 187 ,188 ,190, 193 ,195,
-                197, 198 ,199, 200 ,202 ,203, 204, 205, 206, 207, 208, 209,
-                213 ,216 ,219, 220, 222, 229 ,232, 233, 239, 243, 244, 245, 246 ,251,
-                254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
-                294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
-                320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
-  left_join(read.csv("analysis/CFA_compound_questionnaire_factors_s2.csv") %>% select(-X), by = "ID") %>% 
+cors <- read.csv("data/behavioral-tasks-latents-s2.csv") %>% 
   self_cor() %>% 
   mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "Exp", "posMood", "negMood", "AxDep"),
-                    labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration","Positive mood", "Negative mood", "Anxiety/depression")),
-         y = factor(y, levels = c("AxDep", "negMood","posMood", "Exp","WMC", "G.Directed", "G.Value.Guided"),
-                    labels = c("Anxiety/depression","Negative mood","Positive", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
+                                        labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration","Positive mood", "Negative mood", "Anxiety/depression")),
+                             y = factor(y, levels = c("AxDep", "negMood","posMood", "Exp","WMC", "G.Directed", "G.Value.Guided"),
+                                        labels = c("Anxiety/depression","Negative mood","Positive", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
+
+                    
+                    # cors <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
+#   mutate(ID = c(2, 3, 4, 6, 7 , 10 , 11  ,12 , 13  ,14,  16 , 20  ,21 , 23 , 24,
+#                 25,  26 , 27 , 28 , 29 , 31 , 32 , 33 , 34 , 35 , 36 , 37,  40  ,
+#                 48 , 49,  52  ,55 , 56,  59 , 60 , 61 , 63 , 65 , 69 , 71,
+#                 72 , 73 , 74 , 76 , 77 , 78,  79 , 83  ,84  ,85 , 90 , 93,  94 ,
+#                 95,  96 , 97,  98  ,99 ,100, 101 ,102 ,103 ,105 ,108 ,109, 110,
+#                 113 ,114, 117, 118, 119, 120, 122, 123, 124, 125, 128 ,129, 131, 132,
+#                 133, 134, 135, 137, 142, 149 ,151, 154, 162, 163, 165, 166, 168 ,169,
+#                 170 ,171 ,172, 175 ,176, 180 ,182 ,183, 185, 187 ,188 ,190, 193 ,195,
+#                 197, 198 ,199, 200 ,202 ,203, 204, 205, 206, 207, 208, 209,
+#                 213 ,216 ,219, 220, 222, 229 ,232, 233, 239, 243, 244, 245, 246 ,251,
+#                 254, 261 ,262, 269, 270, 271, 273, 274 ,276 ,279, 284, 288, 290 ,291,
+#                 294 ,297, 298 ,299 ,302 ,303 ,306, 308, 309, 313, 316, 317,
+#                 320, 322, 323, 324, 325, 326, 332, 333, 338 ,343, 346, 347, 349, 351, 352)) %>% 
+#   left_join(read.csv("analysis/CFA_compound_questionnaire_factors_s2.csv") %>% select(-X), by = "ID") %>% 
+#   self_cor() %>% 
+#   mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "Exp", "posMood", "negMood", "AxDep"),
+#                     labels = c("Value-guided", "Directed","Working memory", "Self-reported exploration","Positive mood", "Negative mood", "Anxiety/depression")),
+#          y = factor(y, levels = c("AxDep", "negMood","posMood", "Exp","WMC", "G.Directed", "G.Value.Guided"),
+#                     labels = c("Anxiety/depression","Negative mood","Positive", "Self-reported exploration","Working memory", "Directed", "Value-guided")))
 # mutate(x = factor(x, levels = c("G.Value.Guided", "G.Directed","WMC",  "MR1", "MR2", "MR3", "MR4", "MR5", "MR6"),
 #                   labels = c("Value-guided", "Directed","Working memory","cog. anxiety/depression","pos. affect", 
 #                              "Self-reported exploration", "soma. anxiety 1", "soma. anxiety 2", "unknown")),
@@ -995,6 +1002,15 @@ save_my_pdf_and_tiff_and_png(conv2,
                              h = 5)
 
 
+pl_rel <- ggarrange(pl_rel, ncol = 1, labels = c("A"))
+rel_conv_improved <- ggarrange(pl_rel, conv2, ncol = 1, nrow = 2, heights = c(1.5,3))
+
+rel_conv_improved
+
+save_my_pdf_and_tiff_and_png(rel_conv_improved,
+                             str_c(my_dir, "/reliability_convergence_improved"),
+                             h = 8,
+                             w = 13)
 ######### do we suddenly have links between behaviour and questionnaires if we account for WM?
 
 df <- read.csv("analysis/behavioral-tasks-latents-s2.csv") %>% 
@@ -1055,15 +1071,6 @@ brm(G.Directed ~ WMC * AxDep, # 1 datapoint per participant so no random interce
 
 # Supplementary Information -----------------------------------------------
 
-pl_rel <- ggarrange(pl_rel, ncol = 1, labels = c("A"))
-rel_conv_improved <- ggarrange(pl_rel, conv2, ncol = 1, nrow = 2, heights = c(1.5,3))
-
-rel_conv_improved
-
-save_my_pdf_and_tiff_and_png(rel_conv_improved,
-                             str_c(my_dir, "/reliability_convergence_improved"),
-                             h = 8,
-                             w = 13)
 
 
 ## variable correlations latent level vs compound scores #########
@@ -1313,6 +1320,7 @@ ggplot(cors, aes(cor)) + geom_histogram()+
 # 2.5 Optimality Analysis -------------------------------------------------
 
 tbl_results <- readRDS("analysis/bandits/optimal-strategy-restless.RDS")
+
 ## Restless Bandit
 pl_optimal_strategy_2d <- grouped_agg(tbl_results, c(gamma, beta, stim_set), value) %>%
   group_by(stim_set) %>%
